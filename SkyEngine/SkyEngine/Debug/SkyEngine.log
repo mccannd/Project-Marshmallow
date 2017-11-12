@@ -1,0 +1,3 @@
+﻿  VulkanApplication.cpp
+d:\gpu565\final project\skyengine\skyengine\vulkanapplication.cpp(954): warning C4838: conversion from 'int' to 'uint32_t' requires a narrowing conversion
+  SkyEngine.vcxproj -> D:\GPU565\Final Project\SkyEngine\Debug\SkyEngine.exe

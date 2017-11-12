@@ -1,0 +1,7 @@
+*.orig
+*.filters
+*.sln
+*.vcxproj
+*.xcodeproj
+build
+
