@@ -21,198 +21,198 @@
 # define DEBUG_VALIDATION 1
 
 struct QueueFamilyIndices {
-	int graphicsFamily = -1; // capable of graphics pipeline?
-	int presentFamily = -1; // capable of presenting image to screen surface?
+    int graphicsFamily = -1; // capable of graphics pipeline?
+    int presentFamily = -1; // capable of presenting image to screen surface?
 
-	bool isComplete() {
-		return graphicsFamily >= 0 && presentFamily >= 0;
-	}
+    bool isComplete() {
+        return graphicsFamily >= 0 && presentFamily >= 0;
+    }
 };
 
 struct SwapChainSupportDetails {
-	VkSurfaceCapabilitiesKHR capabilities;
-	std::vector<VkSurfaceFormatKHR> formats;
-	std::vector<VkPresentModeKHR> presentModes;
+    VkSurfaceCapabilitiesKHR capabilities;
+    std::vector<VkSurfaceFormatKHR> formats;
+    std::vector<VkPresentModeKHR> presentModes;
 };
 
 // TODO: Move to a mesh class
 struct Vertex {
-	glm::vec2 pos;
-	glm::vec3 col;
+    glm::vec2 pos;
+    glm::vec3 col;
 
-	// rate to load data from memory throughout vertices
-	static VkVertexInputBindingDescription getBindingDescription() {
-		VkVertexInputBindingDescription bindingDescription = {};
-		bindingDescription.binding = 0;
-		bindingDescription.stride = sizeof(Vertex);
-		bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-		return bindingDescription;
-	}
+    // rate to load data from memory throughout vertices
+    static VkVertexInputBindingDescription getBindingDescription() {
+        VkVertexInputBindingDescription bindingDescription = {};
+        bindingDescription.binding = 0;
+        bindingDescription.stride = sizeof(Vertex);
+        bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+        return bindingDescription;
+    }
 
-	// Set layout bindings for vertex struct to vertex shader
-	static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions() {
-		std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions = {};
-		attributeDescriptions[0].binding = 0;
-		attributeDescriptions[0].location = 0;
-		attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
-		attributeDescriptions[0].offset = offsetof(Vertex, pos);
+    // Set layout bindings for vertex struct to vertex shader
+    static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions() {
+        std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions = {};
+        attributeDescriptions[0].binding = 0;
+        attributeDescriptions[0].location = 0;
+        attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
+        attributeDescriptions[0].offset = offsetof(Vertex, pos);
 
-		attributeDescriptions[1].binding = 0;
-		attributeDescriptions[1].location = 1;
-		attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-		attributeDescriptions[1].offset = offsetof(Vertex, col);
+        attributeDescriptions[1].binding = 0;
+        attributeDescriptions[1].location = 1;
+        attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+        attributeDescriptions[1].offset = offsetof(Vertex, col);
 
-		return attributeDescriptions;
-	}
+        return attributeDescriptions;
+    }
 
 };
 
 const std::vector<Vertex> vertices = {
-	{ { 0.0f, -0.5f },{ 1.0f, 0.0f, 0.0f } },
-	{ { 0.5f, 0.5f },{ 0.0f, 1.0f, 0.0f } },
-	{ { -0.5f, 0.5f },{ 0.0f, 0.0f, 1.0f } }
+    { { 0.0f, -0.5f },{ 1.0f, 0.0f, 0.0f } },
+    { { 0.5f, 0.5f },{ 0.0f, 1.0f, 0.0f } },
+    { { -0.5f, 0.5f },{ 0.0f, 0.0f, 1.0f } }
 };
 
 
 // TODO: Move this ASAP
 // Read an entire file (bytecode)
 static std::vector<char> readFile(const std::string& filename) {
-	std::ifstream file(filename, std::ios::ate | std::ios::binary);
+    std::ifstream file(filename, std::ios::ate | std::ios::binary);
 
-	if (!file.is_open()) {
-		throw std::runtime_error("failed to open file!");
-	}
+    if (!file.is_open()) {
+        throw std::runtime_error("failed to open file!");
+    }
 
-	size_t fileSize = (size_t)file.tellg();
-	std::vector<char> buffer(fileSize);
-	file.seekg(0);
-	file.read(buffer.data(), fileSize);
-	file.close();
+    size_t fileSize = (size_t)file.tellg();
+    std::vector<char> buffer(fileSize);
+    file.seekg(0);
+    file.read(buffer.data(), fileSize);
+    file.close();
 
-	return buffer;
+    return buffer;
 }
 
 class VulkanApplication
 {
 private:
-	/// --- Baseline Application Functions
-	void initWindow();
-	void initVulkan();
-	void mainLoop();
-	void cleanup();
+    /// --- Baseline Application Functions
+    void initWindow();
+    void initVulkan();
+    void mainLoop();
+    void cleanup();
 
-	GLFWwindow* window;
+    GLFWwindow* window;
 
-	const int WIDTH = 800;
-	const int HEIGHT = 600;
+    const int WIDTH = 800;
+    const int HEIGHT = 600;
 
-	/// --- Vulkan Setup Functions
-	void createInstance();
-	void setupDebugCallback();
-	void pickPhysicalDevice();
-	void createLogicalDevice();
-	void createSurface();
-	QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
-	bool isDeviceSuitable(VkPhysicalDevice device);
-	bool checkDeviceExtensionSupport(VkPhysicalDevice device);
+    /// --- Vulkan Setup Functions
+    void createInstance();
+    void setupDebugCallback();
+    void pickPhysicalDevice();
+    void createLogicalDevice();
+    void createSurface();
+    QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
+    bool isDeviceSuitable(VkPhysicalDevice device);
+    bool checkDeviceExtensionSupport(VkPhysicalDevice device);
 
-	bool checkValidationLayerSupport();
-	std::vector<const char*> getRequiredExtensions();
+    bool checkValidationLayerSupport();
+    std::vector<const char*> getRequiredExtensions();
 
-	/// --- Graphics Pipeline
-	void createRenderPass(); // <------ ech
-	void createGraphicsPipeline();
-	void createFramebuffers();
-	void createCommandPool();
-	void createCommandBuffers();
+    /// --- Graphics Pipeline
+    void createRenderPass(); // <------ ech
+    void createGraphicsPipeline();
+    void createFramebuffers();
+    void createCommandPool();
+    void createCommandBuffers();
 
-	void drawFrame();
-	VkSemaphore imageAvailableSemaphore;
-	VkSemaphore renderFinishedSemaphore;
-	void createSemaphores();
+    void drawFrame();
+    VkSemaphore imageAvailableSemaphore;
+    VkSemaphore renderFinishedSemaphore;
+    void createSemaphores();
 
-	/// --- Swap Chain Setup Functions
-	void createSwapChain();
-	void createImageViews();
-	void recreateSwapChain();
-	void cleanupSwapChain();
+    /// --- Swap Chain Setup Functions
+    void createSwapChain();
+    void createImageViews();
+    void recreateSwapChain();
+    void cleanupSwapChain();
 
-	SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device);
-	VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector <VkSurfaceFormatKHR>& availableFormats);
-	VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR> availablePresentModes);
-	VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
+    SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device);
+    VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector <VkSurfaceFormatKHR>& availableFormats);
+    VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR> availablePresentModes);
+    VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
 
-	static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
-		VkDebugReportFlagsEXT flags,
-		VkDebugReportObjectTypeEXT objType,
-		uint64_t obj,
-		size_t location,
-		int32_t code,
-		const char* layerPrefix,
-		const char* msg,
-		void* userData) {
+    static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
+        VkDebugReportFlagsEXT flags,
+        VkDebugReportObjectTypeEXT objType,
+        uint64_t obj,
+        size_t location,
+        int32_t code,
+        const char* layerPrefix,
+        const char* msg,
+        void* userData) {
 
-		std::cerr << "validation layer: " << msg << std::endl;
+        std::cerr << "validation layer: " << msg << std::endl;
 
-		return VK_FALSE;
-	}
+        return VK_FALSE;
+    }
 
-	static void onWindowResized(GLFWwindow* window, int width, int height) {
-		if (width == 0 || height == 0) return;
+    static void onWindowResized(GLFWwindow* window, int width, int height) {
+        if (width == 0 || height == 0) return;
 
-		VulkanApplication* app = reinterpret_cast<VulkanApplication*>(glfwGetWindowUserPointer(window));
-		app->recreateSwapChain();
-	}
+        VulkanApplication* app = reinterpret_cast<VulkanApplication*>(glfwGetWindowUserPointer(window));
+        app->recreateSwapChain();
+    }
 
-	/// --- Vulkan Objects and Attributes
-	VkInstance instance;
-	VkDebugReportCallbackEXT callback;
-	VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
-	VkDevice device;
-	VkSurfaceKHR surface;
+    /// --- Vulkan Objects and Attributes
+    VkInstance instance;
+    VkDebugReportCallbackEXT callback;
+    VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
+    VkDevice device;
+    VkSurfaceKHR surface;
 
-	VkQueue graphicsQueue;
-	VkQueue presentQueue;
+    VkQueue graphicsQueue;
+    VkQueue presentQueue;
 
-	// these can likely be moved to their own class
-	VkSwapchainKHR swapChain;
-	std::vector<VkImage> swapChainImages; 
-	VkFormat swapChainImageFormat;
-	VkExtent2D swapChainExtent;
-	std::vector<VkImageView> swapChainImageViews;
-	// for a graphics pipeline
-	VkRenderPass renderPass;
-	VkPipelineLayout pipelineLayout;
-	VkPipeline graphicsPipeline;
-	std::vector<VkFramebuffer> swapChainFramebuffers;
-	VkCommandPool commandPool;
-	std::vector<VkCommandBuffer> commandBuffers;
+    // these can likely be moved to their own class
+    VkSwapchainKHR swapChain;
+    std::vector<VkImage> swapChainImages; 
+    VkFormat swapChainImageFormat;
+    VkExtent2D swapChainExtent;
+    std::vector<VkImageView> swapChainImageViews;
+    // for a graphics pipeline
+    VkRenderPass renderPass;
+    VkPipelineLayout pipelineLayout;
+    VkPipeline graphicsPipeline;
+    std::vector<VkFramebuffer> swapChainFramebuffers;
+    VkCommandPool commandPool;
+    std::vector<VkCommandBuffer> commandBuffers;
 
-	// TODO: move to mesh class
-	void createVertexBuffer();
-	VkBuffer vertexBuffer;
-	VkDeviceMemory vertexBufferMemory;
+    // TODO: move to mesh class
+    void createVertexBuffer();
+    VkBuffer vertexBuffer;
+    VkDeviceMemory vertexBufferMemory;
 
 
 #if DEBUG_VALIDATION
-	// enable a range of validation layers through the SDK
-	const std::vector<const char*> validationLayers = {
-		"VK_LAYER_LUNARG_standard_validation"
-	};
+    // enable a range of validation layers through the SDK
+    const std::vector<const char*> validationLayers = {
+        "VK_LAYER_LUNARG_standard_validation"
+    };
 #endif
 
-	const std::vector<const char*> deviceExtensions = {
-		VK_KHR_SWAPCHAIN_EXTENSION_NAME
-	};
+    const std::vector<const char*> deviceExtensions = {
+        VK_KHR_SWAPCHAIN_EXTENSION_NAME
+    };
 
 public:
-	void run() {
-		initWindow();
-		initVulkan();
-		mainLoop();
-		cleanup();
-	}
-	VulkanApplication();
-	~VulkanApplication();
+    void run() {
+        initWindow();
+        initVulkan();
+        mainLoop();
+        cleanup();
+    }
+    VulkanApplication();
+    ~VulkanApplication();
 };
 
