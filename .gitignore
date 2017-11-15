@@ -3,5 +3,7 @@
 *.sln
 *.vcxproj
 *.xcodeproj
+*.db
+*.opendb
 build
 

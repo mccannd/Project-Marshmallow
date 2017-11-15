@@ -1,6 +1,5 @@
 #include "VulkanApplication.h"
 
-
 /// --- callback proxy functions
 VkResult CreateDebugReportCallbackEXT(VkInstance instance, const VkDebugReportCallbackCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugReportCallbackEXT* pCallback) {
     auto func = (PFN_vkCreateDebugReportCallbackEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugReportCallbackEXT");
@@ -36,7 +35,6 @@ void VulkanApplication::initWindow() {
 
     window = glfwCreateWindow(WIDTH, HEIGHT, "Sky Engine", nullptr, nullptr);
 
-
     glfwSetWindowUserPointer(window, this);
     glfwSetWindowSizeCallback(window, VulkanApplication::onWindowResized);
 }
@@ -53,10 +51,12 @@ void VulkanApplication::initVulkan() {
     createImageViews();
     createRenderPass();
     createGraphicsPipeline();
+    createComputePipeline();
     createFramebuffers();
     createCommandPool();
     createVertexBuffer(); // TODO: mesh class
     createCommandBuffers();
+    //createComputeCommandBuffer();
     createSemaphores();
 }
 
@@ -81,12 +81,14 @@ void VulkanApplication::cleanup() {
     vkDestroySemaphore(device, renderFinishedSemaphore, nullptr);
     vkDestroySemaphore(device, imageAvailableSemaphore, nullptr);
     vkDestroyPipeline(device, graphicsPipeline, nullptr);
-    vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
+    vkDestroyPipelineLayout(device, graphicsPipelineLayout, nullptr);
     vkDestroyRenderPass(device, renderPass, nullptr);
     vkDestroySwapchainKHR(device, swapChain, nullptr);
     vkDestroyBuffer(device, vertexBuffer, nullptr); // TODO
     vkFreeMemory(device, vertexBufferMemory, nullptr); // TODO
     vkDestroyDevice(device, nullptr);
+
+    //TODO destroy compute stuff
 
 #ifdef _DEBUG
     DestroyDebugReportCallbackEXT(instance, callback, nullptr);
@@ -114,6 +116,8 @@ void VulkanApplication::drawFrame() {
     else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
         throw std::runtime_error("failed to acquire swap chain image!");
     }
+
+    // TODO: compute queue submit info goes here
 
     VkSubmitInfo submitInfo = {};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -648,7 +652,7 @@ void VulkanApplication::createGraphicsPipeline() {
     pipelineLayoutInfo.pushConstantRangeCount = 0; // Optional
     pipelineLayoutInfo.pPushConstantRanges = 0; // Optional
 
-    if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
+    if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &graphicsPipelineLayout) != VK_SUCCESS) {
         throw std::runtime_error("failed to create pipeline layout!");
     }
 
@@ -664,7 +668,7 @@ void VulkanApplication::createGraphicsPipeline() {
     pipelineInfo.pDepthStencilState = nullptr; // Optional
     pipelineInfo.pColorBlendState = &colorBlending;
     pipelineInfo.pDynamicState = nullptr; // Optional
-    pipelineInfo.layout = pipelineLayout;
+    pipelineInfo.layout = graphicsPipelineLayout;
     pipelineInfo.renderPass = renderPass;
     pipelineInfo.subpass = 0;
     pipelineInfo.basePipelineHandle = VK_NULL_HANDLE; // Optional
@@ -677,6 +681,50 @@ void VulkanApplication::createGraphicsPipeline() {
     // TODO
     vkDestroyShaderModule(device, fragShaderModule, nullptr);
     vkDestroyShaderModule(device, vertShaderModule, nullptr);
+}
+
+void VulkanApplication::createComputePipeline() {
+    // Set up programmable shader
+    auto computeShaderCode = readFile("Shaders/compute.spv");
+    VkShaderModule computeShaderModule = createShaderModule(computeShaderCode, device);
+
+    VkPipelineShaderStageCreateInfo computeShaderStageInfo = {};
+    computeShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    computeShaderStageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+    computeShaderStageInfo.module = computeShaderModule;
+    computeShaderStageInfo.pName = "main";
+
+    // TODO: compute descriptor set layouts
+    std::vector<VkDescriptorSetLayout> descriptorSetLayouts = {};
+
+    // Create pipeline layout
+    VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
+    pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(descriptorSetLayouts.size());
+    pipelineLayoutInfo.pSetLayouts = descriptorSetLayouts.data();
+    pipelineLayoutInfo.pushConstantRangeCount = 0;
+    pipelineLayoutInfo.pPushConstantRanges = 0;
+
+    if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &computePipelineLayout) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create pipeline layout");
+    }
+
+    // Create compute pipeline
+    VkComputePipelineCreateInfo pipelineInfo = {};
+    pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+    pipelineInfo.stage = computeShaderStageInfo;
+    pipelineInfo.layout = computePipelineLayout;
+    pipelineInfo.pNext = nullptr;
+    pipelineInfo.flags = 0;
+    pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
+    pipelineInfo.basePipelineIndex = -1;
+
+    if (vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &computePipeline) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create compute pipeline");
+    }
+
+    // No need for shader modules anymore
+    vkDestroyShaderModule(device, computeShaderModule, nullptr);
 }
 
 void VulkanApplication::createCommandPool() {
@@ -831,7 +879,7 @@ void VulkanApplication::cleanupSwapChain() {
     vkFreeCommandBuffers(device, commandPool, static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
 
     vkDestroyPipeline(device, graphicsPipeline, nullptr);
-    vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
+    vkDestroyPipelineLayout(device, graphicsPipelineLayout, nullptr);
     vkDestroyRenderPass(device, renderPass, nullptr);
 
     for (size_t i = 0; i < swapChainImageViews.size(); i++) {

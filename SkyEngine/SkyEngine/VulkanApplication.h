@@ -126,6 +126,10 @@ private:
     void createCommandPool();
     void createCommandBuffers();
 
+    /// --- Compute Pipeline
+    void createComputePipeline();
+    void createComputeCommandBuffer(); // TODO: rename this to be plural if we end up needing more compute shaders
+
     void drawFrame();
     VkSemaphore imageAvailableSemaphore;
     VkSemaphore renderFinishedSemaphore;
@@ -182,11 +186,16 @@ private:
     std::vector<VkImageView> swapChainImageViews;
     // for a graphics pipeline
     VkRenderPass renderPass;
-    VkPipelineLayout pipelineLayout;
+    VkPipelineLayout graphicsPipelineLayout;
     VkPipeline graphicsPipeline;
     std::vector<VkFramebuffer> swapChainFramebuffers;
     VkCommandPool commandPool;
     std::vector<VkCommandBuffer> commandBuffers;
+    // Compute pipeline
+    VkPipelineLayout computePipelineLayout;
+    VkPipeline computePipeline;
+    VkCommandBuffer computeCommandBuffer; // TODO: if we need multiple compute shaders for some reason,
+                                          // make this a vector like above
 
     // TODO: move to mesh class
     void createVertexBuffer();
