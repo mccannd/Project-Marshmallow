@@ -51,7 +51,7 @@ struct UniformBufferObject {
 
 // TODO: Move to a mesh class
 struct Vertex {
-    glm::vec2 pos;
+    glm::vec3 pos;
     glm::vec3 col;
     glm::vec2 uv;
 
@@ -69,7 +69,7 @@ struct Vertex {
         std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions = {};
         attributeDescriptions[0].binding = 0;
         attributeDescriptions[0].location = 0;
-        attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
+        attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
         attributeDescriptions[0].offset = offsetof(Vertex, pos);
 
         attributeDescriptions[1].binding = 0;
@@ -87,20 +87,25 @@ struct Vertex {
 
 };
 
-const std::vector<Vertex> vertices = {
-    { { 0.0f, -0.5f },{ 1.0f, 0.0f, 0.0f } },
-    { { 0.5f, 0.5f },{ 0.0f, 1.0f, 0.0f } },
-    { { -0.5f, 0.5f },{ 0.0f, 0.0f, 1.0f } }
+const std::vector<Vertex> screenQuad = {
+    { { -1.0f, -1.0f, 0.0f }, { 1.0f, 1.0f, 1.0f }, { 0.0f, 0.0f } },
+    { {  1.0f, -1.0f, 0.0f }, { 1.0f, 1.0f, 1.0f }, { 1.0f, 0.0f } },
+    { {  1.0f,  1.0f, 0.0f }, { 1.0f, 1.0f, 1.0f }, { 1.0f, 1.0f } },
+    { { -1.0f,  1.0f, 0.0f }, { 1.0f, 1.0f, 1.0f }, { 0.0f, 1.0f } }
 };
 
 const std::vector<Vertex> verticesQuad = {
-    { { -0.5f, -0.5f },{ 1.0f, 0.0f, 0.0f }, {1.0f, 0.0f} },
-    { { 0.5f, -0.5f },{ 0.0f, 1.0f, 0.0f }, {0.0f, 0.0f} },
-    { { 0.5f, 0.5f },{ 0.0f, 0.0f, 1.0f }, {0.0f, 1.0f} },
-    { { -0.5f, 0.5f },{ 1.0f, 1.0f, 1.0f }, {1.0f, 1.0f} }
+    { { -0.5f, -0.5f, 0.0f }, { 1.0f, 0.0f, 0.0f }, {1.0f, 0.0f} },
+    { {  0.5f, -0.5f, 0.0f }, { 0.0f, 1.0f, 0.0f }, {0.0f, 0.0f} },
+    { {  0.5f,  0.5f, 0.0f }, { 0.0f, 0.0f, 1.0f }, {0.0f, 1.0f} },
+    { { -0.5f,  0.5f, 0.0f }, { 1.0f, 1.0f, 1.0f }, {1.0f, 1.0f} }
 };
 
 const std::vector<uint16_t> indices = {
+    0, 1, 2, 2, 3, 0
+};
+
+const std::vector<uint16_t> quadIndices = {
     0, 1, 2, 2, 3, 0
 };
 
@@ -158,6 +163,7 @@ private:
     void createCommandPool();
     void createCommandBuffers();
 
+    void createBackgroundPipeline();
 
     // command buffer helpers
     VkCommandBuffer beginSingleTimeCommands();
@@ -167,6 +173,7 @@ private:
     void createUniformBuffer();
     void createDescriptorPool();
     void createDescriptorSet();
+
     /// --- Compute Pipeline
     void createComputePipeline();
     void createComputeCommandBuffer(); // TODO: rename this to be plural if we end up needing more compute shaders
@@ -230,12 +237,18 @@ private:
     // for a graphics pipeline
     VkRenderPass renderPass;
 
-
+    // descriptor set for camera + model + texture
     VkDescriptorSetLayout descriptorSetLayout;
     VkDescriptorSet descriptorSet;
 
-    VkPipelineLayout graphicsPipelineLayout;
+    VkDescriptorSetLayout backgroundSetLayout;
+    VkDescriptorSet backgroundSet;
 
+    /// background pipeline
+    VkPipelineLayout graphicsPipelineLayout;
+    VkPipelineLayout backgroundPipelineLayout;
+
+    VkPipeline backgroundPipeline;
     VkPipeline graphicsPipeline;
     std::vector<VkFramebuffer> swapChainFramebuffers;
     VkCommandPool commandPool;
@@ -257,10 +270,17 @@ private:
     VkBuffer indexBuffer;
     VkDeviceMemory indexBufferMemory;
 
+    VkBuffer backgroundBuffer;
+    VkDeviceMemory backgroundMemory;
+    VkBuffer backgroundIndexBuffer;
+    VkDeviceMemory backgroundIndexBufferMemory;
+
+
     VkBuffer uniformBuffer;
     VkDeviceMemory uniformBufferMemory;
 
     VkDescriptorPool descriptorPool;
+    VkDescriptorPool backgroundDescriptorPool;
 
     // TODO: move to a texture class
     VkImage textureImage;
@@ -273,6 +293,11 @@ private:
     void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
     void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
     void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
+
+    VkImage backgroundImage;
+    VkDeviceMemory backgroundImageMemory;
+    VkImageView backgroundImageView;
+    VkSampler backgroundSampler;
 
 #if _DEBUG
     // enable a range of validation layers through the SDK

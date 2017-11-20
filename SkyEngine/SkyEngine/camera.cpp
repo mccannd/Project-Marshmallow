@@ -66,10 +66,12 @@ void Camera::movePosition(Camera::directions direction, float delta)
 		dir = glm::vec3(m_forward);
 		break;
 	case UP:
-		dir = glm::vec3(-m_up);
+		//dir = glm::vec3(-m_up);
+        dir = glm::vec3(0, 1, 0);
 		break;
 	case DOWN:
-		dir = glm::vec3(m_up);
+		//dir = glm::vec3(m_up);
+        dir = glm::vec3(0, -1, 0);
 		break;
 	case RIGHT:
 		dir = glm::vec3(m_right);
