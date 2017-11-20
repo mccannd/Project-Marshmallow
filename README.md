@@ -9,6 +9,8 @@ The goal for the first week of this project was to get a (simple?) Vulkan base c
 as well as a compute pipeline, which renders to texture and will ultimately be used for the raymarching of clouds, which is our goal for this coming week. Lastly, 
 there are some basic camera controls implemented which are bound to the keyboard and eventually, also the mouse.
 
+Presentation slides: https://docs.google.com/presentation/d/1VIR9ZQW38At9B_MwrqZS0Uuhs5h2Mxhj84UH62NDxYU/edit?usp=sharing
+
 # Credits: 
 https://vulkan-tutorial.com/Introduction - Base code creation / explanation for the graphics pipeline
 https://github.com/SaschaWillems/Vulkan - Additional Vulkan reference code, heavily relied upon for compute pipeline
