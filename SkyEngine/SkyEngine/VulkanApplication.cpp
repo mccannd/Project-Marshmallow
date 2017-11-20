@@ -45,7 +45,7 @@ void VulkanApplication::initWindow() {
 
 void VulkanApplication::initVulkan() {
     createInstance();
-#if DEBUG_VALIDATION
+#ifdef _DEBUG
     setupDebugCallback();
 #endif
     createSurface();
@@ -899,10 +899,12 @@ void VulkanApplication::createIndexBuffer() {
 
 void VulkanApplication::createInstance() {
 
-    if (_DEBUG && !checkValidationLayerSupport()) {
+    #ifdef _DEBUG
+    if (!checkValidationLayerSupport()) {
         throw std::runtime_error("validation layers not supported");
     }
-    
+    #endif
+
     VkApplicationInfo appInfo = {};
     appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
     appInfo.pApplicationName = "Sky Engine";
@@ -945,7 +947,7 @@ void VulkanApplication::createInstance() {
 // If debugging is enabled, ensure that Vulkan is able to use validation layers.
 bool VulkanApplication::checkValidationLayerSupport() {
 
-#if _DEBUG
+#ifdef _DEBUG
 
     uint32_t layerCount;
     vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
@@ -971,7 +973,7 @@ bool VulkanApplication::checkValidationLayerSupport() {
     return true;
 #else
     return false;
-#endif // DEBUG_VALIDATION
+#endif // _DEBUG
 
 }
 
@@ -986,14 +988,14 @@ std::vector<const char*> VulkanApplication::getRequiredExtensions() {
         extensions.push_back(glfwExtensions[i]);
     }
 
-#if DEBUG_VALIDATION
+#ifdef _DEBUG
     extensions.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
 #endif
     return extensions;
 }
 
 void VulkanApplication::setupDebugCallback() {
-#if DEBUG_VALIDATION
+#ifdef _DEBUG
     VkDebugReportCallbackCreateInfoEXT createInfo = {};
     createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT;
     createInfo.flags = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT;
@@ -1125,7 +1127,7 @@ void VulkanApplication::createLogicalDevice() {
     createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
     createInfo.ppEnabledExtensionNames = deviceExtensions.data();
 
-#if DEBUG_VALIDATION
+#ifdef _DEBUG //DEBUG_VALIDATION
     
     createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
     createInfo.ppEnabledLayerNames = validationLayers.data();
@@ -1955,7 +1957,7 @@ VkExtent2D VulkanApplication::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& c
         int width, height;
         glfwGetWindowSize(window, &width, &height);
 
-        VkExtent2D actualExtent = { width, height };
+        VkExtent2D actualExtent = { static_cast<uint32_t>(width), static_cast<uint32_t>(height) };
 
         actualExtent.width = std::max(capabilities.minImageExtent.width, std::min(capabilities.maxImageExtent.width, actualExtent.width));
         actualExtent.height = std::max(capabilities.minImageExtent.height, std::min(capabilities.maxImageExtent.height, actualExtent.height));
