@@ -56,7 +56,7 @@ void VulkanApplication::initVulkan() {
     createCommandPool();
     createVertexBuffer(); // TODO: mesh class
     createCommandBuffers();
-    //createComputeCommandBuffer();
+    createComputeCommandBuffer();
     createSemaphores();
 }
 
@@ -102,6 +102,19 @@ void VulkanApplication::cleanup() {
 }
 
 void VulkanApplication::drawFrame() {
+
+    // submit compute queue
+    // Compute queue submit
+    /*VkSubmitInfo computeSubmitInfo = {};
+    computeSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+    computeSubmitInfo.commandBufferCount = 1;
+    computeSubmitInfo.pCommandBuffers = &computeCommandBuffer;
+
+    if (vkQueueSubmit(computeQueue, 1, &computeSubmitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to submit compute command buffer");
+    }*/
+
     // acquire image from swap chain
     // execute corresponding command buffer
     // return the image to the swap chain, presentation mode
@@ -112,12 +125,9 @@ void VulkanApplication::drawFrame() {
     if (result == VK_ERROR_OUT_OF_DATE_KHR) {
         recreateSwapChain();
         return;
-    }
-    else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+    } else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
         throw std::runtime_error("failed to acquire swap chain image!");
     }
-
-    // TODO: compute queue submit info goes here
 
     VkSubmitInfo submitInfo = {};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -311,7 +321,7 @@ void VulkanApplication::setupDebugCallback() {
 }
 
 bool VulkanApplication::isDeviceSuitable(VkPhysicalDevice device) {
-/*
+/* TODO what is this lul
     VkPhysicalDeviceProperties deviceProperties;
     vkGetPhysicalDeviceProperties(device, &deviceProperties);
 
@@ -373,6 +383,11 @@ QueueFamilyIndices VulkanApplication::findQueueFamilies(VkPhysicalDevice device)
     for (const auto& queueFamily : queueFamilies) {
         if (queueFamily.queueCount > 0 && queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
             indices.graphicsFamily = i;
+        }
+        
+        //TODO: is this correct
+        if (queueFamily.queueCount > 0 && queueFamily.queueFlags & VK_QUEUE_COMPUTE_BIT) {
+            indices.computeFamily = i;
         }
 
         VkBool32 presentSupport = false;
@@ -438,6 +453,7 @@ void VulkanApplication::createLogicalDevice() {
 
     // TODO : multiple queues
     vkGetDeviceQueue(device, indices.graphicsFamily, 0, &graphicsQueue);
+    vkGetDeviceQueue(device, indices.computeFamily, 0, &computeQueue);
     vkGetDeviceQueue(device, indices.presentFamily, 0, &presentQueue);
 }
 
@@ -508,7 +524,6 @@ void VulkanApplication::createRenderPass() {
     dependency.srcAccessMask = 0;
     dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
     dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-
 
     VkRenderPassCreateInfo renderPassInfo = {};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
@@ -705,6 +720,7 @@ void VulkanApplication::createComputePipeline() {
     pipelineLayoutInfo.pushConstantRangeCount = 0;
     pipelineLayoutInfo.pPushConstantRanges = 0;
 
+    // Create that layout
     if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &computePipelineLayout) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create pipeline layout");
     }
@@ -719,11 +735,12 @@ void VulkanApplication::createComputePipeline() {
     pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
     pipelineInfo.basePipelineIndex = -1;
 
+    // Create that pipeline
     if (vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &computePipeline) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create compute pipeline");
     }
 
-    // No need for shader modules anymore
+    // No longer need shader module
     vkDestroyShaderModule(device, computeShaderModule, nullptr);
 }
 
@@ -738,6 +755,17 @@ void VulkanApplication::createCommandPool() {
 
     if (vkCreateCommandPool(device, &poolInfo, nullptr, &commandPool) != VK_SUCCESS) {
         throw std::runtime_error("failed to create command pool!");
+    }
+
+    // Compute command pool
+    //TODO: make sure this is done
+    VkCommandPoolCreateInfo computePoolInfo = {};
+    computePoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    computePoolInfo.queueFamilyIndex = queueFamilyIndices.computeFamily; //TODO: need compute index or whatever
+    computePoolInfo.flags = 0;
+
+    if (vkCreateCommandPool(device, &computePoolInfo, nullptr, &computeCommandPool) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create command pool");
     }
 }
 
@@ -788,6 +816,44 @@ void VulkanApplication::createCommandBuffers() {
         if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS) {
             throw std::runtime_error("failed to record command buffer!");
         }
+    }
+}
+
+void VulkanApplication::createComputeCommandBuffer() {
+    // Specify the command pool and number of buffers to allocate
+    VkCommandBufferAllocateInfo allocInfo = {};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.commandPool = computeCommandPool;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandBufferCount = 1;
+
+    if (vkAllocateCommandBuffers(device, &allocInfo, &computeCommandBuffer) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to allocate command buffers");
+    }
+
+    VkCommandBufferBeginInfo beginInfo = {};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
+    beginInfo.pInheritanceInfo = nullptr;
+
+    // Begin recording
+    if (vkBeginCommandBuffer(computeCommandBuffer, &beginInfo) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to begin recording compute command buffer");
+    }
+
+    // Bind to the compute pipeline
+    vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
+
+    // TODO: bind various descriptor sets
+
+    // TODO: dispatch according to the number of pixels, do in a 2d manner? see the raytracing example
+    // first TODO: launch this compute shader for the triangle being rendered
+    //const int IMAGE_SIZE = 32;
+    vkCmdDispatch(computeCommandBuffer, (uint32_t)ceil((3 + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE), 1, 1);
+
+    // End recording
+    if (vkEndCommandBuffer(computeCommandBuffer) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to record compute command buffer");
     }
 }
 

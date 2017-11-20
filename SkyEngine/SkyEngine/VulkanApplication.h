@@ -18,10 +18,13 @@
 #include <fstream>
 #include <array>
 
-# define DEBUG_VALIDATION 1
+#define DEBUG_VALIDATION 1
+
+#define WORKGROUP_SIZE 32
 
 struct QueueFamilyIndices {
     int graphicsFamily = -1; // capable of graphics pipeline?
+    int computeFamily = -1; // capable of compute pipeline? TODO not sure if this is done
     int presentFamily = -1; // capable of presenting image to screen surface?
 
     bool isComplete() {
@@ -176,6 +179,7 @@ private:
     VkSurfaceKHR surface;
 
     VkQueue graphicsQueue;
+    VkQueue computeQueue;
     VkQueue presentQueue;
 
     // these can likely be moved to their own class
@@ -196,6 +200,7 @@ private:
     VkPipeline computePipeline;
     VkCommandBuffer computeCommandBuffer; // TODO: if we need multiple compute shaders for some reason,
                                           // make this a vector like above
+    VkCommandPool computeCommandPool;
 
     // TODO: move to mesh class
     void createVertexBuffer();
