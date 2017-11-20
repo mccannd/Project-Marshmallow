@@ -5,5 +5,9 @@
 *.xcodeproj
 *.db
 *.opendb
+*.suo
+*.tlog
+*.lastbuild
+Debug/
+Release/
 build
-

@@ -66,10 +66,12 @@ void Camera::movePosition(Camera::directions direction, float delta)
 		dir = glm::vec3(m_forward);
 		break;
 	case UP:
-		dir = glm::vec3(m_up);
+		//dir = glm::vec3(-m_up);
+        dir = glm::vec3(0, 1, 0);
 		break;
 	case DOWN:
-		dir = glm::vec3(-m_up);
+		//dir = glm::vec3(m_up);
+        dir = glm::vec3(0, -1, 0);
 		break;
 	case RIGHT:
 		dir = glm::vec3(m_right);
@@ -84,6 +86,61 @@ void Camera::movePosition(Camera::directions direction, float delta)
 	if (m_lockedTarget) {
 		lookAt(m_target);
 	}
+}
+
+glm::mat3 angleAxis(const glm::vec3 &u, float deltaDeg) {
+    float angle = DEG2RAD * deltaDeg;
+    float cost = std::cos(angle);
+    float sint = std::sin(angle);
+
+    glm::mat3 rot = glm::mat3(1.0f);
+    rot[0] = glm::vec3(
+        cost + u.x * u.x * (1.f - cost),
+        u.y * u.x * (1.f - cost) + u.z * sint,
+        u.z * u.x * (1.f - cost) - u.y * sint
+        );
+    rot[1] = glm::vec3(
+        u.x * u.y * (1.f - cost) - u.z * sint,
+        cost + u.y * u.y * (1.f - cost),
+        u.z * u.y * (1.f - cost) + u.x * sint
+        );
+    rot[2] = glm::vec3(
+        u.x * u.z * (1.f - cost) + u.y * sint,
+        u.y * u.z * (1.f - cost) - u.x * sint,
+        cost + u.z * u.z * (1.f - cost)
+        );
+    return rot;
+}
+
+void Camera::addPitchLocal(float delta) {
+    if (m_lockedTarget) return;
+    glm::mat3 rot = angleAxis(m_right, delta);
+    m_forward = glm::normalize(rot * m_forward);
+    m_up = glm::normalize(rot * m_up);
+}
+
+void Camera::addYawLocal(float delta) {
+    if (m_lockedTarget) return;
+    glm::mat3 rot = angleAxis(m_up, delta);
+    m_right = glm::normalize(rot * m_right);
+    m_forward = glm::normalize(rot * m_forward);
+
+}
+
+void Camera::addPitch(float delta) {
+    if (m_lockedTarget) return;
+    glm::mat3 rot = angleAxis(glm::normalize(glm::cross(m_forward, glm::vec3(0, 1, 0))), delta);
+    m_forward = glm::normalize(rot * m_forward);
+    m_up = glm::normalize(rot * m_up);
+    m_right = glm::normalize(rot * m_right);
+}
+
+void Camera::addYaw(float delta) {
+    if (m_lockedTarget) return;
+    glm::mat3 rot = angleAxis(glm::vec3(0, 1, 0), delta);
+    m_forward = glm::normalize(rot * m_forward);
+    m_up = glm::normalize(rot * m_up);
+    m_right = glm::normalize(rot * m_right);
 }
 
 
