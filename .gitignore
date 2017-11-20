@@ -3,5 +3,9 @@
 *.sln
 *.vcxproj
 *.xcodeproj
+*.db
+*.opendb
+SkyEngine/Debug
+SkyEngine/Release
 build
 

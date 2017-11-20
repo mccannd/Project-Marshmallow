@@ -2,6 +2,12 @@
 #include <glm\gtc\matrix_transform.hpp>
 #include <glm\gtc\type_ptr.hpp>
 
+#ifndef GLM_FORCE_RADIANS
+#define GLM_FORCE_RADIANS
+#endif // !GLM_FORCE_RADIANS
+
+
+
 #define RAD2DEG 57.2957f
 #define DEG2RAD 0.01745f
 #define EPSILON 0.00001f
@@ -48,6 +54,10 @@ public:
 	glm::vec3 getPosition();
 
 	void movePosition(Camera::directions direction, float delta);
+    void addPitch(float delta); // rotate by delta degrees about right
+    void addYaw(float delta); // rotate by delta degrees about up
+    void addPitchLocal(float delta); // rotate by delta degrees about right
+    void addYawLocal(float delta); // rotate by delta degrees about up
 	void setPosition(const glm::vec3 &newPosition);
 	void lookAt(const glm::vec3 &target);
 

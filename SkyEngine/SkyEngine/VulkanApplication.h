@@ -3,10 +3,14 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
+#ifndef GLM_FORCE_RADIANS
 #define GLM_FORCE_RADIANS
+#endif // !GLM_FORCE_RADIANS
+
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/vec4.hpp>
 #include <glm/mat4x4.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 
@@ -17,6 +21,10 @@
 #include <algorithm>
 #include <fstream>
 #include <array>
+#include <chrono>
+
+#include "camera.h"
+
 
 # define DEBUG_VALIDATION 1
 
@@ -35,10 +43,17 @@ struct SwapChainSupportDetails {
     std::vector<VkPresentModeKHR> presentModes;
 };
 
+struct UniformBufferObject {
+    glm::mat4 model;
+    glm::mat4 view;
+    glm::mat4 proj;
+};
+
 // TODO: Move to a mesh class
 struct Vertex {
     glm::vec2 pos;
     glm::vec3 col;
+    glm::vec2 uv;
 
     // rate to load data from memory throughout vertices
     static VkVertexInputBindingDescription getBindingDescription() {
@@ -50,8 +65,8 @@ struct Vertex {
     }
 
     // Set layout bindings for vertex struct to vertex shader
-    static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions() {
-        std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions = {};
+    static std::array<VkVertexInputAttributeDescription, 3> getAttributeDescriptions() {
+        std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions = {};
         attributeDescriptions[0].binding = 0;
         attributeDescriptions[0].location = 0;
         attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
@@ -61,6 +76,11 @@ struct Vertex {
         attributeDescriptions[1].location = 1;
         attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
         attributeDescriptions[1].offset = offsetof(Vertex, col);
+
+        attributeDescriptions[2].binding = 0;
+        attributeDescriptions[2].location = 2;
+        attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
+        attributeDescriptions[2].offset = offsetof(Vertex, uv);
 
         return attributeDescriptions;
     }
@@ -73,6 +93,16 @@ const std::vector<Vertex> vertices = {
     { { -0.5f, 0.5f },{ 0.0f, 0.0f, 1.0f } }
 };
 
+const std::vector<Vertex> verticesQuad = {
+    { { -0.5f, -0.5f },{ 1.0f, 0.0f, 0.0f }, {1.0f, 0.0f} },
+    { { 0.5f, -0.5f },{ 0.0f, 1.0f, 0.0f }, {0.0f, 0.0f} },
+    { { 0.5f, 0.5f },{ 0.0f, 0.0f, 1.0f }, {0.0f, 1.0f} },
+    { { -0.5f, 0.5f },{ 1.0f, 1.0f, 1.0f }, {1.0f, 1.0f} }
+};
+
+const std::vector<uint16_t> indices = {
+    0, 1, 2, 2, 3, 0
+};
 
 // TODO: Move this ASAP
 // Read an entire file (bytecode)
@@ -101,6 +131,8 @@ private:
     void mainLoop();
     void cleanup();
 
+    void updateUniformBuffer();
+
     GLFWwindow* window;
 
     const int WIDTH = 800;
@@ -126,6 +158,15 @@ private:
     void createCommandPool();
     void createCommandBuffers();
 
+    // command buffer helpers
+    VkCommandBuffer beginSingleTimeCommands();
+    void endSingleTimeCommands(VkCommandBuffer commandBuffer);
+
+    void createDescriptorSetLayout();
+    void createUniformBuffer();
+    void createDescriptorPool();
+    void createDescriptorSet();
+
     void drawFrame();
     VkSemaphore imageAvailableSemaphore;
     VkSemaphore renderFinishedSemaphore;
@@ -141,6 +182,8 @@ private:
     VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector <VkSurfaceFormatKHR>& availableFormats);
     VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR> availablePresentModes);
     VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
+
+    VkImageView createImageView(VkImage image, VkFormat format);
 
     static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
         VkDebugReportFlagsEXT flags,
@@ -182,19 +225,45 @@ private:
     std::vector<VkImageView> swapChainImageViews;
     // for a graphics pipeline
     VkRenderPass renderPass;
+
+    VkDescriptorSetLayout descriptorSetLayout;
+    VkDescriptorSet descriptorSet;
+
     VkPipelineLayout pipelineLayout;
     VkPipeline graphicsPipeline;
     std::vector<VkFramebuffer> swapChainFramebuffers;
     VkCommandPool commandPool;
     std::vector<VkCommandBuffer> commandBuffers;
 
+    void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
+    void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
+
     // TODO: move to mesh class
     void createVertexBuffer();
+    void createIndexBuffer();
     VkBuffer vertexBuffer;
     VkDeviceMemory vertexBufferMemory;
+    VkBuffer indexBuffer;
+    VkDeviceMemory indexBufferMemory;
 
+    VkBuffer uniformBuffer;
+    VkDeviceMemory uniformBufferMemory;
 
-#if DEBUG_VALIDATION
+    VkDescriptorPool descriptorPool;
+
+    // TODO: move to a texture class
+    VkImage textureImage;
+    VkDeviceMemory textureMemory;
+    VkImageView textureImageView;
+    VkSampler textureSampler;
+    void createTextureImage();
+    void createTextureImageView();
+    void createTextureSampler();
+    void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
+    void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
+    void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
+
+#if _DEBUG
     // enable a range of validation layers through the SDK
     const std::vector<const char*> validationLayers = {
         "VK_LAYER_LUNARG_standard_validation"
@@ -205,6 +274,11 @@ private:
         VK_KHR_SWAPCHAIN_EXTENSION_NAME
     };
 
+    /// --- Window interaction / functionality
+    Camera mainCamera;
+    void processInputs();
+    float deltaTime;
+    float prevTime;
 public:
     void run() {
         initWindow();
