@@ -88,7 +88,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>D:\GPU565\Final Project\Libraries\stb;D:\GPU565\Final Project\Libraries\GLFW\glfw-3.2.1.bin.WIN32\include;D:\GPU565\Final Project\Libraries\glm;D:\VulkanSDK\1.0.61.1\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Joe\Documents\Penn\Senior_Year\Semester_1\CIS_565\Final_Project\Project-Marshmallow\Libraries\GLFW\glfw-3.2.1.bin.WIN32\include;C:\Users\Joe\Documents\Penn\Senior_Year\Semester_1\CIS_565\Final_Project\Project-Marshmallow\Libraries\glm;C:\Users\Joe\Documents\Penn\Senior_Year\Semester_1\CIS_565\Final_Project\Project-Marshmallow\Libraries\stb;C:\VulkanSDK\1.0.61.1\Include;D:\GPU565\Final Project\Libraries\GLFW\glfw-3.2.1.bin.WIN32\include;D:\GPU565\Final Project\Libraries\glm;D:\GPU565\Final Project\Libraries\stb;D:\VulkanSDK\1.0.61.1\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -119,7 +119,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>D:\GPU565\Final Project\Libraries\stb;D:\GPU565\Final Project\Libraries\GLFW\glfw-3.2.1.bin.WIN64\include;D:\GPU565\Final Project\Libraries\glm;D:\VulkanSDK\1.0.61.1\Include;D:\VulkanSDK\1.0.61.1\Lib;D:\VulkanSDK\1.0.61.1\Lib32;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Joe\Documents\Penn\Senior_Year\Semester_1\CIS_565\Final_Project\Project-Marshmallow\Libraries\GLFW\glfw-3.2.1.bin.WIN32\include;C:\Users\Joe\Documents\Penn\Senior_Year\Semester_1\CIS_565\Final_Project\Project-Marshmallow\Libraries\glm;C:\Users\Joe\Documents\Penn\Senior_Year\Semester_1\CIS_565\Final_Project\Project-Marshmallow\Libraries\stb;C:\VulkanSDK\1.0.61.1\Include;D:\GPU565\Final Project\Libraries\GLFW\glfw-3.2.1.bin.WIN64\include;D:\GPU565\Final Project\Libraries\glm;D:\VulkanSDK\1.0.61.1\Include;D:\VulkanSDK\1.0.61.1\Lib;D:\VulkanSDK\1.0.61.1\Lib32;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -127,7 +127,7 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>vulkan-1.lib;glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>D:\VulkanSDK\1.0.61.1\Bin;D:\GPU565\Final Project\Libraries\GLFW\glfw-3.2.1.bin.WIN64\lib-vc2015;D:\VulkanSDK\1.0.61.1\Lib32;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>C:\Users\Joe\Documents\Penn\Senior_Year\Semester_1\CIS_565\Final_Project\Project-Marshmallow\Libraries\GLFW\glfw-3.2.1.bin.WIN32\lib-vc2015;C:\VulkanSDK\1.0.61.1\Lib32;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">

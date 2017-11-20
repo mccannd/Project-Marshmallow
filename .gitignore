@@ -5,7 +5,7 @@
 *.xcodeproj
 *.db
 *.opendb
-SkyEngine/Debug
-SkyEngine/Release
+Debug/
+Release/
 build
 

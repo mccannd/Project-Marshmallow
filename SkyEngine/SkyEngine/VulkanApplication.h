@@ -158,6 +158,7 @@ private:
     void createCommandPool();
     void createCommandBuffers();
 
+
     // command buffer helpers
     VkCommandBuffer beginSingleTimeCommands();
     void endSingleTimeCommands(VkCommandBuffer commandBuffer);
@@ -166,6 +167,9 @@ private:
     void createUniformBuffer();
     void createDescriptorPool();
     void createDescriptorSet();
+    /// --- Compute Pipeline
+    void createComputePipeline();
+    void createComputeCommandBuffer(); // TODO: rename this to be plural if we end up needing more compute shaders
 
     void drawFrame();
     VkSemaphore imageAvailableSemaphore;
@@ -226,14 +230,21 @@ private:
     // for a graphics pipeline
     VkRenderPass renderPass;
 
+
     VkDescriptorSetLayout descriptorSetLayout;
     VkDescriptorSet descriptorSet;
 
-    VkPipelineLayout pipelineLayout;
+    VkPipelineLayout graphicsPipelineLayout;
+
     VkPipeline graphicsPipeline;
     std::vector<VkFramebuffer> swapChainFramebuffers;
     VkCommandPool commandPool;
     std::vector<VkCommandBuffer> commandBuffers;
+    // Compute pipeline
+    VkPipelineLayout computePipelineLayout;
+    VkPipeline computePipeline;
+    VkCommandBuffer computeCommandBuffer; // TODO: if we need multiple compute shaders for some reason,
+                                          // make this a vector like above
 
     void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
     void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);

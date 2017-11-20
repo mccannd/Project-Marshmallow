@@ -1,9 +1,7 @@
-﻿  camera.cpp
-  Generating Code...
-  Compiling...
+﻿  VulkanApplication.cpp
+d:\gpu565\final project\skyengine\skyengine\vulkanapplication.cpp(1518): warning C4838: conversion from 'int' to 'uint32_t' requires a narrowing conversion
   main.cpp
-  VulkanApplication.cpp
-d:\gpu565\final project\skyengine\skyengine\vulkanapplication.cpp(1468): warning C4838: conversion from 'int' to 'uint32_t' requires a narrowing conversion
+  camera.cpp
   Generating Code...
 LINK : warning LNK4098: defaultlib 'MSVCRT' conflicts with use of other libs; use /NODEFAULTLIB:library
   SkyEngine.vcxproj -> D:\GPU565\Final Project\SkyEngine\Debug\SkyEngine.exe
