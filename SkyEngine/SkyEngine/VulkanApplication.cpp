@@ -1241,8 +1241,8 @@ void VulkanApplication::createSemaphores() {
 
 void VulkanApplication::createGraphicsPipeline() {
     // TODO: Move this ASAP to a shader class
-    auto vertShaderCode = readFile("Shaders/vert.spv");
-    auto fragShaderCode = readFile("Shaders/frag.spv");
+    auto vertShaderCode = readFile("Shaders/helloTriangle.vert.spv");
+    auto fragShaderCode = readFile("Shaders/helloTriangle.frag.spv");
     VkShaderModule vertShaderModule;
     VkShaderModule fragShaderModule;
     vertShaderModule = createShaderModule(vertShaderCode, device);
@@ -1387,8 +1387,8 @@ void VulkanApplication::createGraphicsPipeline() {
 }
 
 void VulkanApplication::createBackgroundPipeline() {
-    auto vertShaderCode = readFile("Shaders/screenVert.spv");
-    auto fragShaderCode = readFile("Shaders/screenFrag.spv");
+    auto vertShaderCode = readFile("Shaders/screenSpace.vert.spv");
+    auto fragShaderCode = readFile("Shaders/screenSpace.frag.spv");
     VkShaderModule vertShaderModule;
     VkShaderModule fragShaderModule;
     vertShaderModule = createShaderModule(vertShaderCode, device);
@@ -1535,7 +1535,7 @@ void VulkanApplication::createBackgroundPipeline() {
 
 void VulkanApplication::createComputePipeline() {
     // Set up programmable shader
-    auto computeShaderCode = readFile("Shaders/compute.spv");
+    auto computeShaderCode = readFile("Shaders/helloTriangle.comp.spv");
     VkShaderModule computeShaderModule = createShaderModule(computeShaderCode, device);
 
     VkPipelineShaderStageCreateInfo computeShaderStageInfo = {};
