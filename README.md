@@ -12,3 +12,4 @@ there are some basic camera controls implemented which are bound to the keyboard
 # Credits: 
 https://vulkan-tutorial.com/Introduction - Base code creation / explanation for the graphics pipeline
 https://github.com/SaschaWillems/Vulkan - Additional Vulkan reference code, heavily relied upon for compute pipeline
+https://github.com/PacktPublishing/Vulkan-Cookbook/ - Even more Vulkan reference that helped with rendering to texture
