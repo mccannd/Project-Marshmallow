@@ -72,7 +72,7 @@ void VulkanApplication::initVulkan() {
     createComputeCommandBuffer();
     createSemaphores();
 
-    //mainCamera = Camera(glm::vec3(2.f, 2.f, 2.f), glm::vec3(0.f, 0.f, 0.f), 0.1f, 10.0f, 45.0f);
+    //mainCamera = Camera(glm::vec3(2.f, 2.f, 2.f), glm::vec3(0.f, 0.f, 0.f), 0.1f, 10.0f, 45.0f); dis is bad lul
     mainCamera = Camera(glm::vec3(0.f, 1.f, 1.f), glm::vec3(0.f, 0.f, 0.f), 0.1f, 10.0f, 45.0f);
 
     mainCamera.setAspect((float) swapChainExtent.width, (float)swapChainExtent.height);
@@ -201,7 +201,7 @@ void VulkanApplication::drawFrame() {
 
     // submit compute queue
     // Compute queue submit
-    /*VkSubmitInfo computeSubmitInfo = {};
+    VkSubmitInfo computeSubmitInfo = {};
     computeSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
     computeSubmitInfo.commandBufferCount = 1;
@@ -209,7 +209,7 @@ void VulkanApplication::drawFrame() {
 
     if (vkQueueSubmit(computeQueue, 1, &computeSubmitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
         throw std::runtime_error("Failed to submit compute command buffer");
-    }*/
+    }
 
     // acquire image from swap chain
     // execute corresponding command buffer
@@ -372,6 +372,26 @@ void VulkanApplication::createDescriptorSetLayout() {
         throw std::runtime_error("failed to create descriptor set layout!");
     }
 
+    /// Compute
+    //TODO: add camera descriptor set (uniform buffer) to this layout
+
+    VkDescriptorSetLayoutBinding computestorageBinding = {};
+    computestorageBinding.binding = 0;
+    computestorageBinding.descriptorCount = 1;
+    computestorageBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    computestorageBinding.pImmutableSamplers = nullptr;
+    computestorageBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    std::array<VkDescriptorSetLayoutBinding, 1> bindings_compute = { computestorageBinding };
+
+    VkDescriptorSetLayoutCreateInfo layoutInfo_compute = {};
+    layoutInfo_compute.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    layoutInfo_compute.bindingCount = static_cast<uint32_t>(bindings_compute.size());
+    layoutInfo_compute.pBindings = bindings_compute.data();
+
+    if (vkCreateDescriptorSetLayout(device, &layoutInfo_compute, nullptr, &computeSetLayout) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create descriptor set layout!");
+    }
 }
 
 void VulkanApplication::createUniformBuffer() {
@@ -410,7 +430,24 @@ void VulkanApplication::createDescriptorPool() {
     poolInfo2.maxSets = 1;
 
     if (vkCreateDescriptorPool(device, &poolInfo2, nullptr, &backgroundDescriptorPool) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create descriptor pool!");
+        throw std::runtime_error("failed to create background descriptor pool!");
+    }
+
+    /// Compute
+
+    std::array<VkDescriptorPoolSize, 1> poolSizes_compute = {};
+
+    poolSizes_compute[0].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    poolSizes_compute[0].descriptorCount = 1;
+
+    VkDescriptorPoolCreateInfo poolInfo_compute = {};
+    poolInfo_compute.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    poolInfo_compute.poolSizeCount = static_cast<uint32_t>(poolSizes_compute.size());
+    poolInfo_compute.pPoolSizes = poolSizes_compute.data();
+    poolInfo_compute.maxSets = 1;
+
+    if (vkCreateDescriptorPool(device, &poolInfo_compute, nullptr, &computeDescriptorPool) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create compute descriptor pool!");
     }
 }
 
@@ -470,7 +507,7 @@ void VulkanApplication::createDescriptorSet() {
     }
 
     VkDescriptorImageInfo imageInfo2 = {};
-    imageInfo2.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    imageInfo2.imageLayout = VK_IMAGE_LAYOUT_GENERAL; //according to a vulkan error
     imageInfo2.imageView = backgroundImageView;
     imageInfo2.sampler = backgroundSampler;
 
@@ -485,6 +522,34 @@ void VulkanApplication::createDescriptorSet() {
 
     vkUpdateDescriptorSets(device, 1, &backgroundWrite, 0, nullptr);
 
+    /// Compute
+
+    VkDescriptorSetLayout layouts_compute[] = { computeSetLayout };
+    VkDescriptorSetAllocateInfo allocInfo_compute = {};
+    allocInfo_compute.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocInfo_compute.descriptorPool = computeDescriptorPool;
+    allocInfo_compute.descriptorSetCount = 1;
+    allocInfo_compute.pSetLayouts = layouts_compute;
+
+    if (vkAllocateDescriptorSets(device, &allocInfo_compute, &computeSet) != VK_SUCCESS) {
+        throw std::runtime_error("failed to allocate compute descriptor set!");
+    }
+
+    /*VkDescriptorImageInfo imageInfo_compute = {};
+    imageInfo_compute.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    imageInfo_compute.imageView = backgroundImageView;
+    imageInfo_compute.sampler = backgroundSampler;*/
+
+    VkWriteDescriptorSet computeWrite = {};
+    computeWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    computeWrite.dstSet = computeSet;
+    computeWrite.dstBinding = 0;
+    computeWrite.dstArrayElement = 0;
+    computeWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    computeWrite.descriptorCount = 1;
+    computeWrite.pImageInfo = &imageInfo2;
+
+    vkUpdateDescriptorSets(device, 1, &computeWrite, 0, nullptr);
 }
 
 // TODO: vulkan is chipping away at my soul. help me
@@ -527,7 +592,7 @@ VkImageView VulkanApplication::createImageView(VkImage image, VkFormat format) {
     viewInfo.image = image;
     viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
     viewInfo.format = format;
-    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT; //VK_IMAGE_USAGE_STORAGE_BIT
     viewInfo.subresourceRange.baseMipLevel = 0;
     viewInfo.subresourceRange.levelCount = 1;
     viewInfo.subresourceRange.baseArrayLayer = 0;
@@ -537,7 +602,7 @@ VkImageView VulkanApplication::createImageView(VkImage image, VkFormat format) {
     if (vkCreateImageView(device, &viewInfo, nullptr, &imageView) != VK_SUCCESS) {
         throw std::runtime_error("failed to create texture image view!");
     }
-
+    
     return imageView;
 }
 
@@ -603,7 +668,6 @@ void VulkanApplication::createTextureImageView() {
 // TODO: texture class
 void VulkanApplication::transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout) {
     VkCommandBuffer commandBuffer = beginSingleTimeCommands();
-
 
     VkImageMemoryBarrier barrier = {};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -739,8 +803,8 @@ void VulkanApplication::createTextureImage() {
     vkUnmapMemory(device, stagingBufferMemory2);
 
     stbi_image_free(pixels2);
-
-    createImage(texWidth, texHeight, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, backgroundImage, backgroundImageMemory);
+                                                                                                                            /*for writing in compute shader*/
+    createImage(texWidth, texHeight, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, backgroundImage, backgroundImageMemory);
 
     transitionImageLayout(backgroundImage, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
     copyBufferToImage(stagingBuffer2, backgroundImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
@@ -748,7 +812,6 @@ void VulkanApplication::createTextureImage() {
 
     vkDestroyBuffer(device, stagingBuffer2, nullptr);
     vkFreeMemory(device, stagingBufferMemory2, nullptr);
-
 }
 
 // TODO: Move to mesh class
@@ -1482,7 +1545,7 @@ void VulkanApplication::createComputePipeline() {
     computeShaderStageInfo.pName = "main";
 
     // TODO: compute descriptor set layouts
-    std::vector<VkDescriptorSetLayout> descriptorSetLayouts = {};
+    std::vector<VkDescriptorSetLayout> descriptorSetLayouts = {computeSetLayout};
 
     // Create pipeline layout
     VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
@@ -1663,11 +1726,14 @@ void VulkanApplication::createComputeCommandBuffer() {
     vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
 
     // TODO: bind various descriptor sets
+    //TODO: camera
+    vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipelineLayout, 0, 1, &computeSet, 0, 0);
 
     // TODO: dispatch according to the number of pixels, do in a 2d manner? see the raytracing example
     // first TODO: launch this compute shader for the triangle being rendered
     //const int IMAGE_SIZE = 32;
-    vkCmdDispatch(computeCommandBuffer, (uint32_t)ceil((3 + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE), 1, 1);
+    const glm::ivec2 texDims(1024, 1024);
+    vkCmdDispatch(computeCommandBuffer, /*(uint32_t)ceil((3 + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE)*/ texDims.x / 16, texDims.y / 16, 1);
 
     // End recording
     if (vkEndCommandBuffer(computeCommandBuffer) != VK_SUCCESS) {

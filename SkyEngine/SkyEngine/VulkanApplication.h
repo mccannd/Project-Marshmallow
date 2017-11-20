@@ -36,7 +36,7 @@ struct QueueFamilyIndices {
     int presentFamily = -1; // capable of presenting image to screen surface?
 
     bool isComplete() {
-        return graphicsFamily >= 0 && presentFamily >= 0;
+        return graphicsFamily >= 0 && computeFamily >= 0 && presentFamily >= 0;
     }
 };
 
@@ -248,6 +248,9 @@ private:
     VkDescriptorSetLayout backgroundSetLayout;
     VkDescriptorSet backgroundSet;
 
+    VkDescriptorSetLayout computeSetLayout;
+    VkDescriptorSet computeSet;
+
     /// background pipeline
     VkPipelineLayout graphicsPipelineLayout;
     VkPipelineLayout backgroundPipelineLayout;
@@ -280,12 +283,12 @@ private:
     VkBuffer backgroundIndexBuffer;
     VkDeviceMemory backgroundIndexBufferMemory;
 
-
     VkBuffer uniformBuffer;
     VkDeviceMemory uniformBufferMemory;
 
     VkDescriptorPool descriptorPool;
     VkDescriptorPool backgroundDescriptorPool;
+    VkDescriptorPool computeDescriptorPool;
 
     // TODO: move to a texture class
     VkImage textureImage;
