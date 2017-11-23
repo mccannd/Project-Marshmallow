@@ -1,16 +1,7 @@
-﻿  Performing Custom Build Tools
-  Shaders\helloTriangle.comp
-  Performing Custom Build Tools
-  Shaders\helloTriangle.frag
-  Performing Custom Build Tools
-  Shaders\helloTriangle.vert
-  Performing Custom Build Tools
-  Shaders\screenSpace.frag
-  Performing Custom Build Tools
-  Shaders\screenSpace.vert
-  VulkanApplication.cpp
+﻿  VulkanApplication.cpp
+c:\users\joe\documents\penn\senior_year\semester_1\cis_565\final_project\project-marshmallow\skyengine\skyengine\vulkanapplication.h(4): fatal error C1083: Cannot open include file: 'GLFW/glfw3.h': No such file or directory
   main.cpp
-  camera.cpp
+c:\users\joe\documents\penn\senior_year\semester_1\cis_565\final_project\project-marshmallow\skyengine\skyengine\vulkanapplication.h(4): fatal error C1083: Cannot open include file: 'GLFW/glfw3.h': No such file or directory
   Generating Code...
-LINK : warning LNK4098: defaultlib 'MSVCRT' conflicts with use of other libs; use /NODEFAULTLIB:library
-  SkyEngine.vcxproj -> D:\GPU565\Final Project\SkyEngine\Debug\SkyEngine.exe
+  Skipping... (no relevant changes detected)
+  camera.cpp

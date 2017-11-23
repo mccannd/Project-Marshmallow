@@ -1,7 +1,6 @@
 *.orig
 *.filters
 *.sln
-*.vcxproj
 *.xcodeproj
 *.db
 *.opendb
