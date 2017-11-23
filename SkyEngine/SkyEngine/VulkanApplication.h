@@ -24,6 +24,7 @@
 #include <chrono>
 
 #include "camera.h"
+#include "texture.h"
 
 
 #define DEBUG_VALIDATION 1
@@ -290,22 +291,10 @@ private:
     VkDescriptorPool backgroundDescriptorPool;
     VkDescriptorPool computeDescriptorPool;
 
-    // TODO: move to a texture class
-    VkImage textureImage;
-    VkDeviceMemory textureMemory;
-    VkImageView textureImageView;
-    VkSampler textureSampler;
-    void createTextureImage();
-    void createTextureImageView();
-    void createTextureSampler();
-    void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
-    void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
-    void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
-
-    VkImage backgroundImage;
-    VkDeviceMemory backgroundImageMemory;
-    VkImageView backgroundImageView;
-    VkSampler backgroundSampler;
+    void initializeTextures();
+    Texture* meshTexture;
+    Texture* backgroundTexture;
+    void cleanupTextures();
 
 #if _DEBUG
     // enable a range of validation layers through the SDK

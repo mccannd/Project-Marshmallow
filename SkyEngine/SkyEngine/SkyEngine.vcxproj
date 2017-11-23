@@ -161,11 +161,15 @@
   <ItemGroup>
     <ClCompile Include="camera.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="Texture.cpp" />
     <ClCompile Include="VulkanApplication.cpp" />
+    <ClCompile Include="VulkanObject.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="camera.h" />
+    <ClInclude Include="Texture.h" />
     <ClInclude Include="VulkanApplication.h" />
+    <ClInclude Include="VulkanObject.h" />
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="Shaders\helloTriangle.comp">
