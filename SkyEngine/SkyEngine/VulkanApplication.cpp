@@ -107,6 +107,7 @@ void VulkanApplication::cleanup() {
         vkDestroyImageView(device, swapChainImageViews[i], nullptr);
     }
     vkDestroyCommandPool(device, commandPool, nullptr);
+    vkDestroyCommandPool(device, computeCommandPool, nullptr);
     vkDestroySemaphore(device, renderFinishedSemaphore, nullptr);
     vkDestroySemaphore(device, imageAvailableSemaphore, nullptr);
 
@@ -115,6 +116,9 @@ void VulkanApplication::cleanup() {
 
     vkDestroyPipeline(device, backgroundPipeline, nullptr);
     vkDestroyPipelineLayout(device, backgroundPipelineLayout, nullptr);
+
+    vkDestroyPipeline(device, computePipeline, nullptr);
+    vkDestroyPipelineLayout(device, computePipelineLayout, nullptr);
 
     vkDestroyRenderPass(device, renderPass, nullptr);
     vkDestroySwapchainKHR(device, swapChain, nullptr);
@@ -126,15 +130,19 @@ void VulkanApplication::cleanup() {
 
     vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
     vkDestroyDescriptorSetLayout(device, backgroundSetLayout, nullptr);
+    vkDestroyDescriptorSetLayout(device, computeSetLayout, nullptr);
 
     vkDestroyBuffer(device, uniformBuffer, nullptr); // TODO shader
     vkDestroyDescriptorPool(device, descriptorPool, nullptr); 
     vkFreeMemory(device, uniformBufferMemory, nullptr); // TODO shader
 
+    vkDestroyDescriptorPool(device, backgroundDescriptorPool, nullptr);
     vkFreeMemory(device, vertexBufferMemory, nullptr); // TODO mesh
     vkFreeMemory(device, indexBufferMemory, nullptr); // TODO mesh
     vkFreeMemory(device, backgroundMemory, nullptr); // TODO mesh
     vkFreeMemory(device, backgroundIndexBufferMemory, nullptr); // TODO mesh
+    
+    vkDestroyDescriptorPool(device, computeDescriptorPool, nullptr);
 
     vkDestroySampler(device, textureSampler, nullptr);
     vkDestroyImageView(device, textureImageView, nullptr); // TODO tex
@@ -147,8 +155,6 @@ void VulkanApplication::cleanup() {
     vkFreeMemory(device, backgroundImageMemory, nullptr); // TODO tex
 
     vkDestroyDevice(device, nullptr);
-
-    //TODO destroy compute stuff
 
 #ifdef _DEBUG
     DestroyDebugReportCallbackEXT(instance, callback, nullptr);
