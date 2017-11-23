@@ -11,6 +11,10 @@ there are some basic camera controls implemented which are bound to the keyboard
 
 Presentation slides: https://docs.google.com/presentation/d/1VIR9ZQW38At9B_MwrqZS0Uuhs5h2Mxhj84UH62NDxYU/edit?usp=sharing
 
+# Milestone 2
+
+- added 64 bit support
+
 # Credits: 
 https://vulkan-tutorial.com/Introduction - Base code creation / explanation for the graphics pipeline
 https://github.com/SaschaWillems/Vulkan - Additional Vulkan reference code, heavily relied upon for compute pipeline
