@@ -84,13 +84,13 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>C:\Users\Joe\Documents\Penn\Senior_Year\Semester_1\CIS_565\Final_Project\Project-Marshmallow\Libraries\GLFW\glfw-3.2.1.bin.WIN32\include;C:\Users\Joe\Documents\Penn\Senior_Year\Semester_1\CIS_565\Final_Project\Project-Marshmallow\Libraries\glm;C:\Users\Joe\Documents\Penn\Senior_Year\Semester_1\CIS_565\Final_Project\Project-Marshmallow\Libraries\stb;C:\VulkanSDK\1.0.61.1\Include;D:\GPU565\Final Project\Libraries\GLFW\glfw-3.2.1.bin.WIN32\include;D:\GPU565\Final Project\Libraries\glm;D:\GPU565\Final Project\Libraries\stb;D:\VulkanSDK\1.0.61.1\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\..\Libraries\GLFW\glfw-3.2.1.bin.WIN32\include;$(SolutionDir)\..\Libraries\glm;$(SolutionDir)\..\Libraries\stb;$(VULKAN_SDK)\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>vulkan-1.lib;glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>C:\VulkanSDK\1.0.61.1\Lib32;$(SolutionDir)\..\Libraries\GLFW\glfw-3.2.1.bin.WIN32\lib-vc2015</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(VULKAN_SDK)\Lib32;$(SolutionDir)\..\Libraries\GLFW\glfw-3.2.1.bin.WIN32\lib-vc2015</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -100,10 +100,13 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(SolutionDir)\..\Libraries\glfw-3.2.1.bin.WIN64\include;$(SolutionDir)\..\Libraries\stb;$(VULKAN_SDK)\Include;$(SolutionDir)\..\Libraries\glm;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>glfw3.lib;vulkan-1.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)\..\Libraries\glfw-3.2.1.bin.WIN64\lib-vc2015;$(VULKAN_SDK)\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
