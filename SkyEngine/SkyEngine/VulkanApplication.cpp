@@ -392,14 +392,21 @@ void VulkanApplication::createDescriptorSetLayout() {
     /// Compute
     //TODO: add camera descriptor set (uniform buffer) to this layout
 
-    VkDescriptorSetLayoutBinding computestorageBinding = {};
-    computestorageBinding.binding = 0;
-    computestorageBinding.descriptorCount = 1;
-    computestorageBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-    computestorageBinding.pImmutableSamplers = nullptr;
-    computestorageBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+    VkDescriptorSetLayoutBinding storageImageBinding_compute = {};
+    storageImageBinding_compute.binding = 0;
+    storageImageBinding_compute.descriptorCount = 1;
+    storageImageBinding_compute.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    storageImageBinding_compute.pImmutableSamplers = nullptr;
+    storageImageBinding_compute.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
-    std::array<VkDescriptorSetLayoutBinding, 1> bindings_compute = { computestorageBinding };
+    VkDescriptorSetLayoutBinding UBOLayoutBinding_compute = {};
+    UBOLayoutBinding_compute.binding = 1;
+    UBOLayoutBinding_compute.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    UBOLayoutBinding_compute.descriptorCount = 1;
+    UBOLayoutBinding_compute.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    UBOLayoutBinding_compute.pImmutableSamplers = nullptr;
+
+    std::array<VkDescriptorSetLayoutBinding, 2> bindings_compute = { storageImageBinding_compute, UBOLayoutBinding_compute };
 
     VkDescriptorSetLayoutCreateInfo layoutInfo_compute = {};
     layoutInfo_compute.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -452,10 +459,13 @@ void VulkanApplication::createDescriptorPool() {
 
     /// Compute
 
-    std::array<VkDescriptorPoolSize, 1> poolSizes_compute = {};
+    std::array<VkDescriptorPoolSize, 2> poolSizes_compute = {};
 
     poolSizes_compute[0].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
     poolSizes_compute[0].descriptorCount = 1;
+
+    poolSizes_compute[1].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    poolSizes_compute[1].descriptorCount = 1;
 
     VkDescriptorPoolCreateInfo poolInfo_compute = {};
     poolInfo_compute.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -552,17 +562,24 @@ void VulkanApplication::createDescriptorSet() {
         throw std::runtime_error("failed to allocate compute descriptor set!");
     }
 
+    std::array<VkWriteDescriptorSet, 2> computeWrites = {};
+    computeWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    computeWrites[0].dstSet = computeSet;
+    computeWrites[0].dstBinding = 0;
+    computeWrites[0].dstArrayElement = 0;
+    computeWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    computeWrites[0].descriptorCount = 1;
+    computeWrites[0].pImageInfo = &imageInfo2;
 
-    VkWriteDescriptorSet computeWrite = {};
-    computeWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    computeWrite.dstSet = computeSet;
-    computeWrite.dstBinding = 0;
-    computeWrite.dstArrayElement = 0;
-    computeWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-    computeWrite.descriptorCount = 1;
-    computeWrite.pImageInfo = &imageInfo2;
+    computeWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    computeWrites[1].dstSet = computeSet;
+    computeWrites[1].dstBinding = 1;
+    computeWrites[1].dstArrayElement = 0;
+    computeWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    computeWrites[1].descriptorCount = 1;
+    computeWrites[1].pBufferInfo = &bufferInfo;
 
-    vkUpdateDescriptorSets(device, 1, &computeWrite, 0, nullptr);
+    vkUpdateDescriptorSets(device, static_cast<uint32_t>(computeWrites.size()), computeWrites.data(), 0, nullptr);
 }
 
 
@@ -1250,8 +1267,7 @@ void VulkanApplication::createBackgroundPipeline() {
     if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &backgroundPipelineLayout) != VK_SUCCESS) {
         throw std::runtime_error("failed to create pipeline layout!");
     }
-
-
+    
     VkPipelineDepthStencilStateCreateInfo depthStencil = {};
     depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
     depthStencil.depthTestEnable = VK_TRUE;
