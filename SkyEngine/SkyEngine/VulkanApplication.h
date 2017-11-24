@@ -92,21 +92,27 @@ struct Vertex {
 };
 
 const std::vector<Vertex> screenQuad = {
-    { { -1.0f, -1.0f, 0.0f }, { 1.0f, 1.0f, 1.0f }, { 0.0f, 0.0f } },
-    { {  1.0f, -1.0f, 0.0f }, { 1.0f, 1.0f, 1.0f }, { 1.0f, 0.0f } },
-    { {  1.0f,  1.0f, 0.0f }, { 1.0f, 1.0f, 1.0f }, { 1.0f, 1.0f } },
-    { { -1.0f,  1.0f, 0.0f }, { 1.0f, 1.0f, 1.0f }, { 0.0f, 1.0f } }
+    { { -1.0f, -1.0f, 0.999f }, { 1.0f, 1.0f, 1.0f }, { 0.0f, 0.0f } },
+    { {  1.0f, -1.0f, 0.999f }, { 1.0f, 1.0f, 1.0f }, { 1.0f, 0.0f } },
+    { {  1.0f,  1.0f, 0.999f }, { 1.0f, 1.0f, 1.0f }, { 1.0f, 1.0f } },
+    { { -1.0f,  1.0f, 0.999f }, { 1.0f, 1.0f, 1.0f }, { 0.0f, 1.0f } }
 };
 
 const std::vector<Vertex> verticesQuad = {
     { { -0.5f, -0.5f, 0.0f }, { 1.0f, 0.0f, 0.0f }, {1.0f, 0.0f} },
     { {  0.5f, -0.5f, 0.0f }, { 0.0f, 1.0f, 0.0f }, {0.0f, 0.0f} },
     { {  0.5f,  0.5f, 0.0f }, { 0.0f, 0.0f, 1.0f }, {0.0f, 1.0f} },
-    { { -0.5f,  0.5f, 0.0f }, { 1.0f, 1.0f, 1.0f }, {1.0f, 1.0f} }
+    { { -0.5f,  0.5f, 0.0f }, { 1.0f, 1.0f, 1.0f }, {1.0f, 1.0f} },
+
+    { { -0.5f, -0.5f, -0.5f},  { 1.0f, 0.0f, 0.0f }, { 0.0f, 0.0f } },
+    { {  0.5f, -0.5f, -0.5f }, { 0.0f, 1.0f, 0.0f }, { 1.0f, 0.0f } },
+    { {  0.5f,  0.5f, -0.5f }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 1.0f } },
+    { { -0.5f,  0.5f, -0.5f }, { 1.0f, 1.0f, 1.0f }, { 0.0f, 1.0f } }
 };
 
 const std::vector<uint16_t> indices = {
-    0, 1, 2, 2, 3, 0
+    0, 1, 2, 2, 3, 0,
+    4, 5, 6, 6, 7, 4
 };
 
 const std::vector<uint16_t> quadIndices = {
@@ -291,9 +297,12 @@ private:
     VkDescriptorPool backgroundDescriptorPool;
     VkDescriptorPool computeDescriptorPool;
 
+    // TODO: convenient way of managing textures
     void initializeTextures();
     Texture* meshTexture;
     Texture* backgroundTexture;
+    Texture* depthTexture;
+
     void cleanupTextures();
 
 #if _DEBUG

@@ -10,6 +10,23 @@ void Texture::cleanup() {
     vkFreeMemory(device, textureImageMemory, nullptr);
 }
 
+
+VkFormat Texture::findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) {
+    for (VkFormat format : candidates) {
+        VkFormatProperties props;
+        vkGetPhysicalDeviceFormatProperties(physicalDevice, format, &props);
+
+        if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features) {
+            return format;
+        }
+        else if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features) {
+            return format;
+        }
+    }
+
+    throw std::runtime_error("failed to find supported format!");
+}
+
 void Texture::createSampler() {
     VkSamplerCreateInfo samplerInfo = {};
     samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -57,6 +74,17 @@ void Texture::transitionImageLayout(VkImage image, VkFormat format, VkImageLayou
     VkPipelineStageFlags sourceStage;
     VkPipelineStageFlags destinationStage;
 
+    if (newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
+        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+
+        if (imageFormat == VK_FORMAT_D32_SFLOAT_S8_UINT || imageFormat == VK_FORMAT_D24_UNORM_S8_UINT) {
+            barrier.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+        }
+    }
+    else {
+        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    }
+
     if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
         barrier.srcAccessMask = 0;
         barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
@@ -75,6 +103,12 @@ void Texture::transitionImageLayout(VkImage image, VkFormat format, VkImageLayou
 
         sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
         destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    } else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
+        barrier.srcAccessMask = 0;
+        barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+        sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
     } else {
         throw std::invalid_argument("unsupported layout transition!");
     }
@@ -125,7 +159,7 @@ void Texture::createImageView() {
     viewInfo.image = textureImage;
     viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
     viewInfo.format = imageFormat;
-    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT; //VK_IMAGE_USAGE_STORAGE_BIT
+    viewInfo.subresourceRange.aspectMask = usageBit; //VK_IMAGE_USAGE_STORAGE_BIT
     viewInfo.subresourceRange.baseMipLevel = 0;
     viewInfo.subresourceRange.levelCount = 1;
     viewInfo.subresourceRange.baseArrayLayer = 0;
@@ -177,7 +211,8 @@ void Texture::createImage(uint32_t width, uint32_t height, VkImageUsageFlags usa
 }
 
 void Texture::initFromFile(std::string path) {
-    
+    if (initialized) return;
+
     stbi_uc* pixels = stbi_load(path.c_str(), &width, &height, &channels, STBI_rgb_alpha);
     VkDeviceSize imageSize = width * height * 4;
 
@@ -208,9 +243,13 @@ void Texture::initFromFile(std::string path) {
 
     createImageView();
     createSampler();
+
+    initialized = true;
 }
 
 void Texture::initForStorage(VkExtent2D extent) {
+    if (initialized) return;
+
     width = extent.width;
     height = extent.height;
     channels = 4; // RGBA
@@ -222,4 +261,30 @@ void Texture::initForStorage(VkExtent2D extent) {
 
     createImageView();
     createSampler();
+
+    initialized = true;
+}
+
+// TODO: give a usage bit as argument and switch from there for other attachments
+void Texture::initForDepthAttachment(VkExtent2D extent) {
+    if (initialized) return;
+    usageBit = VK_IMAGE_ASPECT_DEPTH_BIT;
+    imageFormat = findSupportedFormat( { VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT },
+        VK_IMAGE_TILING_OPTIMAL,
+        VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
+        );
+
+    bool hasStencil = imageFormat == VK_FORMAT_D32_SFLOAT_S8_UINT || imageFormat == VK_FORMAT_D24_UNORM_S8_UINT;
+
+    width = extent.width;
+    height = extent.height;
+    channels = hasStencil ? 2 : 1;
+
+    createImage(width, height, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, imageFormat, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    transitionImageLayout(textureImage, imageFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+
+    createImageView();
+    createSampler(); // probably not necessary
+
+    initialized = true;
 }

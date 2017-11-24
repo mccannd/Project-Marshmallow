@@ -1,9 +1,5 @@
 #include "VulkanApplication.h"
 
-
-//#define STB_IMAGE_IMPLEMENTATION
-//#include <stb_image.h>
-
 /// --- callback proxy functions
 VkResult CreateDebugReportCallbackEXT(VkInstance instance, const VkDebugReportCallbackCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugReportCallbackEXT* pCallback) {
     auto func = (PFN_vkCreateDebugReportCallbackEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugReportCallbackEXT");
@@ -53,15 +49,20 @@ void VulkanApplication::initVulkan() {
     createLogicalDevice();
     createSwapChain(); 
     createImageViews();
+
+    //
+
     createRenderPass();
     createDescriptorSetLayout();
     createGraphicsPipeline();
     createBackgroundPipeline();
     createComputePipeline();
-    createFramebuffers();
     createCommandPool();
-
+    //initializeDepthTexture();
+    
     initializeTextures();
+
+    createFramebuffers(); // must come after so depth texture is initialized
 
     createVertexBuffer(); // TODO: mesh class
     createIndexBuffer(); // TODO
@@ -262,13 +263,17 @@ void VulkanApplication::drawFrame() {
 void VulkanApplication::initializeTextures() {
     meshTexture = new Texture(device, physicalDevice, commandPool, graphicsQueue);
     meshTexture->initFromFile("Textures/tilesColor.png");
-    backgroundTexture = new Texture(device, physicalDevice, commandPool, graphicsQueue);
+    backgroundTexture = new Texture(device, physicalDevice, commandPool, graphicsQueue); // compute queue?
     backgroundTexture->initForStorage(swapChainExtent);
+    depthTexture = new Texture(device, physicalDevice, commandPool, graphicsQueue);
+    depthTexture->initForDepthAttachment(swapChainExtent);
 }
 
+// TODO: management
 void VulkanApplication::cleanupTextures() {
     delete meshTexture;
     delete backgroundTexture;
+    delete depthTexture;
 }
 
 void VulkanApplication::updateUniformBuffer() {
@@ -951,6 +956,30 @@ VkShaderModule createShaderModule(const std::vector<char>& code, VkDevice device
     return shaderModule;
 }
 
+// TODO: get this out
+VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features, VkPhysicalDevice physicalDevice) {
+    for (VkFormat format : candidates) {
+        VkFormatProperties props;
+        vkGetPhysicalDeviceFormatProperties(physicalDevice, format, &props);
+
+        if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features) {
+            return format;
+        }
+        else if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features) {
+            return format;
+        }
+    }
+
+    throw std::runtime_error("failed to find supported format!");
+}
+
+VkFormat findDepthFormat(VkPhysicalDevice physicalDevice) {
+    return findSupportedFormat(
+    { VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT },
+        VK_IMAGE_TILING_OPTIMAL,
+        VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT, physicalDevice
+        );
+}
 void VulkanApplication::createRenderPass() {
     VkAttachmentDescription colorAttachment = {};
     colorAttachment.format = swapChainImageFormat;
@@ -966,10 +995,25 @@ void VulkanApplication::createRenderPass() {
     colorAttachmentRef.attachment = 0; // shader does layout(location = 0) for color!
     colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
+    VkAttachmentDescription depthAttachment = {};
+    depthAttachment.format = findDepthFormat(physicalDevice); // depthTexture->getFormat(); << made out of order
+    depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+    depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+    VkAttachmentReference depthAttachmentRef = {};
+    depthAttachmentRef.attachment = 1;
+    depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
     VkSubpassDescription subpass = {};
     subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
     subpass.colorAttachmentCount = 1;
     subpass.pColorAttachments = &colorAttachmentRef;
+    subpass.pDepthStencilAttachment = &depthAttachmentRef;
 
     VkSubpassDependency dependency = {};
     dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
@@ -979,10 +1023,12 @@ void VulkanApplication::createRenderPass() {
     dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
     dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 
+    std::array<VkAttachmentDescription, 2> attachments = { colorAttachment, depthAttachment };
+
     VkRenderPassCreateInfo renderPassInfo = {};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-    renderPassInfo.attachmentCount = 1;
-    renderPassInfo.pAttachments = &colorAttachment;
+    renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+    renderPassInfo.pAttachments = attachments.data();
     renderPassInfo.subpassCount = 1;
     renderPassInfo.pSubpasses = &subpass;
     renderPassInfo.dependencyCount = 1;
@@ -1076,7 +1122,7 @@ void VulkanApplication::createGraphicsPipeline() {
     rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
     rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
     // TODO: reexamine this for deferred depth...
-    rasterizer.depthBiasEnable = VK_FALSE;
+    rasterizer.depthBiasEnable = VK_TRUE;
     rasterizer.depthBiasConstantFactor = 0.0f; // Optional
     rasterizer.depthBiasClamp = 0.0f; // Optional
     rasterizer.depthBiasSlopeFactor = 0.0f; // Optional
@@ -1125,6 +1171,19 @@ void VulkanApplication::createGraphicsPipeline() {
         throw std::runtime_error("failed to create pipeline layout!");
     }
 
+    // Initialize depth pass
+    VkPipelineDepthStencilStateCreateInfo depthStencil = {};
+    depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    depthStencil.depthTestEnable = VK_TRUE;
+    depthStencil.depthWriteEnable = VK_TRUE;
+    depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
+    depthStencil.depthBoundsTestEnable = VK_FALSE;
+    depthStencil.minDepthBounds = 0.0f; // Optional
+    depthStencil.maxDepthBounds = 1.0f; // Optional
+    depthStencil.stencilTestEnable = VK_FALSE;
+    depthStencil.front = {}; // Optional
+    depthStencil.back = {}; // Optional
+
     VkGraphicsPipelineCreateInfo pipelineInfo = {};
     pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
     pipelineInfo.stageCount = 2;
@@ -1134,7 +1193,7 @@ void VulkanApplication::createGraphicsPipeline() {
     pipelineInfo.pViewportState = &viewportState;
     pipelineInfo.pRasterizationState = &rasterizer;
     pipelineInfo.pMultisampleState = &multisampling;
-    pipelineInfo.pDepthStencilState = nullptr; // Optional
+    pipelineInfo.pDepthStencilState = &depthStencil;
     pipelineInfo.pColorBlendState = &colorBlending;
     pipelineInfo.pDynamicState = nullptr; // Optional
     pipelineInfo.layout = graphicsPipelineLayout;
@@ -1223,7 +1282,7 @@ void VulkanApplication::createBackgroundPipeline() {
     rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
     // TODO: reexamine this for deferred depth...
     rasterizer.depthBiasEnable = VK_TRUE;
-    rasterizer.depthBiasConstantFactor = 0.999f; // Optional
+    rasterizer.depthBiasConstantFactor = 0.0f; // Optional
     rasterizer.depthBiasClamp = 0.0f; // Optional
     rasterizer.depthBiasSlopeFactor = 0.0f; // Optional
     rasterizer.lineWidth = 1.0f;
@@ -1271,6 +1330,19 @@ void VulkanApplication::createBackgroundPipeline() {
         throw std::runtime_error("failed to create pipeline layout!");
     }
 
+
+    VkPipelineDepthStencilStateCreateInfo depthStencil = {};
+    depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    depthStencil.depthTestEnable = VK_TRUE;
+    depthStencil.depthWriteEnable = VK_TRUE;
+    depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
+    depthStencil.depthBoundsTestEnable = VK_FALSE;
+    depthStencil.minDepthBounds = 0.0f; // Optional
+    depthStencil.maxDepthBounds = 1.0f; // Optional
+    depthStencil.stencilTestEnable = VK_FALSE;
+    depthStencil.front = {}; // Optional
+    depthStencil.back = {}; // Optional
+
     VkGraphicsPipelineCreateInfo pipelineInfo = {};
     pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
     pipelineInfo.stageCount = 2;
@@ -1280,7 +1352,7 @@ void VulkanApplication::createBackgroundPipeline() {
     pipelineInfo.pViewportState = &viewportState;
     pipelineInfo.pRasterizationState = &rasterizer;
     pipelineInfo.pMultisampleState = &multisampling;
-    pipelineInfo.pDepthStencilState = nullptr; // Optional
+    pipelineInfo.pDepthStencilState = &depthStencil;
     pipelineInfo.pColorBlendState = &colorBlending;
     pipelineInfo.pDynamicState = nullptr; // Optional
     pipelineInfo.layout = backgroundPipelineLayout;
@@ -1423,6 +1495,10 @@ void VulkanApplication::createCommandBuffers() {
 
         vkBeginCommandBuffer(commandBuffers[i], &beginInfo);
 
+        std::array<VkClearValue, 2> clearValues = {};
+        clearValues[0].color = { 0.0f, 0.0f, 0.0f, 1.0f };
+        clearValues[1].depthStencil = { 1.0f, 0 };
+
         // Actual render pass creation
         VkRenderPassBeginInfo renderPassInfo = {};
         renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -1431,9 +1507,10 @@ void VulkanApplication::createCommandBuffers() {
         renderPassInfo.renderArea.offset = { 0, 0 };
         renderPassInfo.renderArea.extent = swapChainExtent;
         VkClearValue clearColor = { 0.0f, 0.0f, 0.0f, 1.0f };
-        renderPassInfo.clearValueCount = 1;
-        renderPassInfo.pClearValues = &clearColor;
+        renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+        renderPassInfo.pClearValues = clearValues.data();
         
+
         // Render pass recording. This is only done once.
         vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
@@ -1447,7 +1524,6 @@ void VulkanApplication::createCommandBuffers() {
         vkCmdBindIndexBuffer(commandBuffers[i], backgroundIndexBuffer, 0, VK_INDEX_TYPE_UINT16);
         vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(quadIndices.size()), 1, 0, 0, 0);
         /// Background end
-
 
         vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
         
@@ -1498,7 +1574,7 @@ void VulkanApplication::createComputeCommandBuffer() {
     // TODO: dispatch according to the number of pixels, do in a 2d manner? see the raytracing example
     // first TODO: launch this compute shader for the triangle being rendered
     //const int IMAGE_SIZE = 32;
-    const glm::ivec2 texDims(1024, 1024);
+    const glm::ivec2 texDims(swapChainExtent.width, swapChainExtent.height);
     vkCmdDispatch(computeCommandBuffer, /*(uint32_t)ceil((3 + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE)*/ texDims.x / 16, texDims.y / 16, 1);
 
     // End recording
@@ -1511,15 +1587,16 @@ void VulkanApplication::createFramebuffers() {
     swapChainFramebuffers.resize(swapChainImageViews.size());
     // iterate through all image views and create frame buffers from them
     for (size_t i = 0; i < swapChainImageViews.size(); i++) {
-        VkImageView attachments[] = {
-            swapChainImageViews[i]
+        std::array<VkImageView, 2> attachments = {
+            swapChainImageViews[i],
+            depthTexture->textureImageView
         };
 
         VkFramebufferCreateInfo framebufferInfo = {};
         framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
         framebufferInfo.renderPass = renderPass;
-        framebufferInfo.attachmentCount = 1;
-        framebufferInfo.pAttachments = attachments;
+        framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+        framebufferInfo.pAttachments = attachments.data();
         framebufferInfo.width = swapChainExtent.width;
         framebufferInfo.height = swapChainExtent.height;
         framebufferInfo.layers = 1;
@@ -1729,3 +1806,6 @@ VkExtent2D VulkanApplication::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& c
         return actualExtent;
     }
 }
+
+// Depth Utilites. Since this takes place before the command pool is initialized, can't really use it in the pipeline
+// need to see if there is a better place to put all this
