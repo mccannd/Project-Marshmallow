@@ -6,6 +6,7 @@
 *.opendb
 *.tlog
 *.lastbuild
+*.suo
 Debug/
 Release/
 build
