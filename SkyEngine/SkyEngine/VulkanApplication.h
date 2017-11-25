@@ -24,7 +24,8 @@
 #include <chrono>
 
 #include "camera.h"
-#include "texture.h"
+#include "Texture.h"
+#include "Geometry.h"
 
 
 #define DEBUG_VALIDATION 1
@@ -51,72 +52,6 @@ struct UniformBufferObject {
     glm::mat4 model;
     glm::mat4 view;
     glm::mat4 proj;
-};
-
-// TODO: Move to a mesh class
-struct Vertex {
-    glm::vec3 pos;
-    glm::vec3 col;
-    glm::vec2 uv;
-
-    // rate to load data from memory throughout vertices
-    static VkVertexInputBindingDescription getBindingDescription() {
-        VkVertexInputBindingDescription bindingDescription = {};
-        bindingDescription.binding = 0;
-        bindingDescription.stride = sizeof(Vertex);
-        bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-        return bindingDescription;
-    }
-
-    // Set layout bindings for vertex struct to vertex shader
-    static std::array<VkVertexInputAttributeDescription, 3> getAttributeDescriptions() {
-        std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions = {};
-        attributeDescriptions[0].binding = 0;
-        attributeDescriptions[0].location = 0;
-        attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-        attributeDescriptions[0].offset = offsetof(Vertex, pos);
-
-        attributeDescriptions[1].binding = 0;
-        attributeDescriptions[1].location = 1;
-        attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-        attributeDescriptions[1].offset = offsetof(Vertex, col);
-
-        attributeDescriptions[2].binding = 0;
-        attributeDescriptions[2].location = 2;
-        attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
-        attributeDescriptions[2].offset = offsetof(Vertex, uv);
-
-        return attributeDescriptions;
-    }
-
-};
-
-const std::vector<Vertex> screenQuad = {
-    { { -1.0f, -1.0f, 0.999f }, { 1.0f, 1.0f, 1.0f }, { 0.0f, 0.0f } },
-    { {  1.0f, -1.0f, 0.999f }, { 1.0f, 1.0f, 1.0f }, { 1.0f, 0.0f } },
-    { {  1.0f,  1.0f, 0.999f }, { 1.0f, 1.0f, 1.0f }, { 1.0f, 1.0f } },
-    { { -1.0f,  1.0f, 0.999f }, { 1.0f, 1.0f, 1.0f }, { 0.0f, 1.0f } }
-};
-
-const std::vector<Vertex> verticesQuad = {
-    { { -0.5f, -0.5f, 0.0f }, { 1.0f, 0.0f, 0.0f }, {1.0f, 0.0f} },
-    { {  0.5f, -0.5f, 0.0f }, { 0.0f, 1.0f, 0.0f }, {0.0f, 0.0f} },
-    { {  0.5f,  0.5f, 0.0f }, { 0.0f, 0.0f, 1.0f }, {0.0f, 1.0f} },
-    { { -0.5f,  0.5f, 0.0f }, { 1.0f, 1.0f, 1.0f }, {1.0f, 1.0f} },
-
-    { { -0.5f, -0.5f, -0.5f},  { 1.0f, 0.0f, 0.0f }, { 0.0f, 0.0f } },
-    { {  0.5f, -0.5f, -0.5f }, { 0.0f, 1.0f, 0.0f }, { 1.0f, 0.0f } },
-    { {  0.5f,  0.5f, -0.5f }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 1.0f } },
-    { { -0.5f,  0.5f, -0.5f }, { 1.0f, 1.0f, 1.0f }, { 0.0f, 1.0f } }
-};
-
-const std::vector<uint16_t> indices = {
-    0, 1, 2, 2, 3, 0,
-    4, 5, 6, 6, 7, 4
-};
-
-const std::vector<uint16_t> quadIndices = {
-    0, 1, 2, 2, 3, 0
 };
 
 // TODO: Move this ASAP
@@ -278,6 +213,7 @@ private:
     void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
 
     // TODO: move to mesh class
+    /*
     void createVertexBuffer();
     void createIndexBuffer();
     VkBuffer vertexBuffer;
@@ -289,6 +225,12 @@ private:
     VkDeviceMemory backgroundMemory;
     VkBuffer backgroundIndexBuffer;
     VkDeviceMemory backgroundIndexBufferMemory;
+    */
+
+    Geometry* sceneGeometry;
+    Geometry* backgroundGeometry;
+    void initializeGeometry();
+    void cleanupGeometry();
 
     VkBuffer uniformBuffer;
     VkDeviceMemory uniformBufferMemory;

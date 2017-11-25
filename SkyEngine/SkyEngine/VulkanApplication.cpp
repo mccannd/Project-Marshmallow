@@ -50,22 +50,19 @@ void VulkanApplication::initVulkan() {
     createSwapChain(); 
     createImageViews();
 
-    //
-
     createRenderPass();
     createDescriptorSetLayout();
     createGraphicsPipeline();
     createBackgroundPipeline();
     createComputePipeline();
     createCommandPool();
-    //initializeDepthTexture();
     
     initializeTextures();
 
     createFramebuffers(); // must come after so depth texture is initialized
 
-    createVertexBuffer(); // TODO: mesh class
-    createIndexBuffer(); // TODO
+    initializeGeometry();
+
     createUniformBuffer(); // TODO
     createDescriptorPool();
     createDescriptorSet();
@@ -73,7 +70,6 @@ void VulkanApplication::initVulkan() {
     createComputeCommandBuffer();
     createSemaphores();
 
-    //mainCamera = Camera(glm::vec3(2.f, 2.f, 2.f), glm::vec3(0.f, 0.f, 0.f), 0.1f, 10.0f, 45.0f); dis is bad lul
     mainCamera = Camera(glm::vec3(0.f, 1.f, 1.f), glm::vec3(0.f, 0.f, 0.f), 0.1f, 10.0f, 45.0f);
 
     mainCamera.setAspect((float) swapChainExtent.width, (float)swapChainExtent.height);
@@ -124,10 +120,7 @@ void VulkanApplication::cleanup() {
     vkDestroyRenderPass(device, renderPass, nullptr);
     vkDestroySwapchainKHR(device, swapChain, nullptr);
 
-    vkDestroyBuffer(device, vertexBuffer, nullptr); // TODO
-    vkDestroyBuffer(device, indexBuffer, nullptr); // TODO
-    vkDestroyBuffer(device, backgroundBuffer, nullptr); // TODO
-    vkDestroyBuffer(device, backgroundIndexBuffer, nullptr); // TODO
+    cleanupGeometry();
 
     vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
     vkDestroyDescriptorSetLayout(device, backgroundSetLayout, nullptr);
@@ -138,11 +131,7 @@ void VulkanApplication::cleanup() {
     vkFreeMemory(device, uniformBufferMemory, nullptr); // TODO shader
 
     vkDestroyDescriptorPool(device, backgroundDescriptorPool, nullptr);
-    vkFreeMemory(device, vertexBufferMemory, nullptr); // TODO mesh
-    vkFreeMemory(device, indexBufferMemory, nullptr); // TODO mesh
-    vkFreeMemory(device, backgroundMemory, nullptr); // TODO mesh
-    vkFreeMemory(device, backgroundIndexBufferMemory, nullptr); // TODO mesh
-    
+
     vkDestroyDescriptorPool(device, computeDescriptorPool, nullptr);
 
     cleanupTextures();
@@ -274,6 +263,19 @@ void VulkanApplication::cleanupTextures() {
     delete meshTexture;
     delete backgroundTexture;
     delete depthTexture;
+}
+
+void VulkanApplication::initializeGeometry() {
+    sceneGeometry = new Geometry(device, physicalDevice, commandPool, graphicsQueue);
+    //sceneGeometry->setupAsQuad();
+    sceneGeometry->setupFromMesh("Models/lopolyLessCheek2.obj");
+    backgroundGeometry = new Geometry(device, physicalDevice, commandPool, graphicsQueue);
+    backgroundGeometry->setupAsBackgroundQuad();
+}
+
+void VulkanApplication::cleanupGeometry() {
+    delete sceneGeometry;
+    delete backgroundGeometry;
 }
 
 void VulkanApplication::updateUniformBuffer() {
@@ -585,87 +587,6 @@ VkImageView VulkanApplication::createImageView(VkImage image, VkFormat format) {
     return imageView;
 }
 
-// TODO: Move to mesh class
-void VulkanApplication::createVertexBuffer() {
-    VkDeviceSize bufferSize = sizeof(verticesQuad[0]) * verticesQuad.size();
-
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
-    createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
-
-    void* data;
-    vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
-    memcpy(data, verticesQuad.data(), (size_t)bufferSize);
-    vkUnmapMemory(device, stagingBufferMemory);
-
-    createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer, vertexBufferMemory);
-
-    copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
-
-    vkDestroyBuffer(device, stagingBuffer, nullptr);
-    vkFreeMemory(device, stagingBufferMemory, nullptr);
-
-    /// Background 
-    VkDeviceSize bufferSize2 = sizeof(screenQuad[0]) * screenQuad.size();
-
-    VkBuffer stagingBuffer2;
-    VkDeviceMemory stagingBufferMemory2;
-    createBuffer(bufferSize2, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer2, stagingBufferMemory2);
-
-    void* data2;
-    vkMapMemory(device, stagingBufferMemory2, 0, bufferSize2, 0, &data2);
-    memcpy(data2, screenQuad.data(), (size_t)bufferSize2);
-    vkUnmapMemory(device, stagingBufferMemory2);
-
-    createBuffer(bufferSize2, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, backgroundBuffer, backgroundMemory);
-
-    copyBuffer(stagingBuffer2, backgroundBuffer, bufferSize2);
-
-    vkDestroyBuffer(device, stagingBuffer2, nullptr);
-    vkFreeMemory(device, stagingBufferMemory2, nullptr);
-}
-
-// TODO: Move to mesh class
-void VulkanApplication::createIndexBuffer() {
-    VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
-
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
-    createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
-
-    void* data;
-    vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
-    memcpy(data, indices.data(), (size_t)bufferSize);
-    vkUnmapMemory(device, stagingBufferMemory);
-
-    // note that this is specified as an index buffer
-    createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, indexBufferMemory);
-
-    copyBuffer(stagingBuffer, indexBuffer, bufferSize);
-
-    vkDestroyBuffer(device, stagingBuffer, nullptr);
-    vkFreeMemory(device, stagingBufferMemory, nullptr);
-
-    /// Background (literally the same)
-    VkDeviceSize bufferSize2 = sizeof(indices[0]) * indices.size();
-
-    VkBuffer stagingBuffer2;
-    VkDeviceMemory stagingBufferMemory2;
-    createBuffer(bufferSize2, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer2, stagingBufferMemory2);
-
-    void* data2;
-    vkMapMemory(device, stagingBufferMemory2, 0, bufferSize2, 0, &data2);
-    memcpy(data2, indices.data(), (size_t)bufferSize2);
-    vkUnmapMemory(device, stagingBufferMemory2);
-
-    // note that this is specified as an index buffer
-    createBuffer(bufferSize2, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, backgroundIndexBuffer, backgroundIndexBufferMemory);
-
-    copyBuffer(stagingBuffer2, backgroundIndexBuffer, bufferSize2);
-
-    vkDestroyBuffer(device, stagingBuffer2, nullptr);
-    vkFreeMemory(device, stagingBufferMemory2, nullptr);
-}
 /// --- Vulkan Setup Functions
 
 void VulkanApplication::createInstance() {
@@ -1517,22 +1438,14 @@ void VulkanApplication::createCommandBuffers() {
         /// Background begin
         vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, backgroundPipeline);
 
-        VkBuffer backgroundBuffers[] = { backgroundBuffer };
-        VkDeviceSize offsetsBG[] = { 0 };
-        vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, backgroundBuffers, offsetsBG);
         vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, backgroundPipelineLayout, 0, 1, &backgroundSet, 0, nullptr);
-        vkCmdBindIndexBuffer(commandBuffers[i], backgroundIndexBuffer, 0, VK_INDEX_TYPE_UINT16);
-        vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(quadIndices.size()), 1, 0, 0, 0);
+        backgroundGeometry->enqueueDrawCommands(commandBuffers[i]);
         /// Background end
 
         vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
         
-        VkBuffer vertexBuffers[] = { vertexBuffer };
-        VkDeviceSize offsets[] = { 0 };
-        vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
         vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
-        vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT16);
-        vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
+        sceneGeometry->enqueueDrawCommands(commandBuffers[i]);
 
         vkCmdEndRenderPass(commandBuffers[i]);
 

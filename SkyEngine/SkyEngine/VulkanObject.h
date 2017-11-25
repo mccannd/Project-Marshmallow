@@ -3,6 +3,7 @@
 #include <GLFW/glfw3.h>
 #include <iostream>
 #include <vector>
+#include <array>
 
 // A collection of baseline functions for objects used with vulkan.
 // Utilities for buffers, memory, etc.

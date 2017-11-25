@@ -105,7 +105,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(SolutionDir)..\Libraries\glm;$(SolutionDir)..\Libraries\stb;$(SolutionDir)..\Libraries\glfw-3.2.1.bin-WIN64\include;$(VULKAN_SDK)\include;$(SolutionDir)\..\Libraries\glfw-3.2.1.bin.WIN64\include;$(SolutionDir)\..\Libraries\stb;$(VULKAN_SDK)\Include;$(SolutionDir)\..\Libraries\glm;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolitionDir)..\Libraries\tinyobj;$(SolitionDir)\..\Libraries\tinyobj;$(SolutionDir)..\Libraries\glm;$(SolutionDir)..\Libraries\stb;$(SolutionDir)..\Libraries\glfw-3.2.1.bin-WIN64\include;$(VULKAN_SDK)\include;$(SolutionDir)\..\Libraries\glfw-3.2.1.bin.WIN64\include;$(SolutionDir)\..\Libraries\stb;$(VULKAN_SDK)\Include;$(SolutionDir)\..\Libraries\glm;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -160,6 +160,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="camera.cpp" />
+    <ClCompile Include="Geometry.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Texture.cpp" />
     <ClCompile Include="VulkanApplication.cpp" />
@@ -167,6 +168,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="camera.h" />
+    <ClInclude Include="Geometry.h" />
     <ClInclude Include="Texture.h" />
     <ClInclude Include="VulkanApplication.h" />
     <ClInclude Include="VulkanObject.h" />
