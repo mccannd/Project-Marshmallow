@@ -1,7 +1,8 @@
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
 
-layout (local_size_x = 16, local_size_y = 16) in;
+#define WORKGROUP_SIZE 32
+layout (local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE) in;
 layout (binding = 0, rgba8) uniform writeonly image2D resultImage;
 
 layout (binding = 1) uniform UniformBufferObject {
@@ -13,7 +14,7 @@ layout (binding = 1) uniform UniformBufferObject {
 void main() {
 	// TODO: make cloudz
 
-    // Temporary compute shader impl
+    // Temporary compute shader implementation
     ivec2 dim = imageSize(resultImage);
 	vec2 uv = vec2(gl_GlobalInvocationID.xy) / dim;
     imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), vec4(uv, 0.0, 1.0));
