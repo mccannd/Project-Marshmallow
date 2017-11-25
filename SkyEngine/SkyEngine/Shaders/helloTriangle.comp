@@ -18,6 +18,14 @@ struct Intersection {
     float t;
 };
 
+#define ATMOSPHERE_RADIUS 1.0
+#define LIGHT_VEC normalize(vec3(1, 1, 0))
+
+// TODO: pass fovy as a descriptor set
+// Overall fovy of 75
+#define FOVY_OVER_2 37.5
+#define ASPECT_RATIO dim.x / dim.y
+
 // Compute sphere intersection
 Intersection raySphereIntersection(in vec3 ro, in vec3 rd, in vec4 sphere) {
 	Intersection isect;
@@ -57,13 +65,13 @@ void main() {
     /// Extract the UV
     ivec2 dim = imageSize(resultImage);
 	vec2 uv = vec2(gl_GlobalInvocationID.xy) / dim;
-    uv.y = 1.0 - uv.y;
+    //uv.y = 1.0 - uv.y;
 
     /// Cast a ray
     
     // Compute screen space point from UVs
     vec2 screenPoint = uv * 2.0 - 1.0;
-    //screenPoint.x *= dim.x / dim.y; // aspect ratio
+    //screenPoint.x *= dim.x / dim.y; // TODO: aspect ratio as uniform?
 
     // Extract camera information from uniform
     vec3 camRight = vec3(ubo.view[0][0], ubo.view[0][1], ubo.view[0][2]); // should normalize these but that could slow things down
@@ -71,16 +79,25 @@ void main() {
     vec3 camLook = vec3(ubo.view[2][0], ubo.view[2][1], ubo.view[2][2]);
 
     // Compute ray direction
-    vec3 refPoint = vec3(0);
-    refPoint += screenPoint.x * camRight + screenPoint.y * camUp;
     vec3 cameraPos = -ubo.view[3].xyz;
+    vec3 refPoint = cameraPos + vec3(0, 0, -1);
+
+    const float tanFovy = tan(FOVY_OVER_2);
+    vec3 screenH = tanFovy * camUp; // TODO should multiply by length(refPoint - cameraPos) if the refPoint changes
+    vec3 screenW = tanFovy * ASPECT_RATIO * camRight;
+
+    refPoint += screenPoint.x * screenW + screenPoint.y * screenH;
     vec3 rayDirection = normalize(refPoint - cameraPos);
 
     /// Raytrace the scene (a sphere, to become the atmosphere)
-    vec4 atmosphereSphere = vec4(/*cameraPos*/ vec3(0), 0.5); // centered at the camera, scale of 1.0
+    vec4 atmosphereSphere = vec4(/*cameraPos*/ vec3(0), ATMOSPHERE_RADIUS); // centered at the camera, scale of 1.0
     Intersection atmosphereIsect = raySphereIntersection(cameraPos, rayDirection, atmosphereSphere);
     
-    vec4 finalColor = vec4(atmosphereIsect.normal * float(atmosphereIsect.valid), 1);
+    // Lighting
+    float lambertTerm = dot(LIGHT_VEC, atmosphereIsect.normal * float(atmosphereIsect.valid));
+
+    vec4 finalColor = vec4(vec3(lambertTerm), 1);
+    //vec4 finalColor = vec4(rayDirection, 1);
     //vec4 finalColor = vec4(screenPoint, 0, 1);
 
     imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), finalColor);
