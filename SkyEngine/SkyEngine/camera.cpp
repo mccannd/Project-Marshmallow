@@ -130,9 +130,12 @@ void Camera::addYawLocal(float delta) {
 void Camera::addPitch(float delta) {
     if (m_lockedTarget) return;
     glm::mat3 rot = angleAxis(glm::normalize(glm::cross(m_forward, glm::vec3(0, 1, 0))), delta);
-    m_forward = glm::normalize(rot * m_forward);
-    m_up = glm::normalize(rot * m_up);
-    m_right = glm::normalize(rot * m_right);
+    glm::vec3 newForward = glm::normalize(rot * m_forward);
+    if (1.0f - abs(newForward.y) > 0.01) {
+        m_forward = newForward;
+        m_up = glm::normalize(rot * m_up);
+        m_right = glm::normalize(rot * m_right);
+    }
 }
 
 void Camera::addYaw(float delta) {
