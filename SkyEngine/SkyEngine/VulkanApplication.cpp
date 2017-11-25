@@ -1504,7 +1504,7 @@ void VulkanApplication::createComputeCommandBuffer() {
     // first TODO: launch this compute shader for the triangle being rendered
     //const int IMAGE_SIZE = 32;
     const glm::ivec2 texDims(swapChainExtent.width, swapChainExtent.height);
-    vkCmdDispatch(computeCommandBuffer, /*(uint32_t)ceil((3 + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE)*/ texDims.x / 16, texDims.y / 16, 1);
+    vkCmdDispatch(computeCommandBuffer, texDims.x / WORKGROUP_SIZE, texDims.y / WORKGROUP_SIZE, 1);
 
     // End recording
     if (vkEndCommandBuffer(computeCommandBuffer) != VK_SUCCESS) {
