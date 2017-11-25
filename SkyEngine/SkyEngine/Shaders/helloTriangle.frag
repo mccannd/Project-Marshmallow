@@ -12,10 +12,13 @@ layout(location = 0) out vec4 outColor;
 
 void main() {
     vec3 col = texture(texColor, fragUV).xyz;
+    vec3 N = normalize(fragNormal);
     col *= fragColor;
 
-    float lighting = max(0.1, dot(fragNormal, vec3(0, 1, 0)));
+    float lighting = max(0.1, dot(N, vec3(0, 1, 0)));
     col *= lighting;
+
+    col = 0.5 + 0.5 * N;
 
     outColor = vec4(col, 1.0);
 }

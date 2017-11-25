@@ -28,5 +28,5 @@ void main() {
     fragUV = inUV;
 	fragColor = inColor;
     fragPosition = (ubo.view * vec4(inPosition, 1.0)).xyz;
-    fragNormal = (ubo.view * vec4(inNormal, 0.0)).xyz;
+    fragNormal = normalize((ubo.view * vec4(inNormal, 0.0)).xyz);
 }

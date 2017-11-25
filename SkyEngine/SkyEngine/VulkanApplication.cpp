@@ -268,7 +268,7 @@ void VulkanApplication::cleanupTextures() {
 void VulkanApplication::initializeGeometry() {
     sceneGeometry = new Geometry(device, physicalDevice, commandPool, graphicsQueue);
     //sceneGeometry->setupAsQuad();
-    sceneGeometry->setupFromMesh("Models/lopolyLessCheek2.obj");
+    sceneGeometry->setupFromMesh("Models/DisplayCube.obj");
     backgroundGeometry = new Geometry(device, physicalDevice, commandPool, graphicsQueue);
     backgroundGeometry->setupAsBackgroundQuad();
 }
