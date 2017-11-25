@@ -7,6 +7,7 @@
 *.tlog
 *.lastbuild
 *.suo
+*.spv
 Debug/
 Release/
 build

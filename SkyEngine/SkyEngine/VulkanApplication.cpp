@@ -403,7 +403,7 @@ void VulkanApplication::createDescriptorSetLayout() {
     UBOLayoutBinding_compute.binding = 1;
     UBOLayoutBinding_compute.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     UBOLayoutBinding_compute.descriptorCount = 1;
-    UBOLayoutBinding_compute.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    UBOLayoutBinding_compute.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
     UBOLayoutBinding_compute.pImmutableSamplers = nullptr;
 
     std::array<VkDescriptorSetLayoutBinding, 2> bindings_compute = { storageImageBinding_compute, UBOLayoutBinding_compute };
