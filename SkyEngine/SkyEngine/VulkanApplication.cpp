@@ -37,6 +37,10 @@ void VulkanApplication::initWindow() {
 
     glfwSetWindowUserPointer(window, this);
     glfwSetWindowSizeCallback(window, VulkanApplication::onWindowResized);
+
+    mainCamera = Camera(glm::vec3(0.f, 1.f, 1.f), glm::vec3(0.f, 0.f, 0.f), 0.1f, 10.0f, 45.0f);
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
 }
 
 void VulkanApplication::initVulkan() {
@@ -69,8 +73,6 @@ void VulkanApplication::initVulkan() {
     createCommandBuffers();
     createComputeCommandBuffer();
     createSemaphores();
-
-    mainCamera = Camera(glm::vec3(0.f, 1.f, 1.f), glm::vec3(0.f, 0.f, 0.f), 0.1f, 10.0f, 45.0f);
 
     mainCamera.setAspect((float) swapChainExtent.width, (float)swapChainExtent.height);
 }
@@ -171,18 +173,10 @@ void VulkanApplication::processInputs() {
     if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
         mainCamera.movePosition(Camera::DOWN, deltaTime);
 
-    // TODO: mouse callback instead
-    if (glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS)
-        mainCamera.addPitch(deltaTime * -50.0f);
-    // TODO: mouse callback instead
-    if (glfwGetKey(window, GLFW_KEY_P) == GLFW_PRESS)
-        mainCamera.addPitch(deltaTime * 50.0f);
-    // TODO: mouse callback instead
-    if (glfwGetKey(window, GLFW_KEY_K) == GLFW_PRESS)
-        mainCamera.addYaw(deltaTime * -50.0f);
-    // TODO: mouse callback instead
-    if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS)
-        mainCamera.addYaw(deltaTime * 50.0f);
+    double xPos, yPos;
+    glfwGetCursorPos(window, &xPos, &yPos);
+
+    mainCamera.mouseRotate(xPos, yPos);
 }
 
 void VulkanApplication::drawFrame() {

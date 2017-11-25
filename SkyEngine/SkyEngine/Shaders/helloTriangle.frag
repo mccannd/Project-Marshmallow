@@ -18,7 +18,7 @@ void main() {
     float lighting = max(0.1, dot(N, vec3(0, 1, 0)));
     col *= lighting;
 
-    col = 0.5 + 0.5 * N;
+    //col = 0.5 + 0.5 * N;
 
     outColor = vec4(col, 1.0);
 }

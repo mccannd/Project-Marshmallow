@@ -201,3 +201,24 @@ void Camera::endTarget()
 {
 	m_lockedTarget = false;
 }
+
+void Camera::mouseRotate(double x, double y) {
+    if (firstMouse)
+    {
+        lastX = x;
+        lastY = y;
+        firstMouse = false;
+    }
+
+    float xoffset = x - lastX;
+    float yoffset = y - lastY; // borf
+    lastX = x;
+    lastY = y;
+
+    float sensitivity = 0.1f; // change this value to your liking
+    xoffset *= sensitivity;
+    yoffset *= sensitivity;
+
+    addPitch(yoffset);
+    addYaw(xoffset);
+}

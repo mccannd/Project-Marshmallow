@@ -2,6 +2,9 @@
 #include <glm\gtc\matrix_transform.hpp>
 #include <glm\gtc\type_ptr.hpp>
 
+#define GLFW_INCLUDE_VULKAN
+#include <GLFW/glfw3.h>
+
 #ifndef GLM_FORCE_RADIANS
 #define GLM_FORCE_RADIANS
 #endif // !GLM_FORCE_RADIANS
@@ -33,6 +36,10 @@ private:
 
 	bool m_lockedTarget = false;
 	glm::vec3 m_target;
+
+    double lastY;
+    double lastX;
+    bool firstMouse = true;
 
 public:
 	enum directions {
@@ -67,5 +74,7 @@ public:
 
 	void beginTarget(const glm::vec3 &target);
 	void endTarget();
+
+    void mouseRotate(double x, double y);
 };
 
