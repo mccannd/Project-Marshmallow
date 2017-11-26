@@ -20,12 +20,14 @@ struct Intersection {
 
 #define ATMOSPHERE_RADIUS 10.0
 #define LIGHT_VEC normalize(vec3(1, 1, 0))
+#define BLOB_CLOUD_STEP_SIZE 0.05
+#define NUM_FBM_OCTAVES 4
 
-#define VISUALIZE_NOISE
+//#define VISUALIZE_NOISE
 
 // TODO: pass fovy as a descriptor set
-// Overall fovy of 75
-#define FOVY_OVER_2 37.5
+// Overall fovy of 45
+#define FOVY_OVER_2 22.5
 #define ASPECT_RATIO dim.x / dim.y
 
 // Compute sphere intersection
@@ -38,6 +40,7 @@ Intersection raySphereIntersection(in vec3 ro, in vec3 rd, in vec4 sphere) {
     // no rotation, always a sphere
     ro -= sphere.xyz;
     ro /= sphere.w;
+    rd /= sphere.w;
     
     float A = dot(rd, rd);
     float B = 2.0 * dot(rd, ro);
@@ -71,10 +74,11 @@ float interpolateNoise(vec2 p) {
     vec2 p_fract = p - p_floor;
 
     // Sample the noise function at grid intervals
+    vec2 offset = vec2(0.0, 1.0);
     float noise00 = noise(p_floor);
-    float noise01 = noise(p_floor + vec2(0.0, 1.0));
-    float noise10 = noise(p_floor + vec2(1.0, 0.0));
-    float noise11 = noise(p_floor + vec2(1.0, 1.0));
+    float noise01 = noise(p_floor + offset);
+    float noise10 = noise(p_floor + offset.yx);
+    float noise11 = noise(p_floor + offset.yy);
 
     // Bilinearly interpolate
     float noise_x1 = mix(noise00, noise10, p_fract.x);
@@ -90,15 +94,14 @@ float FBM(vec2 p) {
     float maxVal = 0.0;
     float accumNoise = 0.0;
 
-    const int numOctaves = 1;
-    for(int i = 0; i < numOctaves; ++i) {
+    for(int i = 0; i < NUM_FBM_OCTAVES; ++i) {
         accumNoise += interpolateNoise(p * frequency) * amplitude;
         maxVal += amplitude;
         amplitude *= persistence;
         frequency *= 2.0;
     }
 
-    return accumNoise / maxVal;
+    return accumNoise / maxVal - 0.5;
 }
 
 void main() {
@@ -116,7 +119,7 @@ void main() {
     
     // Compute screen space point from UVs
     vec2 screenPoint = uv * 2.0 - 1.0;
-    //screenPoint.x *= dim.x / dim.y; // TODO: aspect ratio as uniform?
+    //screenPoint.x *= dim.x / dim.y; // TODO: aspect ratio as uniform
 
     // Extract camera information from uniform
     vec3 camRight = vec3(ubo.view[0][0], ubo.view[0][1], ubo.view[0][2]); // should normalize these but that could slow things down
@@ -135,19 +138,47 @@ void main() {
     vec3 rayDirection = normalize(refPoint - cameraPos);
 
     /// Raytrace the scene (a sphere, to become the atmosphere)
-    vec4 atmosphereSphere = vec4(cameraPos, ATMOSPHERE_RADIUS); // centered at the camera, scale of 1.0
-    Intersection atmosphereIsect = raySphereIntersection(cameraPos, rayDirection, atmosphereSphere);
+    vec4 atmosphereSphereInner = vec4(cameraPos, ATMOSPHERE_RADIUS);
+    vec4 atmosphereSphereOuter = vec4(cameraPos, ATMOSPHERE_RADIUS * 2.0);
+    Intersection atmosphereIsectInner = raySphereIntersection(cameraPos, rayDirection, atmosphereSphereInner);
+    Intersection atmosphereIsectOuter = raySphereIntersection(cameraPos, rayDirection, atmosphereSphereOuter);
     
+    // Preliminary and not physically-based volume integration
+    float t, dt;
+    float accumDensity = 0.0;
+    dt = BLOB_CLOUD_STEP_SIZE;
+
+    for(float t = atmosphereIsectInner.t; t < atmosphereIsectOuter.t; t += dt) {
+        vec3 currentPos = cameraPos + t * rayDirection;
+        float density = FBM(currentPos.xz);
+
+        // Compute the light contribution using Lambertian shading and directional derivative
+        // http://www.iquilezles.org/www/articles/derivative/derivative.htm
+        //accumDensity += FBM((currentPos + BLOB_CLOUD_STEP_SIZE * LIGHT_VEC).xz) - density;
+
+        accumDensity += density;
+        
+        if(accumDensity > 0.99) {
+            break;
+        }
+    }
+
     // Lighting
-    float lambertTerm = dot(LIGHT_VEC, atmosphereIsect.normal * float(atmosphereIsect.valid));
+    //float lambertTerm = dot(LIGHT_VEC, atmosphereIsectInner.normal * float(atmosphereIsectInner.valid));
     #endif
     
     vec4 finalColor;
     #ifdef VISUALIZE_NOISE
     finalColor = vec4(noiseVal, noiseVal, noiseVal, 1);
     #else
-    finalColor = vec4(vec3(lambertTerm), 1);
+    finalColor = vec4(accumDensity, accumDensity, accumDensity, 1);
     #endif
+
+    // TODO: currently not sure if the ray intersection test with spheres is working because the resulting t values dont seem right
+    //float t_diff = atmosphereIsectOuter.t - atmosphereIsectInner.t;
+    //t_diff /= 20.0;
+    //finalColor = vec4(t_diff, t_diff, t_diff, 1.0);
+    //finalColor = vec4(lambertTerm, lambertTerm, lambertTerm, 1.0);
 
     imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), finalColor);
 }
