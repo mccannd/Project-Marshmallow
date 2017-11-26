@@ -1,14 +1,178 @@
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
 
-layout (local_size_x = 16, local_size_y = 16) in;
+#define WORKGROUP_SIZE 32
+layout (local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE) in;
 layout (binding = 0, rgba8) uniform writeonly image2D resultImage;
+
+layout (binding = 1) uniform UniformBufferObject {
+    mat4 model;
+    mat4 view;
+    mat4 proj;
+} ubo;
+
+struct Intersection {
+    vec3 normal;
+    vec3 point;
+    bool valid;
+    float t;
+};
+
+#define ATMOSPHERE_RADIUS 10.0
+#define LIGHT_VEC normalize(vec3(1, 1, 0))
+#define BLOB_CLOUD_STEP_SIZE 0.1
+#define NUM_FBM_OCTAVES 4
+
+//#define VISUALIZE_NOISE
+
+// TODO: pass fovy as a descriptor set
+// Overall fovy of 45
+#define FOVY_OVER_2 22.5
+#define ASPECT_RATIO dim.x / dim.y
+
+// Compute sphere intersection
+Intersection raySphereIntersection(in vec3 ro, in vec3 rd, in vec4 sphere) {
+	Intersection isect;
+    isect.valid = false;
+    isect.point = vec3(0);
+    isect.normal = vec3(0, 1, 0);
+    
+    // no rotation, always a sphere
+    ro -= sphere.xyz;
+    ro /= sphere.w;
+    rd /= sphere.w;
+    
+    float A = dot(rd, rd);
+    float B = 2.0 * dot(rd, ro);
+    float C = dot(ro, ro) - 0.25;
+    float discriminant = B * B - 4.0 * A * C;
+    
+    if (discriminant < 0.0) return isect;
+    float t = (sqrt(discriminant) - B) / A * 0.5;
+    if (t < 0.0) t = (-sqrt(discriminant) - B) / A * 0.5;
+    
+    if (t >= 0.0) {
+        isect.valid = true;
+    	vec3 p = vec3(ro + rd * t);
+        isect.normal = normalize(p);
+        p *= sphere.w;
+        p += sphere.xyz;
+        isect.point = p;
+        isect.t = t;
+    }
+    
+    return isect;
+}
+
+// Procedural noise function for Fractal Brownian Motion taken from here: https://thebookofshaders.com/13/
+float noise(vec2 p) { 
+    return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453123);
+}
+
+float interpolateNoise(vec2 p) {
+    vec2 p_floor = floor(p);
+    vec2 p_fract = p - p_floor;
+
+    // Sample the noise function at grid intervals
+    vec2 offset = vec2(0.0, 1.0);
+    float noise00 = noise(p_floor);
+    float noise01 = noise(p_floor + offset);
+    float noise10 = noise(p_floor + offset.yx);
+    float noise11 = noise(p_floor + offset.yy);
+
+    // Bilinearly interpolate
+    float noise_x1 = mix(noise00, noise10, p_fract.x);
+    float noise_x2 = mix(noise01, noise11, p_fract.x);
+
+    return mix(noise_x1, noise_x2, p_fract.y);
+}
+
+float FBM(vec2 p) {
+    float amplitude = 1.0;
+    float frequency = 1.0;
+    const float persistence = 0.5;
+    float maxVal = 0.0;
+    float accumNoise = 0.0;
+
+    for(int i = 0; i < NUM_FBM_OCTAVES; ++i) {
+        accumNoise += interpolateNoise(p * frequency) * amplitude;
+        maxVal += amplitude;
+        amplitude *= persistence;
+        frequency *= 2.0;
+    }
+
+    return accumNoise / maxVal - 0.5;
+}
 
 void main() {
 	// TODO: make cloudz
 
-    // Temporary compute shader impl
+    /// Extract the UV
     ivec2 dim = imageSize(resultImage);
 	vec2 uv = vec2(gl_GlobalInvocationID.xy) / dim;
-    imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), vec4(uv, 0.0, 1.0));
+
+    #ifdef VISUALIZE_NOISE
+    /// Compute noise blob clouds
+    float noiseVal = FBM(gl_GlobalInvocationID.xy * 0.015625);
+    #else
+    /// Cast a ray
+    
+    // Compute screen space point from UVs
+    vec2 screenPoint = uv * 2.0 - 1.0;
+    //screenPoint.x *= dim.x / dim.y; // TODO: aspect ratio as uniform
+
+    // Extract camera information from uniform
+    vec3 camRight = vec3(ubo.view[0][0], ubo.view[0][1], ubo.view[0][2]); // should normalize these but that could slow things down
+    vec3 camUp = vec3(ubo.view[1][0], ubo.view[1][1], ubo.view[1][2]);
+    vec3 camLook = vec3(ubo.view[2][0], ubo.view[2][1], ubo.view[2][2]);
+
+    // Compute ray direction
+    vec3 cameraPos = -ubo.view[3].xyz;
+    vec3 refPoint = cameraPos + vec3(0, 0, -1);
+
+    const float tanFovy = tan(FOVY_OVER_2);
+    vec3 screenH = tanFovy * camUp; // TODO should multiply by length(refPoint - cameraPos) if the refPoint changes
+    vec3 screenW = tanFovy * ASPECT_RATIO * camRight;
+
+    refPoint += screenPoint.x * screenW + screenPoint.y * screenH;
+    vec3 rayDirection = normalize(refPoint - cameraPos);
+
+    /// Raytrace the scene (a sphere, to become the atmosphere)
+    vec4 atmosphereSphereInner = vec4(cameraPos, ATMOSPHERE_RADIUS);
+    vec4 atmosphereSphereOuter = vec4(cameraPos, ATMOSPHERE_RADIUS * 1.2);
+    Intersection atmosphereIsectInner = raySphereIntersection(cameraPos, rayDirection, atmosphereSphereInner);
+    Intersection atmosphereIsectOuter = raySphereIntersection(cameraPos, rayDirection, atmosphereSphereOuter);
+    
+    // Preliminary and not physically-based volume integration
+    float t, dt;
+    float accumDensity = 0.0;
+    dt = BLOB_CLOUD_STEP_SIZE;
+
+    for(float t = atmosphereIsectInner.t; t < atmosphereIsectOuter.t; t += dt) {
+        vec3 currentPos = cameraPos + t * rayDirection;
+
+        if(currentPos.y > -1.0 && currentPos.y < 1.0) {
+            float density = FBM(currentPos.xz);
+            
+            // Compute the light contribution using Lambertian shading and directional derivative
+            // http://www.iquilezles.org/www/articles/derivative/derivative.htm
+            accumDensity += FBM((currentPos + BLOB_CLOUD_STEP_SIZE * LIGHT_VEC).xz) - density;
+
+            //accumDensity += density;
+        }
+        
+        if(accumDensity > 0.99) {
+            break;
+        }
+    }
+    #endif
+    
+    vec4 finalColor;
+    #ifdef VISUALIZE_NOISE
+    finalColor = vec4(noiseVal, noiseVal, noiseVal, 1);
+    #else
+    finalColor = vec4(accumDensity, accumDensity, accumDensity, 1);
+    #endif
+
+    imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), finalColor);
 }

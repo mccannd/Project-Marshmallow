@@ -212,21 +212,6 @@ private:
     void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
     void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
 
-    // TODO: move to mesh class
-    /*
-    void createVertexBuffer();
-    void createIndexBuffer();
-    VkBuffer vertexBuffer;
-    VkDeviceMemory vertexBufferMemory;
-    VkBuffer indexBuffer;
-    VkDeviceMemory indexBufferMemory;
-
-    VkBuffer backgroundBuffer;
-    VkDeviceMemory backgroundMemory;
-    VkBuffer backgroundIndexBuffer;
-    VkDeviceMemory backgroundIndexBufferMemory;
-    */
-
     Geometry* sceneGeometry;
     Geometry* backgroundGeometry;
     void initializeGeometry();
