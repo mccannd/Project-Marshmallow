@@ -20,7 +20,7 @@ struct Intersection {
 
 #define ATMOSPHERE_RADIUS 10.0
 #define LIGHT_VEC normalize(vec3(1, 1, 0))
-#define BLOB_CLOUD_STEP_SIZE 0.05
+#define BLOB_CLOUD_STEP_SIZE 0.1
 #define NUM_FBM_OCTAVES 4
 
 //#define VISUALIZE_NOISE
@@ -139,7 +139,7 @@ void main() {
 
     /// Raytrace the scene (a sphere, to become the atmosphere)
     vec4 atmosphereSphereInner = vec4(cameraPos, ATMOSPHERE_RADIUS);
-    vec4 atmosphereSphereOuter = vec4(cameraPos, ATMOSPHERE_RADIUS * 2.0);
+    vec4 atmosphereSphereOuter = vec4(cameraPos, ATMOSPHERE_RADIUS * 1.2);
     Intersection atmosphereIsectInner = raySphereIntersection(cameraPos, rayDirection, atmosphereSphereInner);
     Intersection atmosphereIsectOuter = raySphereIntersection(cameraPos, rayDirection, atmosphereSphereOuter);
     
@@ -150,13 +150,16 @@ void main() {
 
     for(float t = atmosphereIsectInner.t; t < atmosphereIsectOuter.t; t += dt) {
         vec3 currentPos = cameraPos + t * rayDirection;
-        float density = FBM(currentPos.xz);
 
-        // Compute the light contribution using Lambertian shading and directional derivative
-        // http://www.iquilezles.org/www/articles/derivative/derivative.htm
-        //accumDensity += FBM((currentPos + BLOB_CLOUD_STEP_SIZE * LIGHT_VEC).xz) - density;
+        if(currentPos.y > -1.0 && currentPos.y < 1.0) {
+            float density = FBM(currentPos.xz);
+            
+            // Compute the light contribution using Lambertian shading and directional derivative
+            // http://www.iquilezles.org/www/articles/derivative/derivative.htm
+            accumDensity += FBM((currentPos + BLOB_CLOUD_STEP_SIZE * LIGHT_VEC).xz) - density;
 
-        accumDensity += density;
+            //accumDensity += density;
+        }
         
         if(accumDensity > 0.99) {
             break;
