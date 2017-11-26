@@ -165,9 +165,6 @@ void main() {
             break;
         }
     }
-
-    // Lighting
-    //float lambertTerm = dot(LIGHT_VEC, atmosphereIsectInner.normal * float(atmosphereIsectInner.valid));
     #endif
     
     vec4 finalColor;
@@ -176,12 +173,6 @@ void main() {
     #else
     finalColor = vec4(accumDensity, accumDensity, accumDensity, 1);
     #endif
-
-    // TODO: currently not sure if the ray intersection test with spheres is working because the resulting t values dont seem right
-    //float t_diff = atmosphereIsectOuter.t - atmosphereIsectInner.t;
-    //t_diff /= 20.0;
-    //finalColor = vec4(t_diff, t_diff, t_diff, 1.0);
-    //finalColor = vec4(lambertTerm, lambertTerm, lambertTerm, 1.0);
 
     imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), finalColor);
 }
