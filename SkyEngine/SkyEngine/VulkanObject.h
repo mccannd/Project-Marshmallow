@@ -5,6 +5,14 @@
 #include <vector>
 #include <array>
 
+#include <glm/vec4.hpp>
+#include <glm/mat4x4.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/vec2.hpp>
+#include <glm/vec3.hpp>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm\gtx\hash.hpp>
+
 // A collection of baseline functions for objects used with vulkan.
 // Utilities for buffers, memory, etc.
 class VulkanObject
