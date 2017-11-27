@@ -68,7 +68,6 @@ protected:
     virtual void createDescriptorPool() = 0;
     virtual void createDescriptorSet() = 0;
     virtual void createUniformBuffer() = 0;
-    virtual void createPipelineLayout() = 0;
     virtual void createPipeline() = 0;
 
     VkShaderModule createShaderModule(const std::vector<char>& code, VkDevice device);
@@ -106,6 +105,8 @@ public:
     
     // Samplers must be initialized before pipeline / descriptor creation.
     void addTexture(Texture* tex) { textures.push_back(tex); }
+
+    virtual void bindShader(VkCommandBuffer& commandBuffer) = 0;
 };
 
 // TODO: only albedo for the moment,
@@ -121,7 +122,7 @@ enum PBRTEXTURES
 /*
 * A shader pipeline to rasterize a mesh.
 */
-class MeshShader : Shader
+class MeshShader : public Shader
 {
 private:
     
@@ -176,6 +177,10 @@ public:
         vkUnmapMemory(device, uniformModelBufferMemory);
     }
 
+    virtual void bindShader(VkCommandBuffer& commandBuffer) {
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
+    }
 };
 
 /*

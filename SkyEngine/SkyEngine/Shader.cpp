@@ -45,7 +45,7 @@ void MeshShader::createDescriptorSetLayout() {
 }
 
 void MeshShader::createDescriptorPool() {
-    std::array<VkDescriptorPoolSize, 2> poolSizes = {};
+    std::array<VkDescriptorPoolSize, 3> poolSizes = {};
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[0].descriptorCount = 1;
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -282,5 +282,7 @@ void MeshShader::createPipeline() {
 void MeshShader::createUniformBuffer() {
     VkDeviceSize bufferSize = sizeof(UniformCameraObject);
     VulkanObject::createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformCameraBuffer, uniformCameraBufferMemory);
+    VkDeviceSize bufferSize2 = sizeof(UniformModelObject);
+    VulkanObject::createBuffer(bufferSize2, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformModelBuffer, uniformModelBufferMemory);
 
 }

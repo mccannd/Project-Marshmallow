@@ -26,6 +26,7 @@
 #include "camera.h"
 #include "Texture.h"
 #include "Geometry.h"
+#include "Shader.h"
 
 
 #define DEBUG_VALIDATION 1
@@ -53,24 +54,6 @@ struct UniformBufferObject {
     glm::mat4 view;
     glm::mat4 proj;
 };
-
-// TODO: Move this ASAP
-// Read an entire file (bytecode)
-static std::vector<char> readFile(const std::string& filename) {
-    std::ifstream file(filename, std::ios::ate | std::ios::binary);
-
-    if (!file.is_open()) {
-        throw std::runtime_error("failed to open file!");
-    }
-
-    size_t fileSize = (size_t)file.tellg();
-    std::vector<char> buffer(fileSize);
-    file.seekg(0);
-    file.read(buffer.data(), fileSize);
-    file.close();
-
-    return buffer;
-}
 
 class VulkanApplication
 {
@@ -103,7 +86,7 @@ private:
 
     /// --- Graphics Pipeline
     void createRenderPass(); // <------ ech
-    void createGraphicsPipeline();
+    //void createGraphicsPipeline();
     void createFramebuffers();
     void createCommandPool();
     void createCommandBuffers();
@@ -183,22 +166,18 @@ private:
     // for a graphics pipeline
     VkRenderPass renderPass;
 
-    // descriptor set for camera + model + texture
-    VkDescriptorSetLayout descriptorSetLayout;
-    VkDescriptorSet descriptorSet;
-
+    // TODO: abstract background
     VkDescriptorSetLayout backgroundSetLayout;
     VkDescriptorSet backgroundSet;
 
+    // TODO: abstract compute
     VkDescriptorSetLayout computeSetLayout;
     VkDescriptorSet computeSet;
 
     /// background pipeline
-    VkPipelineLayout graphicsPipelineLayout;
     VkPipelineLayout backgroundPipelineLayout;
 
     VkPipeline backgroundPipeline;
-    VkPipeline graphicsPipeline;
     std::vector<VkFramebuffer> swapChainFramebuffers;
     VkCommandPool commandPool;
     std::vector<VkCommandBuffer> commandBuffers;
@@ -226,11 +205,14 @@ private:
 
     // TODO: convenient way of managing textures
     void initializeTextures();
+    void cleanupTextures();
     Texture* meshTexture;
     Texture* backgroundTexture;
     Texture* depthTexture;
 
-    void cleanupTextures();
+    void initializeShaders();
+    void cleanupShaders();
+    MeshShader* meshShader;
 
 #if _DEBUG
     // enable a range of validation layers through the SDK

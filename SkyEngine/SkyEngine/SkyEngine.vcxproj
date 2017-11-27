@@ -162,6 +162,7 @@
     <ClCompile Include="camera.cpp" />
     <ClCompile Include="Geometry.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="Shader.cpp" />
     <ClCompile Include="Texture.cpp" />
     <ClCompile Include="VulkanApplication.cpp" />
     <ClCompile Include="VulkanObject.cpp" />
@@ -169,6 +170,7 @@
   <ItemGroup>
     <ClInclude Include="camera.h" />
     <ClInclude Include="Geometry.h" />
+    <ClInclude Include="Shader.h" />
     <ClInclude Include="Texture.h" />
     <ClInclude Include="VulkanApplication.h" />
     <ClInclude Include="VulkanObject.h" />
