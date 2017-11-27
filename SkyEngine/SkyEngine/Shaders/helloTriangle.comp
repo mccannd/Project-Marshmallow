@@ -107,16 +107,10 @@ float FBM(vec2 p) {
 }
 
 void main() {
-	// TODO: make cloudz
-
     /// Extract the UV
     ivec2 dim = imageSize(resultImage);
 	vec2 uv = vec2(gl_GlobalInvocationID.xy) / dim;
-
-    #ifdef VISUALIZE_NOISE
-    /// Compute noise blob clouds
-    float noiseVal = FBM(gl_GlobalInvocationID.xy * 0.015625);
-    #else
+    
     /// Cast a ray
     
     // Compute screen space point from UVs
@@ -175,14 +169,8 @@ void main() {
             break;
         }
     }
-    #endif
     
-    vec4 finalColor;
-    #ifdef VISUALIZE_NOISE
-    finalColor = vec4(noiseVal, noiseVal, noiseVal, 1);
-    #else
-    finalColor = vec4(accumDensity, accumDensity, accumDensity, 1);
-    #endif
+    vec4 finalColor = vec4(accumDensity, accumDensity, accumDensity, 1);
 
     imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), finalColor);
 }
