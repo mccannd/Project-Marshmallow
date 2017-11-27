@@ -1,6 +1,6 @@
 #include "Geometry.h"
 #define TINYOBJLOADER_IMPLEMENTATION
-#include "../tinyobj/tiny_obj_loader.h" // something is up here
+#include <tiny_obj_loader.h>
 
 void Geometry::cleanup() {
     vkDestroyBuffer(device, vertexBuffer, nullptr);
