@@ -18,9 +18,9 @@ struct Intersection {
     float t;
 };
 
-#define ATMOSPHERE_RADIUS 10.0
+#define ATMOSPHERE_RADIUS 100.0
 #define LIGHT_VEC normalize(vec3(1, 1, 0))
-#define BLOB_CLOUD_STEP_SIZE 0.1
+#define BLOB_CLOUD_STEP_SIZE ATMOSPHERE_RADIUS / 10.0
 #define NUM_FBM_OCTAVES 4
 
 //#define VISUALIZE_NOISE
@@ -128,7 +128,7 @@ void main() {
 
     // Compute ray direction
     vec3 cameraPos = -ubo.view[3].xyz;
-    vec3 refPoint = cameraPos + vec3(0, 0, -1);
+    vec3 refPoint = cameraPos + camLook; /*vec3(0, 0, -1)*/;
 
     const float tanFovy = tan(FOVY_OVER_2);
     vec3 screenH = tanFovy * camUp; // TODO should multiply by length(refPoint - cameraPos) if the refPoint changes
@@ -138,8 +138,8 @@ void main() {
     vec3 rayDirection = normalize(refPoint - cameraPos);
 
     /// Raytrace the scene (a sphere, to become the atmosphere)
-    vec4 atmosphereSphereInner = vec4(cameraPos, ATMOSPHERE_RADIUS);
-    vec4 atmosphereSphereOuter = vec4(cameraPos, ATMOSPHERE_RADIUS * 1.2);
+    vec4 atmosphereSphereInner = vec4(/*cameraPos*/ vec3(0), ATMOSPHERE_RADIUS);
+    vec4 atmosphereSphereOuter = vec4(/*cameraPos*/ vec3(0), ATMOSPHERE_RADIUS * 1.2);
     Intersection atmosphereIsectInner = raySphereIntersection(cameraPos, rayDirection, atmosphereSphereInner);
     Intersection atmosphereIsectOuter = raySphereIntersection(cameraPos, rayDirection, atmosphereSphereOuter);
     
@@ -151,7 +151,7 @@ void main() {
     for(float t = atmosphereIsectInner.t; t < atmosphereIsectOuter.t; t += dt) {
         vec3 currentPos = cameraPos + t * rayDirection;
 
-        if(currentPos.y > -1.0 && currentPos.y < 1.0) {
+        //if(currentPos.y > -1.0 && currentPos.y < 1.0) {
             float density = FBM(currentPos.xz);
             
             // Compute the light contribution using Lambertian shading and directional derivative
@@ -159,7 +159,7 @@ void main() {
             accumDensity += FBM((currentPos + BLOB_CLOUD_STEP_SIZE * LIGHT_VEC).xz) - density;
 
             //accumDensity += density;
-        }
+        //}
         
         if(accumDensity > 0.99) {
             break;
