@@ -41,5 +41,16 @@ public:
     void initFromFile(std::string path);
     void initForStorage(VkExtent2D extent);
     void initForDepthAttachment(VkExtent2D extent);
+
+    static VkDescriptorSetLayoutBinding getLayoutBinding(uint32_t bind)
+    {
+        VkDescriptorSetLayoutBinding samplerLayoutBinding = {};
+        samplerLayoutBinding.binding = bind;
+        samplerLayoutBinding.descriptorCount = 1;
+        samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        samplerLayoutBinding.pImmutableSamplers = nullptr;
+        samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+        return samplerLayoutBinding;
+    }
 };
 

@@ -130,9 +130,12 @@ void Camera::addYawLocal(float delta) {
 void Camera::addPitch(float delta) {
     if (m_lockedTarget) return;
     glm::mat3 rot = angleAxis(glm::normalize(glm::cross(m_forward, glm::vec3(0, 1, 0))), delta);
-    m_forward = glm::normalize(rot * m_forward);
-    m_up = glm::normalize(rot * m_up);
-    m_right = glm::normalize(rot * m_right);
+    glm::vec3 newForward = glm::normalize(rot * m_forward);
+    if (1.0f - abs(newForward.y) > 0.01) {
+        m_forward = newForward;
+        m_up = glm::normalize(rot * m_up);
+        m_right = glm::normalize(rot * m_right);
+    }
 }
 
 void Camera::addYaw(float delta) {
@@ -200,4 +203,25 @@ void Camera::beginTarget(const glm::vec3 &target)
 void Camera::endTarget()
 {
 	m_lockedTarget = false;
+}
+
+void Camera::mouseRotate(double x, double y) {
+    if (firstMouse)
+    {
+        lastX = x;
+        lastY = y;
+        firstMouse = false;
+    }
+
+    float xoffset = x - lastX;
+    float yoffset = y - lastY; // borf
+    lastX = x;
+    lastY = y;
+
+    float sensitivity = 0.1f; // change this value to your liking
+    xoffset *= sensitivity;
+    yoffset *= sensitivity;
+
+    addPitch(yoffset);
+    addYaw(xoffset);
 }
