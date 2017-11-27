@@ -66,11 +66,11 @@ Intersection raySphereIntersection(in vec3 ro, in vec3 rd, in vec4 sphere) {
 }
 
 // Procedural noise function for Fractal Brownian Motion taken from here: https://thebookofshaders.com/13/
-float noise(vec2 p) { 
+float noise(in vec2 p) { 
     return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453123);
 }
 
-float interpolateNoise(vec2 p) {
+float interpolateNoise(in vec2 p) {
     vec2 p_floor = floor(p);
     vec2 p_fract = p - p_floor;
 
@@ -88,8 +88,12 @@ float interpolateNoise(vec2 p) {
     return mix(noise_x1, noise_x2, p_fract.y);
 }
 
-float FBM(vec2 p) {
-    float amplitude = 1.0;
+float remap(in float value, in float oldMin, in float oldMax, in float newMin, in float newMax) {
+    return newMin + (((value - oldMin) / (oldMax - oldMin)) * (newMax - newMin));
+}
+
+float FBM(in vec2 p) {
+    float amplitude = 0.75;
     float frequency = 1.0;
     const float persistence = 0.5;
     float maxVal = 0.0;
@@ -103,7 +107,8 @@ float FBM(vec2 p) {
     }
 
     float noiseVal = accumNoise / maxVal;
-    return noiseVal * step(0.4, noiseVal);
+    noiseVal *= step(0.5, noiseVal);
+    return remap(noiseVal, 0.5, 1.0, 0.0, 1.0);
 }
 
 void main() {
@@ -150,10 +155,11 @@ void main() {
     vec3 earthCenter = cameraPos;
     earthCenter.y = -ATMOSPHERE_RADIUS * 0.5 * 0.9;
     vec4 atmosphereSphereInner = vec4(earthCenter, ATMOSPHERE_RADIUS);
-    vec4 atmosphereSphereOuter = vec4(earthCenter, ATMOSPHERE_RADIUS * 1.25);
+    vec4 atmosphereSphereOuter = vec4(earthCenter, ATMOSPHERE_RADIUS * 1.05);
     Intersection atmosphereIsectInner = raySphereIntersection(cameraPos, rayDirection, atmosphereSphereInner);
     Intersection atmosphereIsectOuter = raySphereIntersection(cameraPos, rayDirection, atmosphereSphereOuter);
 
+    /*
     if (atmosphereIsectInner.valid) {
         vec2 samplePoint = (atmosphereIsectInner.point.xz - cameraPos.xz) / 10000.0;
         float density = FBM(samplePoint);
@@ -166,31 +172,38 @@ void main() {
         imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), vec4(0, 0, 0, 1));
         return;
     }
-    
+    */
+
     // Preliminary and not physically-based volume integration
     float t, dt;
     float accumDensity = 0.0;
     dt = BLOB_CLOUD_STEP_SIZE;
+    float numSteps = floor(mix(32, 64, 1.0 - rayDirection.y));
+    float stepSize = (atmosphereIsectOuter.t - atmosphereIsectInner.t) / numSteps;
 
-    for(float t = atmosphereIsectInner.t; t < atmosphereIsectOuter.t; t += dt) {
+    for(float t = atmosphereIsectInner.t; t < atmosphereIsectOuter.t; t += stepSize) {
         vec3 currentPos = cameraPos + t * rayDirection;
         
-        vec2 samplePoint = currentPos.xz / 10000.0;
+        float yRelative = (t - atmosphereIsectInner.t) / (atmosphereIsectOuter.t - atmosphereIsectInner.t);
+        yRelative = remap(yRelative, 0.0, 0.3, 0.0, 1.0) * remap(yRelative, 0.7, 1.0, 1.0, 0.0);
+
+        vec2 samplePoint = (currentPos.xz - cameraPos.xz) / 20000.0;
         float density = FBM(samplePoint);
 
         // Compute the light contribution using Lambertian shading and directional derivative
         // http://www.iquilezles.org/www/articles/derivative/derivative.htm
         if(density > 0.0) {
             //accumDensity += FBM(samplePoint + EPSILON * LIGHT_VEC.xz) - density;
-            accumDensity += density;
-            break;
+            accumDensity += yRelative * density;
+            //break;
         }
         
         if(accumDensity > 0.99) {
+            accumDensity = 1.0;
             break;
         }
     }
-    
+    accumDensity *= remap(sqrt(max(0.0, rayDirection.y)) + 0.2, 0.2, 1.2, 0, 1);
     vec4 finalColor = vec4(accumDensity, accumDensity, accumDensity, 1);
 
     imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), finalColor);
