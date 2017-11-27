@@ -18,10 +18,11 @@ struct Intersection {
     float t;
 };
 
-#define ATMOSPHERE_RADIUS 100.0
+#define ATMOSPHERE_RADIUS 1000000.0
 #define LIGHT_VEC normalize(vec3(1, 1, 0))
-#define BLOB_CLOUD_STEP_SIZE ATMOSPHERE_RADIUS / 10.0
-#define NUM_FBM_OCTAVES 4
+#define BLOB_CLOUD_STEP_SIZE ATMOSPHERE_RADIUS / 100.0
+#define NUM_FBM_OCTAVES 8
+#define EPSILON 0.0001
 
 //#define VISUALIZE_NOISE
 
@@ -101,7 +102,8 @@ float FBM(vec2 p) {
         frequency *= 2.0;
     }
 
-    return accumNoise / maxVal - 0.5;
+    float noiseVal = accumNoise / maxVal;
+    return noiseVal * step(0.4, noiseVal);
 }
 
 void main() {
@@ -124,11 +126,11 @@ void main() {
     // Extract camera information from uniform
     vec3 camRight = vec3(ubo.view[0][0], ubo.view[0][1], ubo.view[0][2]); // should normalize these but that could slow things down
     vec3 camUp = vec3(ubo.view[1][0], ubo.view[1][1], ubo.view[1][2]);
-    vec3 camLook = vec3(ubo.view[2][0], ubo.view[2][1], ubo.view[2][2]);
+    vec3 camLook = -vec3(ubo.view[2][0], ubo.view[2][1], ubo.view[2][2]);
 
     // Compute ray direction
     vec3 cameraPos = -ubo.view[3].xyz;
-    vec3 refPoint = cameraPos + camLook; /*vec3(0, 0, -1)*/;
+    vec3 refPoint = cameraPos + camLook;
 
     const float tanFovy = tan(FOVY_OVER_2);
     vec3 screenH = tanFovy * camUp; // TODO should multiply by length(refPoint - cameraPos) if the refPoint changes
@@ -137,9 +139,16 @@ void main() {
     refPoint += screenPoint.x * screenW + screenPoint.y * screenH;
     vec3 rayDirection = normalize(refPoint - cameraPos);
 
+    // It is likely we will never have an entirely unobstructed view of the horizon, so kill rays that would otherwise be executing.
+    // This should be handled by the stenciling thing though
+    if(dot(rayDirection, vec3(0, 1, 0)) > 0.0) {
+        imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), vec4(0, 0, 0, 1));
+        return;
+    }
+
     /// Raytrace the scene (a sphere, to become the atmosphere)
-    vec4 atmosphereSphereInner = vec4(/*cameraPos*/ vec3(0), ATMOSPHERE_RADIUS);
-    vec4 atmosphereSphereOuter = vec4(/*cameraPos*/ vec3(0), ATMOSPHERE_RADIUS * 1.2);
+    vec4 atmosphereSphereInner = vec4(vec3(0, ATMOSPHERE_RADIUS * 0.6, 0), ATMOSPHERE_RADIUS);
+    vec4 atmosphereSphereOuter = vec4(vec3(0, ATMOSPHERE_RADIUS * 0.6, 0), ATMOSPHERE_RADIUS * 1.25);
     Intersection atmosphereIsectInner = raySphereIntersection(cameraPos, rayDirection, atmosphereSphereInner);
     Intersection atmosphereIsectOuter = raySphereIntersection(cameraPos, rayDirection, atmosphereSphereOuter);
     
@@ -150,16 +159,17 @@ void main() {
 
     for(float t = atmosphereIsectInner.t; t < atmosphereIsectOuter.t; t += dt) {
         vec3 currentPos = cameraPos + t * rayDirection;
+        
+        vec2 samplePoint = currentPos.xz / 10000.0;
+        float density = FBM(samplePoint);
 
-        //if(currentPos.y > -1.0 && currentPos.y < 1.0) {
-            float density = FBM(currentPos.xz);
-            
-            // Compute the light contribution using Lambertian shading and directional derivative
-            // http://www.iquilezles.org/www/articles/derivative/derivative.htm
-            accumDensity += FBM((currentPos + BLOB_CLOUD_STEP_SIZE * LIGHT_VEC).xz) - density;
-
-            //accumDensity += density;
-        //}
+        // Compute the light contribution using Lambertian shading and directional derivative
+        // http://www.iquilezles.org/www/articles/derivative/derivative.htm
+        if(density > 0.0) {
+            //accumDensity += FBM(samplePoint + EPSILON * LIGHT_VEC.xz) - density;
+            accumDensity += density;
+            break;
+        }
         
         if(accumDensity > 0.99) {
             break;

@@ -70,7 +70,7 @@ void VulkanApplication::initVulkan() {
     createComputeCommandBuffer();
     createSemaphores();
 
-    mainCamera = Camera(glm::vec3(0.f, 1.f, 1.f), glm::vec3(0.f, 0.f, 0.f), 0.1f, 10.0f, 45.0f);
+    mainCamera = Camera(glm::vec3(0.0f, 1.0f, 1.0f), glm::vec3(0.0f, 1.0f, 0.0f), 0.1f, 10.0f, 45.0f);
 
     mainCamera.setAspect((float) swapChainExtent.width, (float)swapChainExtent.height);
 }
