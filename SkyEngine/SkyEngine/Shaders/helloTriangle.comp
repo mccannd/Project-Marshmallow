@@ -108,12 +108,13 @@ float FBM(in vec2 p) {
 
     float noiseVal = accumNoise / maxVal;
     noiseVal *= step(0.5, noiseVal);
-    return remap(noiseVal, 0.5, 1.0, 0.0, 1.0);
+    return max(0.0, remap(noiseVal, 0.5, 1.0, 0.0, 0.9));
 }
 
 void main() {
     /// Extract the UV
     ivec2 dim = imageSize(resultImage);
+    // TODO: half resolution reprojection
 	vec2 uv = vec2(gl_GlobalInvocationID.xy) / dim;
     /// Cast a ray
     
@@ -122,8 +123,6 @@ void main() {
     //screenPoint.x *= dim.x / dim.y; // TODO: aspect ratio as uniform
 
     // Extract camera information from uniform
-    //vec3 camRight = vec3(ubo.view[0][0], ubo.view[0][1], ubo.view[0][2]); // should normalize these but that could slow things down
-    //vec3 camUp = vec3(ubo.view[1][0], ubo.view[1][1], ubo.view[1][2]);
     vec3 camLook = vec3(ubo.view[0][2], ubo.view[1][2], ubo.view[2][2]);
     vec3 camRight = vec3(ubo.view[0][0], ubo.view[1][0], ubo.view[2][0]);
     vec3 camUp = vec3(ubo.view[0][1], ubo.view[1][1], ubo.view[2][1]);
@@ -132,9 +131,7 @@ void main() {
     vec3 cameraPos = ubo.pos;
     vec3 refPoint = cameraPos - camLook;
 
-    const float tanFovy = 0.4142135;
-    vec3 screenH = tanFovy * camUp; // TODO should multiply by length(refPoint - cameraPos) if the refPoint changes
-    vec3 screenW = tanFovy * ASPECT_RATIO * camRight;
+    const float tanFovy = 0.4142135; // TODO link camera uniform
 
     vec3 p = refPoint + ASPECT_RATIO * screenPoint.x * tanFovy * camRight - screenPoint.y * tanFovy * camUp;	
 
@@ -159,20 +156,6 @@ void main() {
     Intersection atmosphereIsectInner = raySphereIntersection(cameraPos, rayDirection, atmosphereSphereInner);
     Intersection atmosphereIsectOuter = raySphereIntersection(cameraPos, rayDirection, atmosphereSphereOuter);
 
-    /*
-    if (atmosphereIsectInner.valid) {
-        vec2 samplePoint = (atmosphereIsectInner.point.xz - cameraPos.xz) / 10000.0;
-        float density = FBM(samplePoint);
-        vec3 col = 0.5 + 0.5 * atmosphereIsectInner.normal;
-        col = vec3(clamp(atmosphereIsectInner.point, vec3(0), vec3(1)));
-        col = vec3(density);
-        imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), vec4(col.xyz, 1));
-        return;
-    } else {
-        imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), vec4(0, 0, 0, 1));
-        return;
-    }
-    */
 
     // Preliminary and not physically-based volume integration
     float t, dt;
@@ -184,20 +167,26 @@ void main() {
     for(float t = atmosphereIsectInner.t; t < atmosphereIsectOuter.t; t += stepSize) {
         vec3 currentPos = cameraPos + t * rayDirection;
         
-        float yRelative = (t - atmosphereIsectInner.t) / (atmosphereIsectOuter.t - atmosphereIsectInner.t);
-        yRelative = remap(yRelative, 0.0, 0.3, 0.0, 1.0) * remap(yRelative, 0.7, 1.0, 1.0, 0.0);
 
-        vec3 sampleProjected = ATMOSPHERE_RADIUS * normalize(currentPos - earthCenter) + earthCenter;
+
+        vec3 fromCenter = normalize(currentPos - earthCenter);
+        vec3 sampleProjected = 0.5 * ATMOSPHERE_RADIUS * fromCenter + earthCenter;
+        vec3 sampleProjectedOuter = 0.5 * ATMOSPHERE_RADIUS * 1.05 * fromCenter + earthCenter;
+
+        float cumulus = length(currentPos - sampleProjected) / (0.5 * ATMOSPHERE_RADIUS * 0.05); // radial distance from inner to outer shell, normalized
+        cumulus = clamp(cumulus, 0, 1);
+        cumulus = remap(cumulus, 0.0, 0.3, 0.0, 1.0) * remap(cumulus, 0.7, 1.0, 1.0, 0.0);
+
         vec2 samplePoint = (sampleProjected.xz - cameraPos.xz) / 20000.0;
         float density = FBM(samplePoint);
 
         // Compute the light contribution using Lambertian shading and directional derivative
         // http://www.iquilezles.org/www/articles/derivative/derivative.htm
-        if(density > 0.0) {
+        //if(density > 0.0) {
             //accumDensity += FBM(samplePoint + EPSILON * LIGHT_VEC.xz) - density;
-            accumDensity += yRelative * density;
+            accumDensity += 0.2 * cumulus * density;
             //break;
-        }
+        //}
         
         if(accumDensity > 0.99) {
             accumDensity = 1.0;
