@@ -1285,9 +1285,6 @@ void VulkanApplication::createCommandBuffers() {
         backgroundGeometry->enqueueDrawCommands(commandBuffers[i]);
         /// Background end
 
-        //vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-        
-        //vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
         meshShader->bindShader(commandBuffers[i]);
         sceneGeometry->enqueueDrawCommands(commandBuffers[i]);
 

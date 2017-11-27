@@ -177,7 +177,7 @@ public:
         vkUnmapMemory(device, uniformModelBufferMemory);
     }
 
-    virtual void bindShader(VkCommandBuffer& commandBuffer) {
+    void bindShader(VkCommandBuffer& commandBuffer) override {
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
     }

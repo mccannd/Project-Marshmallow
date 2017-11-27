@@ -25,11 +25,13 @@ void main() {
     vec3 col = texture(texColor, fragUV).xyz;
     vec3 N = normalize(fragNormal);
     col *= fragColor;
-
-    float lighting = max(0.1, dot(N, vec3(0, 1, 0)));
+    vec3 lightVec = normalize(vec3(-1, -1, -1));
+    lightVec = (camera.view * vec4(lightVec, 0)).xyz;
+    float lighting = max(0.2, dot(N, -lightVec));
     col *= lighting;
 
     //col = 0.5 + 0.5 * N;
-
+    //col = vec3 (clamp(fragPosition.y, 0.0, 1.0));
+    //col = clamp(camera.cameraPosition, vec3(0), vec3(1));
     outColor = vec4(col, 1.0);
 }
