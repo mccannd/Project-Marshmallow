@@ -59,6 +59,8 @@ public:
 	glm::mat4 getProj();
 	glm::mat4 getViewProj();
 	glm::vec3 getPosition();
+    float getAspect() { return m_aspect; }
+    float getHTanFov() { return std::tan(0.5f * DEG2RAD * m_fov); }
 
 	void movePosition(Camera::directions direction, float delta);
     void addPitch(float delta); // rotate by delta degrees about right

@@ -76,7 +76,7 @@ void VulkanApplication::initVulkan() {
     createComputeCommandBuffer();
     createSemaphores();
 
-    mainCamera = Camera(glm::vec3(0.0f, 1.0f, 1.0f), glm::vec3(0.0f, 1.0f, 0.0f), 0.1f, 10.0f, 45.0f);
+    mainCamera = Camera(glm::vec3(0.0f, 1.0f, 1.0f), glm::vec3(0.0f, 1.0f, 0.0f), 0.1f, 100.0f, 45.0f);
     mainCamera.setAspect((float) swapChainExtent.width, (float)swapChainExtent.height);
 }
 
@@ -295,6 +295,7 @@ void VulkanApplication::updateUniformBuffer() {
     ubo.view = mainCamera.getView();
     ubo.proj = mainCamera.getProj();
     ubo.proj[1][1] *= -1; // :(
+    ubo.pos = mainCamera.getPosition();
 
     // TODO: move to camera class
     void* data;
@@ -310,6 +311,9 @@ void VulkanApplication::updateUniformBuffer() {
 
     UniformModelObject umo = {};
     umo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.f), glm::vec3(0.f, 0.f, 1.f));
+    umo.model = glm::mat4(1.0f);
+    umo.model[0][0] = 8.0f;
+    umo.model[2][2] = 8.0f;
     umo.invTranspose = glm::inverse(glm::transpose(umo.model));
 
     meshShader->updateUniformBuffers(uco, umo);
@@ -326,6 +330,7 @@ uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties, V
     throw std::runtime_error("failed to find suitable memory type!");
 }
 
+// TODO: once shader for compute is encapsulated we can remove this
 void VulkanApplication::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) {
     VkBufferCreateInfo bufferInfo = {};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -1539,6 +1544,3 @@ VkExtent2D VulkanApplication::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& c
         return actualExtent;
     }
 }
-
-// Depth Utilites. Since this takes place before the command pool is initialized, can't really use it in the pipeline
-// need to see if there is a better place to put all this

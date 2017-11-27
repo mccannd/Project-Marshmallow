@@ -9,6 +9,7 @@ layout (binding = 1) uniform UniformBufferObject {
     mat4 model;
     mat4 view;
     mat4 proj;
+    vec3 pos;
 } ubo;
 
 struct Intersection {
@@ -38,10 +39,9 @@ Intersection raySphereIntersection(in vec3 ro, in vec3 rd, in vec4 sphere) {
     isect.point = vec3(0);
     isect.normal = vec3(0, 1, 0);
     
-    // no rotation, always a sphere
+    // no rotation, only uniform scale, always a sphere
     ro -= sphere.xyz;
     ro /= sphere.w;
-    rd /= sphere.w;
     
     float A = dot(rd, rd);
     float B = 2.0 * dot(rd, ro);
@@ -49,8 +49,8 @@ Intersection raySphereIntersection(in vec3 ro, in vec3 rd, in vec4 sphere) {
     float discriminant = B * B - 4.0 * A * C;
     
     if (discriminant < 0.0) return isect;
-    float t = (sqrt(discriminant) - B) / A * 0.5;
-    if (t < 0.0) t = (-sqrt(discriminant) - B) / A * 0.5;
+    float t = (-sqrt(discriminant) - B) / A * 0.5;
+    if (t < 0.0) t = (sqrt(discriminant) - B) / A * 0.5;
     
     if (t >= 0.0) {
         isect.valid = true;
@@ -59,7 +59,7 @@ Intersection raySphereIntersection(in vec3 ro, in vec3 rd, in vec4 sphere) {
         p *= sphere.w;
         p += sphere.xyz;
         isect.point = p;
-        isect.t = t;
+        isect.t = length(p - ro);
     }
     
     return isect;
@@ -110,7 +110,6 @@ void main() {
     /// Extract the UV
     ivec2 dim = imageSize(resultImage);
 	vec2 uv = vec2(gl_GlobalInvocationID.xy) / dim;
-    
     /// Cast a ray
     
     // Compute screen space point from UVs
@@ -118,33 +117,55 @@ void main() {
     //screenPoint.x *= dim.x / dim.y; // TODO: aspect ratio as uniform
 
     // Extract camera information from uniform
-    vec3 camRight = vec3(ubo.view[0][0], ubo.view[0][1], ubo.view[0][2]); // should normalize these but that could slow things down
-    vec3 camUp = vec3(ubo.view[1][0], ubo.view[1][1], ubo.view[1][2]);
-    vec3 camLook = -vec3(ubo.view[2][0], ubo.view[2][1], ubo.view[2][2]);
+    //vec3 camRight = vec3(ubo.view[0][0], ubo.view[0][1], ubo.view[0][2]); // should normalize these but that could slow things down
+    //vec3 camUp = vec3(ubo.view[1][0], ubo.view[1][1], ubo.view[1][2]);
+    vec3 camLook = vec3(ubo.view[0][2], ubo.view[1][2], ubo.view[2][2]);
+    vec3 camRight = vec3(ubo.view[0][0], ubo.view[1][0], ubo.view[2][0]);
+    vec3 camUp = vec3(ubo.view[0][1], ubo.view[1][1], ubo.view[2][1]);
 
     // Compute ray direction
-    vec3 cameraPos = -ubo.view[3].xyz;
-    vec3 refPoint = cameraPos + camLook;
+    vec3 cameraPos = ubo.pos;
+    vec3 refPoint = cameraPos - camLook;
 
-    const float tanFovy = tan(FOVY_OVER_2);
+    const float tanFovy = 0.4142135;
     vec3 screenH = tanFovy * camUp; // TODO should multiply by length(refPoint - cameraPos) if the refPoint changes
     vec3 screenW = tanFovy * ASPECT_RATIO * camRight;
 
-    refPoint += screenPoint.x * screenW + screenPoint.y * screenH;
-    vec3 rayDirection = normalize(refPoint - cameraPos);
+    vec3 p = refPoint + ASPECT_RATIO * screenPoint.x * tanFovy * camRight - screenPoint.y * tanFovy * camUp;	
+
+    vec3 rayDirection = normalize(p - cameraPos);
 
     // It is likely we will never have an entirely unobstructed view of the horizon, so kill rays that would otherwise be executing.
     // This should be handled by the stenciling thing though
-    if(dot(rayDirection, vec3(0, 1, 0)) > 0.0) {
+    if(dot(rayDirection, vec3(0, 1, 0)) < 0.0) {
         imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), vec4(0, 0, 0, 1));
         return;
     }
 
+    //vec3 col = 0.5 + 0.5 * rayDirection;
+    //imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), vec4(col.xxx, 1));
+    //return;
+
     /// Raytrace the scene (a sphere, to become the atmosphere)
-    vec4 atmosphereSphereInner = vec4(vec3(0), ATMOSPHERE_RADIUS);
-    vec4 atmosphereSphereOuter = vec4(vec3(0), ATMOSPHERE_RADIUS * 1.25);
+    vec3 earthCenter = cameraPos;
+    earthCenter.y = -ATMOSPHERE_RADIUS * 0.5 * 0.9;
+    vec4 atmosphereSphereInner = vec4(earthCenter, ATMOSPHERE_RADIUS);
+    vec4 atmosphereSphereOuter = vec4(earthCenter, ATMOSPHERE_RADIUS * 1.25);
     Intersection atmosphereIsectInner = raySphereIntersection(cameraPos, rayDirection, atmosphereSphereInner);
     Intersection atmosphereIsectOuter = raySphereIntersection(cameraPos, rayDirection, atmosphereSphereOuter);
+
+    if (atmosphereIsectInner.valid) {
+        vec2 samplePoint = (atmosphereIsectInner.point.xz - cameraPos.xz) / 10000.0;
+        float density = FBM(samplePoint);
+        vec3 col = 0.5 + 0.5 * atmosphereIsectInner.normal;
+        col = vec3(clamp(atmosphereIsectInner.point, vec3(0), vec3(1)));
+        col = vec3(density);
+        imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), vec4(col.xyz, 1));
+        return;
+    } else {
+        imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), vec4(0, 0, 0, 1));
+        return;
+    }
     
     // Preliminary and not physically-based volume integration
     float t, dt;

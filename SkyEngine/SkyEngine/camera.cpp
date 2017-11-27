@@ -29,6 +29,7 @@ Camera::Camera(glm::vec3 pos, glm::vec3 target, float newNear, float newFar, flo
 
 glm::mat4 Camera::getView()
 {
+    
 	glm::mat4 trans = glm::mat4(1.0);
 	trans[3] = glm::vec4(-m_position.x, -m_position.y, -m_position.z, 1.0);
 
@@ -36,6 +37,7 @@ glm::mat4 Camera::getView()
 	view[0] = glm::vec4(m_right.x, m_up.x, m_forward.x, 0.0);
 	view[1] = glm::vec4(m_right.y, m_up.y, m_forward.y, 0.0);
 	view[2] = glm::vec4(m_right.z, m_up.z, m_forward.z, 0.0);
+
 
 	return view * trans;
 }
@@ -129,6 +131,7 @@ void Camera::addYawLocal(float delta) {
 
 void Camera::addPitch(float delta) {
     if (m_lockedTarget) return;
+    /*
     glm::mat3 rot = angleAxis(glm::normalize(glm::cross(m_forward, glm::vec3(0, 1, 0))), delta);
     glm::vec3 newForward = glm::normalize(rot * m_forward);
     if (1.0f - abs(newForward.y) > 0.01) {
@@ -136,14 +139,31 @@ void Camera::addPitch(float delta) {
         m_up = glm::normalize(rot * m_up);
         m_right = glm::normalize(rot * m_right);
     }
+    */
+    m_pitch += delta;
+    if (RAD2DEG * m_pitch < -89.0f) m_pitch = DEG2RAD * -89.0f;
+    if (RAD2DEG * m_pitch > 89.0f) m_pitch = DEG2RAD * 89.0f;
+    m_forward = glm::vec3(std::cos(m_yaw) * std::cos(m_pitch), std::sin(m_pitch), std::sin(m_yaw) * std::cos(m_pitch));
+    glm::vec3 wUp = (1.0f - std::abs(glm::dot(m_forward, glm::vec3(0, 1, 0))) < EPSILON) ?
+        glm::vec3(0, 0, 1) : glm::vec3(0, 1, 0);
+    m_right = glm::normalize(glm::cross(m_forward, wUp));
+    m_up = glm::normalize(glm::cross(m_right, m_forward));
 }
 
 void Camera::addYaw(float delta) {
     if (m_lockedTarget) return;
+    /*
     glm::mat3 rot = angleAxis(glm::vec3(0, 1, 0), delta);
     m_forward = glm::normalize(rot * m_forward);
     m_up = glm::normalize(rot * m_up);
     m_right = glm::normalize(rot * m_right);
+    */
+    m_yaw += delta;
+    m_forward = glm::vec3(std::cos(m_yaw) * std::cos(m_pitch), std::sin(m_pitch), std::sin(m_yaw) * std::cos(m_pitch));
+    glm::vec3 wUp = (1.0f - std::abs(glm::dot(m_forward, glm::vec3(0, 1, 0))) < EPSILON) ?
+        glm::vec3(0, 0, 1) : glm::vec3(0, 1, 0);
+    m_right = glm::normalize(glm::cross(m_forward, wUp));
+    m_up = glm::normalize(glm::cross(m_right, m_forward));
 }
 
 
@@ -178,7 +198,12 @@ void Camera::setFrustum(float newNear, float newFar, float fov)
 
 void Camera::lookAt(const glm::vec3 &target)
 {
-	m_forward = glm::normalize(m_position - target);
+    glm::vec3 toTarget = glm::normalize(target - m_position);
+    glm::vec3 projected = glm::normalize(glm::vec3(toTarget.x, 0, toTarget.z));
+    m_pitch = std::acos(glm::dot(toTarget, projected));
+    m_yaw = std::atan2(projected.x, projected.z);
+
+    m_forward = glm::vec3(std::cos(m_yaw) * std::cos(m_pitch), std::sin(m_pitch), std::sin(m_yaw) * std::cos(m_pitch));
 	glm::vec3 wUp = (1.0f - std::abs(glm::dot(m_forward, glm::vec3(0, 1, 0))) < EPSILON) ?
 		glm::vec3(0, 0, 1) : glm::vec3(0, 1, 0);
 	m_right = glm::normalize(glm::cross(m_forward, wUp));
@@ -213,15 +238,27 @@ void Camera::mouseRotate(double x, double y) {
         firstMouse = false;
     }
 
-    float xoffset = x - lastX;
+    float xoffset = lastX - x;
     float yoffset = y - lastY; // borf
     lastX = x;
     lastY = y;
 
-    float sensitivity = 0.1f; // change this value to your liking
+    float sensitivity = 0.01f;
     xoffset *= sensitivity;
     yoffset *= sensitivity;
 
-    addPitch(yoffset);
-    addYaw(xoffset);
+    m_yaw += xoffset;
+    m_pitch += yoffset;
+
+    if (RAD2DEG * m_pitch < -89.0f) m_pitch = DEG2RAD * -89.0f;
+    if (RAD2DEG * m_pitch > 89.0f) m_pitch = DEG2RAD * 89.0f;
+
+    m_forward = glm::vec3(std::cos(m_yaw) * std::cos(m_pitch), std::sin(m_pitch), std::sin(m_yaw) * std::cos(m_pitch));
+    glm::vec3 wUp = (1.0f - std::abs(glm::dot(m_forward, glm::vec3(0, 1, 0))) < EPSILON) ?
+        glm::vec3(0, 0, 1) : glm::vec3(0, 1, 0);
+    m_right = glm::normalize(glm::cross(m_forward, wUp));
+    m_up = glm::normalize(glm::cross(m_right, m_forward));
+
+    //addPitch(yoffset);
+    //addYaw(xoffset);
 }
