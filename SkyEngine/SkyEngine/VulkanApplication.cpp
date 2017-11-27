@@ -38,7 +38,7 @@ void VulkanApplication::initWindow() {
     glfwSetWindowUserPointer(window, this);
     glfwSetWindowSizeCallback(window, VulkanApplication::onWindowResized);
 
-    mainCamera = Camera(glm::vec3(0.f, 1.f, 1.f), glm::vec3(0.f, 0.f, 0.f), 0.1f, 10.0f, 45.0f);
+    mainCamera = Camera(glm::vec3(0.f, 1.f, 1.f), glm::vec3(0.f, 0.f, 0.f), 0.1f, 10.0f, 45.0f); // hi
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
 }
