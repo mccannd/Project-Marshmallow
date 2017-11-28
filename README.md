@@ -27,6 +27,8 @@ Presentation slides: https://docs.google.com/presentation/d/1VIR9ZQW38At9B_MwrqZ
 - Obj loading with Tinyobj
 - Began raymarching in compute pipeline
 
+Presentation slides: https://docs.google.com/presentation/d/19dwzTKkiu7RWJAS3FNpQn3g2C4npBGnQCg2l3P1VmgM/edit?usp=sharing
+
 # Credits: 
 https://vulkan-tutorial.com/Introduction - Base code creation / explanation for the graphics pipeline
 
