@@ -112,7 +112,7 @@ vec3 getAtmosphereColor(in vec3 dir) {
     vec3 up = mix(vec3(0.3, 0.7, 1.0), vec3(0.15, 0.65, 0.9), dir.y);
     vec3 down = vec3(0.8, 0.9, 1.0);
     float y = dir.y;
-    y = smoothstep(0, 1, clamp(remap(y, 0, 0.2, 0, 1), 0, 1));
+    y = smoothstep(0, 1, clamp(remap(y, 0, 0.1, 0, 1), 0, 1));
     return mix(down, up, y);
 }
 
@@ -268,24 +268,27 @@ void main() {
         vec2 samplePoint = (sampleProjected.xz - cameraPos.xz) / 20000.0;
         float density = cumulus * FBM(samplePoint); // TODO: placement texture as described in paper
 
-        float densityAlongLight = 0.0;
+        if (density > 0.00) {
+            float densityAlongLight = 0.0;
 
-        // Sample light propogation for Beer's law in a cone towards the light
-        for (int i = 0; i < 6; i++) {
-            vec3 lightSamplePoint = currentPos + 6.0 * stepSize * samples[i];
-            vec3 lightSamplePointProj = 0.5 * ATMOSPHERE_RADIUS * normalize(lightSamplePoint - earthCenter) + earthCenter;
-            float cumulus2 = length(lightSamplePoint - lightSamplePointProj)  / (0.5 * ATMOSPHERE_RADIUS * 0.05); 
-            cumulus2 = clamp(cumulus2, 0, 1);
-            cumulus2 = remap(cumulus2, 0.0, 0.3, 0.0, 1.0) * remap(cumulus2, 0.7, 1.0, 1.0, 0.0);
-            densityAlongLight += cumulus2 * FBM((lightSamplePoint.xz - cameraPos.xz) / 20000.0);
+            // Sample light propogation for Beer's law in a cone towards the light
+            for (int i = 0; i < 6; i++) {
+                vec3 lightSamplePoint = currentPos + 6.0 * stepSize * samples[i];
+                vec3 lightSamplePointProj = 0.5 * ATMOSPHERE_RADIUS * normalize(lightSamplePoint - earthCenter) + earthCenter;
+                float cumulus2 = length(lightSamplePoint - lightSamplePointProj)  / (0.5 * ATMOSPHERE_RADIUS * 0.05); 
+                cumulus2 = clamp(cumulus2, 0, 1);
+                cumulus2 = remap(cumulus2, 0.0, 0.3, 0.0, 1.0) * remap(cumulus2, 0.7, 1.0, 1.0, 0.0);
+                densityAlongLight += cumulus2 * FBM((lightSamplePoint.xz - cameraPos.xz) / 20000.0);
+            }
+        
+            // Beer's Law with extra / artistic light penetration, blend with front-to-back opacity
+            transmittance = mix(transmittance, max(exp(-densityAlongLight), 0.7 * exp(-0.25 * densityAlongLight)), (1.0 - accumDensity));
+
+            // Opacity
+            
         }
-        
-        // Beer's Law with extra / artistic light penetration, blend with front-to-back opacity
-        transmittance = mix(transmittance, max(exp(-densityAlongLight), 0.7 * exp(-0.25 * densityAlongLight)), (1.0 - accumDensity));
 
-        // Opacity
         accumDensity += density; //(1.0 - accumDensity) * density;         
-        
         if(accumDensity > 0.99) {
             accumDensity = 1.0;
             break;
@@ -293,7 +296,7 @@ void main() {
     }
 
     // opacity fades to prevent hard cutoff at horizon
-    accumDensity *= smoothstep(0, 1, min(1, remap(rayDirection.y, 0, 0.2, 0, 1)));
+    accumDensity *= smoothstep(0, 1, min(1, remap(rayDirection.y, 0, 0.1, 0, 1)));
     
     vec4 finalColor = vec4(mix(backgroundCol, vec3(clamp(transmittance, 0.0, 1.0)), accumDensity), 1.0);
 
