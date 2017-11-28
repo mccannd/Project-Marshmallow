@@ -24,6 +24,11 @@ struct Intersection {
 #define BLOB_CLOUD_STEP_SIZE ATMOSPHERE_RADIUS / 100.0
 #define NUM_FBM_OCTAVES 8
 #define EPSILON 0.0001
+#define PI 3.14159265
+#define E 2.718281828459
+
+#define THREE_OVER_SIXTEENPI = 0.05968310365946075
+#define ONE_OVER_FOURPI = 0.07957747154594767
 
 //#define VISUALIZE_NOISE
 
@@ -31,6 +36,87 @@ struct Intersection {
 // Overall fovy of 45
 #define FOVY_OVER_2 22.5
 #define ASPECT_RATIO dim.x / dim.y
+
+float remap(in float value, in float oldMin, in float oldMax, in float newMin, in float newMax) {
+    return newMin + (((value - oldMin) / (oldMax - oldMin)) * (newMax - newMin));
+}
+
+/// ATMOSPHERE COLOR BEGIN: adapted from open source of zz85 on Github, math from Preetham Model, initially implemented by Simon Wallner and Martin Upitis
+/// Credit applies to everything before ATMOSPHERE COLOR END
+
+// TODO: good sky uniform
+#define SUN_DISTANCE 400000.0
+#define RAYLEIGH 2.0
+#define MIE_C 0.005
+#define MIE_DG 0.8
+#define TURBIDITY 10.0
+#define SUN_LUMINANCE 1.0
+
+// TODO direction on CPU instead
+#define AZIMUTH 0.25
+#define ELEVATION 0.49
+void sunLocation(inout vec3 pos, inout vec3 dir) {
+    float theta = PI * (ELEVATION - 0.5);
+    float phi = 2.0 * PI * (AZIMUTH - 0.5);
+    pos = SUN_DISTANCE * vec3(cos(phi), sin(phi) * sin(theta), sin(phi) * cos(theta)); // double-check this
+    dir = normalize(pos);
+}
+
+// Earth shadowing constants
+#define SHADOW_CUTOFF 1.6110731557
+#define SHADOW_STEEPNESS 1.5
+#define EE 1000.0
+
+float sunIntensity(in float zenithAngleCos) {
+    zenithAngleCos = clamp(zenithAngleCos, -1, 1);
+    return EE * max(0, 1 - pow(E, -((SHADOW_CUTOFF - acos(zenithAngleCos)) / SHADOW_STEEPNESS)));
+}
+
+#define MIE_CONST vec3( 1.8399918514433978E14, 2.7798023919660528E14, 4.0790479543861094E14)
+vec3 totalMie(in float T) {
+    float c = (0.2 * T) * 10E-18;
+    return 0.434 * c * MIE_CONST;
+}
+
+#define RAYLEIGH_TOTAL vec3(5.804542996261093E-6, 1.3562911419845635E-5, 3.0265902468824876E-5)
+
+
+float rayleighPhase(in float cosTheta) {
+    return 0.0;
+}
+
+float hgPhase(in float cosTheta, in float g) {
+    return 0.0;
+}
+
+vec3 getAtmosphereColorPhysical(in vec3 dir) {
+    vec3 color = vec3(0);
+
+    // TODO START: doable on CPU
+
+    vec3 sunPos, sunDir;
+    sunLocation(sunPos, sunDir);
+    float sunE = sunIntensity(sunDir.y);
+    float sunFade = 1.0 - clamp(1.0  - exp( sunPos.y / 450000.0 ) , 0.0, 1.0);
+    vec3 BetaR = RAYLEIGH_TOTAL * (RAYLEIGH - 1.0 + sunFade);
+    vec3 BetaM = totalMie(TURBIDITY) * MIE_C;
+
+    // TODO END
+
+    return color;
+}
+
+vec3 getAtmosphereColor(in vec3 dir) {
+    // TODO: physical algorithm
+    vec3 up = mix(vec3(0.3, 0.7, 1.0), vec3(0.15, 0.65, 0.9), dir.y);
+    vec3 down = vec3(0.8, 0.9, 1.0);
+    float y = dir.y;
+    y = smoothstep(0, 1, clamp(remap(y, 0, 0.2, 0, 1), 0, 1));
+    return mix(down, up, y);
+}
+
+
+/// ATMOSPHERE COLOR END: see credit at BEGIN
 
 // Compute sphere intersection
 Intersection raySphereIntersection(in vec3 ro, in vec3 rd, in vec4 sphere) {
@@ -88,10 +174,6 @@ float interpolateNoise(in vec2 p) {
     return mix(noise_x1, noise_x2, p_fract.y);
 }
 
-float remap(in float value, in float oldMin, in float oldMax, in float newMin, in float newMax) {
-    return newMin + (((value - oldMin) / (oldMax - oldMin)) * (newMax - newMin));
-}
-
 float FBM(in vec2 p) {
     float amplitude = 0.75;
     float frequency = 1.0;
@@ -137,10 +219,12 @@ void main() {
 
     vec3 rayDirection = normalize(p - cameraPos);
 
+    vec3 backgroundCol = getAtmosphereColor(rayDirection);
+
     // It is likely we will never have an entirely unobstructed view of the horizon, so kill rays that would otherwise be executing.
     // This should be handled by the stenciling thing though
     if(dot(rayDirection, vec3(0, 1, 0)) < 0.0) {
-        imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), vec4(0, 0, 0, 1));
+        imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), vec4(backgroundCol, 1));
         return;
     }
 
@@ -150,7 +234,7 @@ void main() {
 
     /// Raytrace the scene (a sphere, to become the atmosphere)
     vec3 earthCenter = cameraPos;
-    earthCenter.y = -ATMOSPHERE_RADIUS * 0.5 * 0.9;
+    earthCenter.y = -ATMOSPHERE_RADIUS * 0.5 * 0.93;
     vec4 atmosphereSphereInner = vec4(earthCenter, ATMOSPHERE_RADIUS);
     vec4 atmosphereSphereOuter = vec4(earthCenter, ATMOSPHERE_RADIUS * 1.05);
     Intersection atmosphereIsectInner = raySphereIntersection(cameraPos, rayDirection, atmosphereSphereInner);
@@ -160,15 +244,23 @@ void main() {
     // Preliminary and not physically-based volume integration
     float t, dt;
     float accumDensity = 0.0;
+    float transmittance = 1.0;
     dt = BLOB_CLOUD_STEP_SIZE;
     float numSteps = floor(mix(32, 64, 1.0 - rayDirection.y));
     float stepSize = (atmosphereIsectOuter.t - atmosphereIsectInner.t) / numSteps;
 
+    vec3 samples[6] = {
+        vec3(2),
+        vec3(1),
+        vec3(0.5),
+        vec3(0.5, 1, 1),
+        vec3(1, 1, 0.5),
+        vec3(0.5, 1, 0.5),
+    };
+
     for(float t = atmosphereIsectInner.t; t < atmosphereIsectOuter.t; t += stepSize) {
         vec3 currentPos = cameraPos + t * rayDirection;
         
-
-
         vec3 fromCenter = normalize(currentPos - earthCenter);
         vec3 sampleProjected = 0.5 * ATMOSPHERE_RADIUS * fromCenter + earthCenter;
         vec3 sampleProjectedOuter = 0.5 * ATMOSPHERE_RADIUS * 1.05 * fromCenter + earthCenter;
@@ -178,23 +270,45 @@ void main() {
         cumulus = remap(cumulus, 0.0, 0.3, 0.0, 1.0) * remap(cumulus, 0.7, 1.0, 1.0, 0.0);
 
         vec2 samplePoint = (sampleProjected.xz - cameraPos.xz) / 20000.0;
-        float density = FBM(samplePoint);
+        float density = cumulus * FBM(samplePoint);
+
+        float densityAlongLight = 0;
+
+        for (int i = 0; i < 6; i++) {
+            vec3 lightSamplePoint = currentPos + 6.0 * stepSize * samples[i];
+            vec3 lightSamplePointProj = 0.5 * ATMOSPHERE_RADIUS * normalize(lightSamplePoint - earthCenter) + earthCenter;
+            float cumulus2 = length(lightSamplePoint - lightSamplePointProj)  / (0.5 * ATMOSPHERE_RADIUS * 0.05); 
+            cumulus2 = clamp(cumulus2, 0, 1);
+            cumulus2 = remap(cumulus2, 0.0, 0.3, 0.0, 1.0) * remap(cumulus2, 0.7, 1.0, 1.0, 0.0);
+            densityAlongLight += cumulus2 * FBM((lightSamplePoint.xz - cameraPos.xz) / 20000.0);
+        }
+
+        
 
         // Compute the light contribution using Lambertian shading and directional derivative
         // http://www.iquilezles.org/www/articles/derivative/derivative.htm
         //if(density > 0.0) {
             //accumDensity += FBM(samplePoint + EPSILON * LIGHT_VEC.xz) - density;
-            accumDensity += 0.2 * cumulus * density;
+            transmittance = mix(transmittance, max(exp(-densityAlongLight), 0.7 * exp(-0.25 * densityAlongLight)), (1.0 - accumDensity));
+            //transmittance = mix(transmittance, exp(-densityAlongLight), (1.0 - accumDensity));
+            accumDensity += density;//(1.0 - accumDensity) * density;
+            
             //break;
         //}
         
         if(accumDensity > 0.99) {
             accumDensity = 1.0;
+            //transmittance = 0.0;
             break;
         }
     }
+
     accumDensity *= smoothstep(0, 1, min(1, remap(rayDirection.y, 0, 0.2, 0, 1)));
-    vec4 finalColor = vec4(accumDensity, accumDensity, accumDensity, 1);
+    //float transmittance = max(exp(-accumDensity), 0.7 * exp(-0.25 * accumDensity));
+    
+    //vec4 finalColor = vec4(accumDensity, accumDensity, accumDensity, 1);
+    vec4 finalColor = vec4(mix(backgroundCol, vec3(clamp(transmittance, 0.0, 1.0)), accumDensity), 1.0);
+    //vec4 finalColor = vec4(mix(vec3(), backgroundCol, transmittance), 1.0);
 
     imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), finalColor);
 }
