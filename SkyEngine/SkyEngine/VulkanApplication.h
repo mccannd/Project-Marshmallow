@@ -92,8 +92,6 @@ private:
     void createCommandPool();
     void createCommandBuffers();
 
-    void createBackgroundPipeline();
-
     // command buffer helpers
     VkCommandBuffer beginSingleTimeCommands();
     void endSingleTimeCommands(VkCommandBuffer commandBuffer);
@@ -167,18 +165,11 @@ private:
     // for a graphics pipeline
     VkRenderPass renderPass;
 
-    // TODO: abstract background
-    VkDescriptorSetLayout backgroundSetLayout;
-    VkDescriptorSet backgroundSet;
-
     // TODO: abstract compute
     VkDescriptorSetLayout computeSetLayout;
     VkDescriptorSet computeSet;
 
-    /// background pipeline
-    VkPipelineLayout backgroundPipelineLayout;
 
-    VkPipeline backgroundPipeline;
     std::vector<VkFramebuffer> swapChainFramebuffers;
     VkCommandPool commandPool;
     std::vector<VkCommandBuffer> commandBuffers;
@@ -201,7 +192,6 @@ private:
     VkDeviceMemory uniformBufferMemory;
 
     VkDescriptorPool descriptorPool;
-    VkDescriptorPool backgroundDescriptorPool;
     VkDescriptorPool computeDescriptorPool;
 
     // TODO: convenient way of managing textures
@@ -214,6 +204,7 @@ private:
     void initializeShaders();
     void cleanupShaders();
     MeshShader* meshShader;
+    BackgroundShader* backgroundShader;
 
 #if _DEBUG
     // enable a range of validation layers through the SDK

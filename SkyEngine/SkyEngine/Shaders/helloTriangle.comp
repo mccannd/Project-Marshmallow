@@ -288,7 +288,7 @@ void main() {
             
         }
 
-        accumDensity += density; //(1.0 - accumDensity) * density;         
+        accumDensity += density;         
         if(accumDensity > 0.99) {
             accumDensity = 1.0;
             break;

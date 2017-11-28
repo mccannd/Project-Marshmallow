@@ -56,8 +56,8 @@ void VulkanApplication::initVulkan() {
 
     createRenderPass();
     createDescriptorSetLayout();
-    //createGraphicsPipeline();
-    createBackgroundPipeline();
+
+
     createComputePipeline();
     createCommandPool();
     
@@ -113,12 +113,6 @@ void VulkanApplication::cleanup() {
     vkDestroySemaphore(device, renderFinishedSemaphore, nullptr);
     vkDestroySemaphore(device, imageAvailableSemaphore, nullptr);
 
-    //vkDestroyPipeline(device, graphicsPipeline, nullptr);
-    //vkDestroyPipelineLayout(device, graphicsPipelineLayout, nullptr);
-
-    vkDestroyPipeline(device, backgroundPipeline, nullptr);
-    vkDestroyPipelineLayout(device, backgroundPipelineLayout, nullptr);
-
     vkDestroyPipeline(device, computePipeline, nullptr);
     vkDestroyPipelineLayout(device, computePipelineLayout, nullptr);
 
@@ -127,15 +121,10 @@ void VulkanApplication::cleanup() {
 
     cleanupGeometry();
 
-    //vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
-    vkDestroyDescriptorSetLayout(device, backgroundSetLayout, nullptr);
     vkDestroyDescriptorSetLayout(device, computeSetLayout, nullptr);
 
     vkDestroyBuffer(device, uniformBuffer, nullptr); // TODO shader
-    //vkDestroyDescriptorPool(device, descriptorPool, nullptr); 
     vkFreeMemory(device, uniformBufferMemory, nullptr); // TODO shader
-
-    vkDestroyDescriptorPool(device, backgroundDescriptorPool, nullptr);
 
     vkDestroyDescriptorPool(device, computeDescriptorPool, nullptr);
 
@@ -280,10 +269,12 @@ void VulkanApplication::initializeShaders() {
     //MeshShader(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue queue, VkExtent2D extent, VkRenderPass *renderPass, std::string vertPath, std::string fragPath, Texture* tex) :
     
     meshShader = new MeshShader(device, physicalDevice, commandPool, graphicsQueue, swapChainExtent, &renderPass, std::string("Shaders/helloTriangle.vert.spv"), std::string("Shaders/helloTriangle.frag.spv"), meshTexture);
+    backgroundShader = new BackgroundShader(device, physicalDevice, commandPool, graphicsQueue, swapChainExtent, &renderPass, std::string("Shaders/screenSpace.vert.spv"), std::string("Shaders/screenSpace.frag.spv"), backgroundTexture);
 }
 
 void VulkanApplication::cleanupShaders() {
     delete meshShader;
+    delete backgroundShader;
 }
 
 void VulkanApplication::updateUniformBuffer() {
@@ -369,26 +360,6 @@ void VulkanApplication::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDev
 }
 
 void VulkanApplication::createDescriptorSetLayout() {
-    /// Background
-
-    VkDescriptorSetLayoutBinding samplerBackgroundBinding = {};
-    samplerBackgroundBinding.binding = 0;
-    samplerBackgroundBinding.descriptorCount = 1;
-    samplerBackgroundBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    samplerBackgroundBinding.pImmutableSamplers = nullptr;
-    samplerBackgroundBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-
-    std::array<VkDescriptorSetLayoutBinding, 1> bindings2 = { samplerBackgroundBinding };
-
-    VkDescriptorSetLayoutCreateInfo layoutInfo2 = {};
-    layoutInfo2.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutInfo2.bindingCount = static_cast<uint32_t>(bindings2.size());
-    layoutInfo2.pBindings = bindings2.data();
-
-    if (vkCreateDescriptorSetLayout(device, &layoutInfo2, nullptr, &backgroundSetLayout) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create descriptor set layout!");
-    }
-
     /// Compute
     //TODO: add camera descriptor set (uniform buffer) to this layout
 
@@ -424,23 +395,6 @@ void VulkanApplication::createUniformBuffer() {
 }
 
 void VulkanApplication::createDescriptorPool() {
-    /// Background
-
-    std::array<VkDescriptorPoolSize, 1> poolSizes2 = {};
-
-    poolSizes2[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    poolSizes2[0].descriptorCount = 1;
-
-    VkDescriptorPoolCreateInfo poolInfo2 = {};
-    poolInfo2.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolInfo2.poolSizeCount = static_cast<uint32_t>(poolSizes2.size());
-    poolInfo2.pPoolSizes = poolSizes2.data();
-    poolInfo2.maxSets = 1;
-
-    if (vkCreateDescriptorPool(device, &poolInfo2, nullptr, &backgroundDescriptorPool) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create background descriptor pool!");
-    }
-
     /// Compute
 
     std::array<VkDescriptorPoolSize, 2> poolSizes_compute = {};
@@ -463,79 +417,11 @@ void VulkanApplication::createDescriptorPool() {
 }
 
 void VulkanApplication::createDescriptorSet() {
-    // DELETE
-    /*
-    VkDescriptorSetLayout layouts[] = { descriptorSetLayout };
-    VkDescriptorSetAllocateInfo allocInfo = {};
-    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    allocInfo.descriptorPool = descriptorPool;
-    allocInfo.descriptorSetCount = 1;
-    allocInfo.pSetLayouts = layouts;
-
-    if (vkAllocateDescriptorSets(device, &allocInfo, &descriptorSet) != VK_SUCCESS) {
-        throw std::runtime_error("failed to allocate descriptor set!");
-    }
-
-    VkDescriptorBufferInfo bufferInfo = {};
-    bufferInfo.buffer = uniformBuffer;
-    bufferInfo.offset = 0;
-    bufferInfo.range = sizeof(UniformBufferObject);
-
-    VkDescriptorImageInfo imageInfo = {};
-    imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    imageInfo.imageView = meshTexture->textureImageView;
-    imageInfo.sampler = meshTexture->textureSampler;
-
-    std::array<VkWriteDescriptorSet, 2> descriptorWrites = {};
-
-    descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    descriptorWrites[0].dstSet = descriptorSet;
-    descriptorWrites[0].dstBinding = 0;
-    descriptorWrites[0].dstArrayElement = 0;
-    descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    descriptorWrites[0].descriptorCount = 1;
-    descriptorWrites[0].pBufferInfo = &bufferInfo;
-
-    descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    descriptorWrites[1].dstSet = descriptorSet;
-    descriptorWrites[1].dstBinding = 1;
-    descriptorWrites[1].dstArrayElement = 0;
-    descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    descriptorWrites[1].descriptorCount = 1;
-    descriptorWrites[1].pImageInfo = &imageInfo;
-
-    vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
-    */
-    /// Background
-
-    VkDescriptorSetLayout layouts2[] = { backgroundSetLayout };
-    VkDescriptorSetAllocateInfo allocInfo2 = {};
-    allocInfo2.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    allocInfo2.descriptorPool = backgroundDescriptorPool;
-    allocInfo2.descriptorSetCount = 1;
-    allocInfo2.pSetLayouts = layouts2;
-
-    if (vkAllocateDescriptorSets(device, &allocInfo2, &backgroundSet) != VK_SUCCESS) {
-        throw std::runtime_error("failed to allocate descriptor set!");
-    }
-
+    /// Compute
     VkDescriptorImageInfo imageInfo2 = {};
     imageInfo2.imageLayout = VK_IMAGE_LAYOUT_GENERAL; //according to a vulkan error
     imageInfo2.imageView = backgroundTexture->textureImageView;
     imageInfo2.sampler = backgroundTexture->textureSampler;
-
-    VkWriteDescriptorSet backgroundWrite = {};
-    backgroundWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    backgroundWrite.dstSet = backgroundSet;
-    backgroundWrite.dstBinding = 0;
-    backgroundWrite.dstArrayElement = 0;
-    backgroundWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    backgroundWrite.descriptorCount = 1;
-    backgroundWrite.pImageInfo = &imageInfo2;
-
-    vkUpdateDescriptorSets(device, 1, &backgroundWrite, 0, nullptr);
-
-    /// Compute
 
     VkDescriptorBufferInfo bufferInfo = {};
     bufferInfo.buffer = uniformBuffer;
@@ -981,165 +867,6 @@ void VulkanApplication::createSemaphores() {
 
 }
 
-void VulkanApplication::createBackgroundPipeline() {
-    auto vertShaderCode = readFile("Shaders/screenSpace.vert.spv");
-    auto fragShaderCode = readFile("Shaders/screenSpace.frag.spv");
-    VkShaderModule vertShaderModule;
-    VkShaderModule fragShaderModule;
-    vertShaderModule = createShaderModule(vertShaderCode, device);
-    fragShaderModule = createShaderModule(fragShaderCode, device);
-
-    VkPipelineShaderStageCreateInfo vertShaderStageInfo = {};
-    vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-    vertShaderStageInfo.module = vertShaderModule;
-    vertShaderStageInfo.pName = "main";
-
-    VkPipelineShaderStageCreateInfo fragShaderStageInfo = {};
-    fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-    fragShaderStageInfo.module = fragShaderModule;
-    fragShaderStageInfo.pName = "main";
-
-    VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
-
-    // Pipeline creation
-    // Vertex input.
-    auto bindingDescription = Vertex::getBindingDescription();
-    auto attributeDescriptions = Vertex::getAttributeDescriptions();
-
-    VkPipelineVertexInputStateCreateInfo vertexInputInfo = {};
-    vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vertexInputInfo.vertexBindingDescriptionCount = 1; // # layouts
-    vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size()); // # attributes per vert
-    vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
-    vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
-
-    // Input assembly, triangles from vertex lists
-    VkPipelineInputAssemblyStateCreateInfo inputAssembly = {};
-    inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    inputAssembly.primitiveRestartEnable = VK_FALSE;
-
-    // Viewport from swapchain resolution
-    VkViewport viewport = {};
-    viewport.x = 0.0f;
-    viewport.y = 0.0f;
-    viewport.width = (float)swapChainExtent.width;
-    viewport.height = (float)swapChainExtent.height;
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
-
-    // blank scissors, render whole thing
-    VkRect2D scissor = {};
-    scissor.offset = { 0, 0 };
-    scissor.extent = swapChainExtent;
-
-    VkPipelineViewportStateCreateInfo viewportState = {};
-    viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-    viewportState.viewportCount = 1;
-    viewportState.pViewports = &viewport;
-    viewportState.scissorCount = 1;
-    viewportState.pScissors = &scissor;
-
-    // Rasterizer
-    VkPipelineRasterizationStateCreateInfo rasterizer = {};
-    rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-    rasterizer.depthClampEnable = VK_FALSE;
-    rasterizer.rasterizerDiscardEnable = VK_FALSE;
-    rasterizer.polygonMode = VK_POLYGON_MODE_FILL; // make fragments as opposed to lines, points
-    rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-    rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
-    // TODO: reexamine this for deferred depth...
-    rasterizer.depthBiasEnable = VK_TRUE;
-    rasterizer.depthBiasConstantFactor = 0.0f; // Optional
-    rasterizer.depthBiasClamp = 0.0f; // Optional
-    rasterizer.depthBiasSlopeFactor = 0.0f; // Optional
-    rasterizer.lineWidth = 1.0f;
-
-    // Multisampling: disabled for now
-    VkPipelineMultisampleStateCreateInfo multisampling = {};
-    multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    multisampling.sampleShadingEnable = VK_FALSE;
-    multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-    multisampling.minSampleShading = 1.0f; // Optional
-    multisampling.pSampleMask = nullptr; // Optional
-    multisampling.alphaToCoverageEnable = VK_FALSE; // Optional
-    multisampling.alphaToOneEnable = VK_FALSE; // Optional
-
-                                               // TODO: reexamine for transparency, blending
-    VkPipelineColorBlendAttachmentState colorBlendAttachment = {};
-    colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-    colorBlendAttachment.blendEnable = VK_FALSE;
-    colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE; // Optional
-    colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO; // Optional
-    colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD; // Optional
-    colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE; // Optional
-    colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO; // Optional
-    colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD; // Optional
-
-    VkPipelineColorBlendStateCreateInfo colorBlending = {};
-    colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    colorBlending.logicOpEnable = VK_FALSE;
-    colorBlending.logicOp = VK_LOGIC_OP_COPY; // Optional
-    colorBlending.attachmentCount = 1;
-    colorBlending.pAttachments = &colorBlendAttachment;
-    colorBlending.blendConstants[0] = 0.0f; // Optional
-    colorBlending.blendConstants[1] = 0.0f; // Optional
-    colorBlending.blendConstants[2] = 0.0f; // Optional
-    colorBlending.blendConstants[3] = 0.0f; // Optional
-
-    VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
-    pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipelineLayoutInfo.setLayoutCount = 1;
-    pipelineLayoutInfo.pSetLayouts = &backgroundSetLayout;
-    pipelineLayoutInfo.pushConstantRangeCount = 0; // Optional
-    pipelineLayoutInfo.pPushConstantRanges = 0; // Optional
-
-    if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &backgroundPipelineLayout) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create pipeline layout!");
-    }
-    
-    VkPipelineDepthStencilStateCreateInfo depthStencil = {};
-    depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    depthStencil.depthTestEnable = VK_TRUE;
-    depthStencil.depthWriteEnable = VK_TRUE;
-    depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
-    depthStencil.depthBoundsTestEnable = VK_FALSE;
-    depthStencil.minDepthBounds = 0.0f; // Optional
-    depthStencil.maxDepthBounds = 1.0f; // Optional
-    depthStencil.stencilTestEnable = VK_FALSE;
-    depthStencil.front = {}; // Optional
-    depthStencil.back = {}; // Optional
-
-    VkGraphicsPipelineCreateInfo pipelineInfo = {};
-    pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    pipelineInfo.stageCount = 2;
-    pipelineInfo.pStages = shaderStages;
-    pipelineInfo.pVertexInputState = &vertexInputInfo;
-    pipelineInfo.pInputAssemblyState = &inputAssembly;
-    pipelineInfo.pViewportState = &viewportState;
-    pipelineInfo.pRasterizationState = &rasterizer;
-    pipelineInfo.pMultisampleState = &multisampling;
-    pipelineInfo.pDepthStencilState = &depthStencil;
-    pipelineInfo.pColorBlendState = &colorBlending;
-    pipelineInfo.pDynamicState = nullptr; // Optional
-    pipelineInfo.layout = backgroundPipelineLayout;
-    pipelineInfo.renderPass = renderPass;
-    pipelineInfo.subpass = 0;
-    pipelineInfo.basePipelineHandle = VK_NULL_HANDLE; // Optional
-    pipelineInfo.basePipelineIndex = -1; // Optional
-
-    if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &backgroundPipeline) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create graphics pipeline!");
-    }
-
-    // TODO
-    vkDestroyShaderModule(device, fragShaderModule, nullptr);
-    vkDestroyShaderModule(device, vertShaderModule, nullptr);
-}
-
-
 void VulkanApplication::createComputePipeline() {
     // Set up programmable shader
     auto computeShaderCode = readFile("Shaders/helloTriangle.comp.spv");
@@ -1283,13 +1010,11 @@ void VulkanApplication::createCommandBuffers() {
         // Render pass recording. This is only done once.
         vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-        /// Background begin
-        vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, backgroundPipeline);
-
-        vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, backgroundPipelineLayout, 0, 1, &backgroundSet, 0, nullptr);
+        // Draw Background
+        backgroundShader->bindShader(commandBuffers[i]);
         backgroundGeometry->enqueueDrawCommands(commandBuffers[i]);
-        /// Background end
-
+        
+        // Draw Scene
         meshShader->bindShader(commandBuffers[i]);
         sceneGeometry->enqueueDrawCommands(commandBuffers[i]);
 
