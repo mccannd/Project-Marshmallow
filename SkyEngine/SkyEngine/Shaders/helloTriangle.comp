@@ -3,8 +3,9 @@
 
 #define WORKGROUP_SIZE 32
 layout (local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE) in;
-layout (binding = 0, rgba8) uniform writeonly image2D resultImage;
+layout (binding = 0, rgba8) uniform writeonly image2D resultImage; // TODO: HDR
 
+// TODO: replace with non-generic uniforms
 layout (binding = 1) uniform UniformBufferObject {
     mat4 model;
     mat4 view;
@@ -195,14 +196,14 @@ float FBM(in vec2 p) {
 
 void main() {
     /// Extract the UV
-    ivec2 dim = imageSize(resultImage);
+    ivec2 dim = imageSize(resultImage); // prob better as uniform
     // TODO: half resolution reprojection
+    // TODO: ? quarter resolution reprojection ?
 	vec2 uv = vec2(gl_GlobalInvocationID.xy) / dim;
-    /// Cast a ray
     
+    /// Cast a ray
     // Compute screen space point from UVs
     vec2 screenPoint = uv * 2.0 - 1.0;
-    //screenPoint.x *= dim.x / dim.y; // TODO: aspect ratio as uniform
 
     // Extract camera information from uniform
     vec3 camLook = vec3(ubo.view[0][2], ubo.view[1][2], ubo.view[2][2]);
@@ -215,22 +216,18 @@ void main() {
 
     const float tanFovy = 0.4142135; // TODO link camera uniform
 
-    vec3 p = refPoint + ASPECT_RATIO * screenPoint.x * tanFovy * camRight - screenPoint.y * tanFovy * camUp;	
+    vec3 p = refPoint + ASPECT_RATIO * screenPoint.x * tanFovy * camRight - screenPoint.y * tanFovy * camUp; // TODO: aspect ratio as uniform
 
     vec3 rayDirection = normalize(p - cameraPos);
 
     vec3 backgroundCol = getAtmosphereColor(rayDirection);
 
     // It is likely we will never have an entirely unobstructed view of the horizon, so kill rays that would otherwise be executing.
-    // This should be handled by the stenciling thing though
+    // TODO: low-res stencil check first
     if(dot(rayDirection, vec3(0, 1, 0)) < 0.0) {
         imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), vec4(backgroundCol, 1));
         return;
     }
-
-    //vec3 col = 0.5 + 0.5 * rayDirection;
-    //imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), vec4(col.xxx, 1));
-    //return;
 
     /// Raytrace the scene (a sphere, to become the atmosphere)
     vec3 earthCenter = cameraPos;
@@ -240,16 +237,14 @@ void main() {
     Intersection atmosphereIsectInner = raySphereIntersection(cameraPos, rayDirection, atmosphereSphereInner);
     Intersection atmosphereIsectOuter = raySphereIntersection(cameraPos, rayDirection, atmosphereSphereOuter);
 
-
-    // Preliminary and not physically-based volume integration
-    float t, dt;
+    float t;
     float accumDensity = 0.0;
     float transmittance = 1.0;
-    dt = BLOB_CLOUD_STEP_SIZE;
-    float numSteps = floor(mix(32, 64, 1.0 - rayDirection.y));
+    float numSteps = floor(mix(32, 64, 1.0 - rayDirection.y)); // Paper lists range more like 50 - 80
     float stepSize = (atmosphereIsectOuter.t - atmosphereIsectInner.t) / numSteps;
 
-    vec3 samples[6] = {
+    // TODO: need good way to randomly sample in cone
+    const vec3 samples[6] = {
         vec3(2),
         vec3(1),
         vec3(0.5),
@@ -261,19 +256,21 @@ void main() {
     for(float t = atmosphereIsectInner.t; t < atmosphereIsectOuter.t; t += stepSize) {
         vec3 currentPos = cameraPos + t * rayDirection;
         
+        // TODO: make low-res and hi-res density sample functions
         vec3 fromCenter = normalize(currentPos - earthCenter);
+        // Sample is read from XZ of bounding sphere. Maybe there's a better way, but we'll never see the equator, so...
         vec3 sampleProjected = 0.5 * ATMOSPHERE_RADIUS * fromCenter + earthCenter;
-        vec3 sampleProjectedOuter = 0.5 * ATMOSPHERE_RADIUS * 1.05 * fromCenter + earthCenter;
 
         float cumulus = length(currentPos - sampleProjected) / (0.5 * ATMOSPHERE_RADIUS * 0.05); // radial distance from inner to outer shell, normalized
         cumulus = clamp(cumulus, 0, 1);
-        cumulus = remap(cumulus, 0.0, 0.3, 0.0, 1.0) * remap(cumulus, 0.7, 1.0, 1.0, 0.0);
+        cumulus = remap(cumulus, 0.0, 0.3, 0.0, 1.0) * remap(cumulus, 0.7, 1.0, 1.0, 0.0); // TODO: remap based on cloud type, not just cumulus
 
         vec2 samplePoint = (sampleProjected.xz - cameraPos.xz) / 20000.0;
-        float density = cumulus * FBM(samplePoint);
+        float density = cumulus * FBM(samplePoint); // TODO: placement texture as described in paper
 
-        float densityAlongLight = 0;
+        float densityAlongLight = 0.0;
 
+        // Sample light propogation for Beer's law in a cone towards the light
         for (int i = 0; i < 6; i++) {
             vec3 lightSamplePoint = currentPos + 6.0 * stepSize * samples[i];
             vec3 lightSamplePointProj = 0.5 * ATMOSPHERE_RADIUS * normalize(lightSamplePoint - earthCenter) + earthCenter;
@@ -282,33 +279,23 @@ void main() {
             cumulus2 = remap(cumulus2, 0.0, 0.3, 0.0, 1.0) * remap(cumulus2, 0.7, 1.0, 1.0, 0.0);
             densityAlongLight += cumulus2 * FBM((lightSamplePoint.xz - cameraPos.xz) / 20000.0);
         }
-
         
+        // Beer's Law with extra / artistic light penetration, blend with front-to-back opacity
+        transmittance = mix(transmittance, max(exp(-densityAlongLight), 0.7 * exp(-0.25 * densityAlongLight)), (1.0 - accumDensity));
 
-        // Compute the light contribution using Lambertian shading and directional derivative
-        // http://www.iquilezles.org/www/articles/derivative/derivative.htm
-        //if(density > 0.0) {
-            //accumDensity += FBM(samplePoint + EPSILON * LIGHT_VEC.xz) - density;
-            transmittance = mix(transmittance, max(exp(-densityAlongLight), 0.7 * exp(-0.25 * densityAlongLight)), (1.0 - accumDensity));
-            //transmittance = mix(transmittance, exp(-densityAlongLight), (1.0 - accumDensity));
-            accumDensity += density;//(1.0 - accumDensity) * density;
-            
-            //break;
-        //}
+        // Opacity
+        accumDensity += density; //(1.0 - accumDensity) * density;         
         
         if(accumDensity > 0.99) {
             accumDensity = 1.0;
-            //transmittance = 0.0;
             break;
         }
     }
 
+    // opacity fades to prevent hard cutoff at horizon
     accumDensity *= smoothstep(0, 1, min(1, remap(rayDirection.y, 0, 0.2, 0, 1)));
-    //float transmittance = max(exp(-accumDensity), 0.7 * exp(-0.25 * accumDensity));
     
-    //vec4 finalColor = vec4(accumDensity, accumDensity, accumDensity, 1);
     vec4 finalColor = vec4(mix(backgroundCol, vec3(clamp(transmittance, 0.0, 1.0)), accumDensity), 1.0);
-    //vec4 finalColor = vec4(mix(vec3(), backgroundCol, transmittance), 1.0);
 
     imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), finalColor);
 }
