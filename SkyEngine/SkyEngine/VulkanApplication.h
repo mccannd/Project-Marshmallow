@@ -166,9 +166,6 @@ private:
     void initializeGeometry();
     void cleanupGeometry();
 
-    VkBuffer uniformBuffer;
-    VkDeviceMemory uniformBufferMemory;
-
     // TODO: convenient way of managing textures
     void initializeTextures();
     void cleanupTextures();
