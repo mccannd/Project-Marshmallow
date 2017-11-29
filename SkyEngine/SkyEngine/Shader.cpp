@@ -21,6 +21,8 @@ VkShaderModule Shader::createShaderModule(const std::vector<char>& code, VkDevic
     return shaderModule;
 }
 
+/// Mesh Shader
+
 void MeshShader::cleanupUniforms() {
     vkDestroyBuffer(device, uniformCameraBuffer, nullptr);
     vkDestroyBuffer(device, uniformModelBuffer, nullptr);
@@ -120,7 +122,6 @@ void MeshShader::createDescriptorSet() {
     descriptorWrites[2].pImageInfo = &imageInfo;
 
     vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
-
 }
 
 void MeshShader::createPipeline() {
@@ -287,7 +288,7 @@ void MeshShader::createUniformBuffer() {
 
 }
 
-/// Background shader
+/// Background Shader
 
 void BackgroundShader::cleanupUniforms() {
     // currently no uniforms, only a texture
@@ -339,8 +340,8 @@ void BackgroundShader::createDescriptorSet() {
 
     VkDescriptorImageInfo imageInfo = {};
     imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    imageInfo.imageView = textures[0]->textureImageView;
-    imageInfo.sampler = textures[0]->textureSampler;
+    imageInfo.imageView = textures[ALBEDO]->textureImageView;
+    imageInfo.sampler = textures[ALBEDO]->textureSampler;
 
     std::array<VkWriteDescriptorSet, 1> descriptorWrites = {};
 
@@ -353,7 +354,6 @@ void BackgroundShader::createDescriptorSet() {
     descriptorWrites[0].pImageInfo = &imageInfo;
 
     vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
-
 }
 
 void BackgroundShader::createPipeline() {
@@ -514,4 +514,144 @@ void BackgroundShader::createPipeline() {
 
 void BackgroundShader::createUniformBuffer() {
     // currently no uniforms
+}
+
+/// Compute Shader
+
+void ComputeShader::cleanupUniforms() {
+    vkDestroyBuffer(device, uniformStorageImageBuffer, nullptr);
+    vkFreeMemory(device, uniformStorageImageBufferMemory, nullptr);
+    vkDestroyBuffer(device, uniformCameraBuffer, nullptr);
+    vkFreeMemory(device, uniformCameraBufferMemory, nullptr);
+}
+
+void ComputeShader::createDescriptorSetLayout() {
+    VkDescriptorSetLayoutBinding storageImageLayoutBinding = UniformStorageImageObject::getLayoutBinding(0);
+    VkDescriptorSetLayoutBinding camLayoutBinding = UniformCameraObject::getLayoutBinding(1);
+
+    std::array<VkDescriptorSetLayoutBinding, 2> bindings = { storageImageLayoutBinding, camLayoutBinding };
+    VkDescriptorSetLayoutCreateInfo layoutInfo = {};
+    layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
+    layoutInfo.pBindings = bindings.data();
+
+    if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create descriptor set layout!");
+    }
+}
+
+void ComputeShader::createDescriptorPool() {
+    std::array<VkDescriptorPoolSize, 2> poolSizes = {};
+    poolSizes[0].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    poolSizes[0].descriptorCount = 1;
+    poolSizes[1].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    poolSizes[1].descriptorCount = 1;
+
+    VkDescriptorPoolCreateInfo poolInfo = {};
+    poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
+    poolInfo.pPoolSizes = poolSizes.data();
+    poolInfo.maxSets = 1;
+
+    if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create descriptor pool!");
+    }
+}
+
+void ComputeShader::createDescriptorSet() {
+    VkDescriptorSetLayout layouts[] = { descriptorSetLayout };
+    VkDescriptorSetAllocateInfo allocInfo = {};
+    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocInfo.descriptorPool = descriptorPool;
+    allocInfo.descriptorSetCount = 1;
+    allocInfo.pSetLayouts = layouts;
+
+    if (vkAllocateDescriptorSets(device, &allocInfo, &descriptorSet) != VK_SUCCESS) {
+        throw std::runtime_error("failed to allocate descriptor set!");
+    }
+
+    VkDescriptorImageInfo imageInfo = {};
+    imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+    imageInfo.imageView = textures[ALBEDO]->textureImageView;
+    imageInfo.sampler = textures[ALBEDO]->textureSampler;
+
+    VkDescriptorBufferInfo cameraBufferInfo = {};
+    cameraBufferInfo.buffer = uniformCameraBuffer;
+    cameraBufferInfo.offset = 0;
+    cameraBufferInfo.range = sizeof(UniformCameraObject);
+
+    // TODO: other relevant textures
+
+    std::array<VkWriteDescriptorSet, 2> descriptorWrites = {};
+
+    descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrites[0].dstSet = descriptorSet;
+    descriptorWrites[0].dstBinding = 0;
+    descriptorWrites[0].dstArrayElement = 0;
+    descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    descriptorWrites[0].descriptorCount = 1;
+    descriptorWrites[0].pImageInfo = &imageInfo;
+
+    descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrites[1].dstSet = descriptorSet;
+    descriptorWrites[1].dstBinding = 1;
+    descriptorWrites[1].dstArrayElement = 0;
+    descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    descriptorWrites[1].descriptorCount = 1;
+    descriptorWrites[1].pBufferInfo = &cameraBufferInfo;    
+
+    vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+}
+
+void ComputeShader::createPipeline() {
+    // Set up programmable shader
+    auto computeShaderCode = readFile(shaderFilePaths[0]);
+    VkShaderModule computeShaderModule = createShaderModule(computeShaderCode, device);
+
+    VkPipelineShaderStageCreateInfo shaderStageInfo = {};
+    shaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    shaderStageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+    shaderStageInfo.module = computeShaderModule;
+    shaderStageInfo.pName = "main";
+
+    std::vector<VkDescriptorSetLayout> descriptorSetLayouts = { descriptorSetLayout };
+
+    // Create pipeline layout
+    VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
+    pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(descriptorSetLayouts.size());
+    pipelineLayoutInfo.pSetLayouts = descriptorSetLayouts.data();
+    pipelineLayoutInfo.pushConstantRangeCount = 0;
+    pipelineLayoutInfo.pPushConstantRanges = 0;
+
+    // Create that layout
+    if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create pipeline layout");
+    }
+
+    // Create compute pipeline
+    VkComputePipelineCreateInfo pipelineInfo = {};
+    pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+    pipelineInfo.stage = shaderStageInfo;
+    pipelineInfo.layout = pipelineLayout;
+    pipelineInfo.pNext = nullptr;
+    pipelineInfo.flags = 0;
+    pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
+    pipelineInfo.basePipelineIndex = -1;
+
+    // Create that pipeline
+    if (vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create compute pipeline");
+    }
+
+    // No longer need shader module
+    vkDestroyShaderModule(device, computeShaderModule, nullptr);
+}
+
+void ComputeShader::createUniformBuffer() {
+    VkDeviceSize bufferSize = sizeof(UniformCameraObject);
+    VulkanObject::createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformStorageImageBuffer, uniformStorageImageBufferMemory);
+    VkDeviceSize bufferSize2 = sizeof(UniformCameraObject);
+    VulkanObject::createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformCameraBuffer, uniformCameraBufferMemory);
+
 }

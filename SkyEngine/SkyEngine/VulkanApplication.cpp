@@ -55,10 +55,10 @@ void VulkanApplication::initVulkan() {
     createImageViews();
 
     createRenderPass();
-    createDescriptorSetLayout();
+    //createDescriptorSetLayout();
 
 
-    createComputePipeline();
+    //createComputePipeline();
     createCommandPool();
     
     initializeTextures();
@@ -69,9 +69,9 @@ void VulkanApplication::initVulkan() {
 
     initializeShaders();
 
-    createUniformBuffer(); // TODO
-    createDescriptorPool();
-    createDescriptorSet();
+    //createUniformBuffer(); // TODO
+    //createDescriptorPool();
+    //createDescriptorSet();
     createCommandBuffers();
     createComputeCommandBuffer();
     createSemaphores();
@@ -113,20 +113,14 @@ void VulkanApplication::cleanup() {
     vkDestroySemaphore(device, renderFinishedSemaphore, nullptr);
     vkDestroySemaphore(device, imageAvailableSemaphore, nullptr);
 
-    vkDestroyPipeline(device, computePipeline, nullptr);
-    vkDestroyPipelineLayout(device, computePipelineLayout, nullptr);
-
     vkDestroyRenderPass(device, renderPass, nullptr);
     vkDestroySwapchainKHR(device, swapChain, nullptr);
 
     cleanupGeometry();
 
-    vkDestroyDescriptorSetLayout(device, computeSetLayout, nullptr);
-
-    vkDestroyBuffer(device, uniformBuffer, nullptr); // TODO shader
+    /*vkDestroyBuffer(device, uniformBuffer, nullptr); // TODO shader
     vkFreeMemory(device, uniformBufferMemory, nullptr); // TODO shader
-
-    vkDestroyDescriptorPool(device, computeDescriptorPool, nullptr);
+    */
 
     cleanupTextures();
     cleanupShaders();
@@ -266,21 +260,23 @@ void VulkanApplication::cleanupGeometry() {
 }
 
 void VulkanApplication::initializeShaders() {
-    //MeshShader(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue queue, VkExtent2D extent, VkRenderPass *renderPass, std::string vertPath, std::string fragPath, Texture* tex) :
-    
     meshShader = new MeshShader(device, physicalDevice, commandPool, graphicsQueue, swapChainExtent, &renderPass, std::string("Shaders/helloTriangle.vert.spv"), std::string("Shaders/helloTriangle.frag.spv"), meshTexture);
     backgroundShader = new BackgroundShader(device, physicalDevice, commandPool, graphicsQueue, swapChainExtent, &renderPass, std::string("Shaders/screenSpace.vert.spv"), std::string("Shaders/screenSpace.frag.spv"), backgroundTexture);
+
+    // Note: we pass the background shader's texture with the intention of writing to it with the compute shader
+    computeShader = new ComputeShader(device, physicalDevice, commandPool, graphicsQueue, swapChainExtent, &renderPass, std::string("Shaders/helloTriangle.comp.spv"), backgroundTexture);
 }
 
 void VulkanApplication::cleanupShaders() {
     delete meshShader;
     delete backgroundShader;
+    delete computeShader;
 }
 
 void VulkanApplication::updateUniformBuffer() {
     float time = prevTime + deltaTime;
 
-    UniformBufferObject ubo = {};
+    /*UniformBufferObject ubo = {};
     ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.f), glm::vec3(0.f, 0.f, 1.f));
     ubo.model = glm::mat4(1.0f);
     ubo.view = mainCamera.getView();
@@ -292,12 +288,13 @@ void VulkanApplication::updateUniformBuffer() {
     void* data;
     vkMapMemory(device, uniformBufferMemory, 0, sizeof(ubo), 0, &data);
     memcpy(data, &ubo, sizeof(ubo));
-    vkUnmapMemory(device, uniformBufferMemory);
+    vkUnmapMemory(device, uniformBufferMemory);*/
 
 
     UniformCameraObject uco = {};
-    uco.proj = ubo.proj;
-    uco.view = ubo.view;
+    uco.proj = mainCamera.getProj();
+    uco.proj[1][1] *= -1; // :(
+    uco.view = mainCamera.getView();
     uco.cameraPosition = mainCamera.getPosition();
 
     UniformModelObject umo = {};
@@ -308,6 +305,7 @@ void VulkanApplication::updateUniformBuffer() {
     umo.invTranspose = glm::inverse(glm::transpose(umo.model));
 
     meshShader->updateUniformBuffers(uco, umo);
+    computeShader->updateUniformBuffers(uco);
 }
 
 uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties, VkPhysicalDevice physicalDevice) {
@@ -359,7 +357,7 @@ void VulkanApplication::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDev
     endSingleTimeCommands(commandBuffer);
 }
 
-void VulkanApplication::createDescriptorSetLayout() {
+/*void VulkanApplication::createDescriptorSetLayout() {
     /// Compute
     //TODO: add camera descriptor set (uniform buffer) to this layout
 
@@ -387,14 +385,14 @@ void VulkanApplication::createDescriptorSetLayout() {
     if (vkCreateDescriptorSetLayout(device, &layoutInfo_compute, nullptr, &computeSetLayout) != VK_SUCCESS) {
         throw std::runtime_error("failed to create descriptor set layout!");
     }
-}
+}*/
 
-void VulkanApplication::createUniformBuffer() {
+/*void VulkanApplication::createUniformBuffer() {
     VkDeviceSize bufferSize = sizeof(UniformBufferObject);
     createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffer, uniformBufferMemory);
-}
+}*/
 
-void VulkanApplication::createDescriptorPool() {
+/*void VulkanApplication::createDescriptorPool() {
     /// Compute
 
     std::array<VkDescriptorPoolSize, 2> poolSizes_compute = {};
@@ -414,9 +412,9 @@ void VulkanApplication::createDescriptorPool() {
     if (vkCreateDescriptorPool(device, &poolInfo_compute, nullptr, &computeDescriptorPool) != VK_SUCCESS) {
         throw std::runtime_error("failed to create compute descriptor pool!");
     }
-}
+}*/
 
-void VulkanApplication::createDescriptorSet() {
+/*void VulkanApplication::createDescriptorSet() {
     /// Compute
     VkDescriptorImageInfo imageInfo2 = {};
     imageInfo2.imageLayout = VK_IMAGE_LAYOUT_GENERAL; //according to a vulkan error
@@ -457,7 +455,7 @@ void VulkanApplication::createDescriptorSet() {
     computeWrites[1].pBufferInfo = &bufferInfo;
 
     vkUpdateDescriptorSets(device, static_cast<uint32_t>(computeWrites.size()), computeWrites.data(), 0, nullptr);
-}
+}*/
 
 
 
@@ -867,7 +865,7 @@ void VulkanApplication::createSemaphores() {
 
 }
 
-void VulkanApplication::createComputePipeline() {
+/*void VulkanApplication::createComputePipeline() {
     // Set up programmable shader
     auto computeShaderCode = readFile("Shaders/helloTriangle.comp.spv");
     VkShaderModule computeShaderModule = createShaderModule(computeShaderCode, device);
@@ -911,7 +909,7 @@ void VulkanApplication::createComputePipeline() {
 
     // No longer need shader module
     vkDestroyShaderModule(device, computeShaderModule, nullptr);
-}
+}*/
 
 void VulkanApplication::createCommandPool() {
     QueueFamilyIndices queueFamilyIndices = findQueueFamilies(physicalDevice);
@@ -927,7 +925,6 @@ void VulkanApplication::createCommandPool() {
     }
 
     // Compute command pool
-    //TODO: make sure this is done
     VkCommandPoolCreateInfo computePoolInfo = {};
     computePoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     computePoolInfo.queueFamilyIndex = queueFamilyIndices.computeFamily; //TODO: need compute index or whatever
@@ -1048,12 +1045,7 @@ void VulkanApplication::createComputeCommandBuffer() {
         throw std::runtime_error("Failed to begin recording compute command buffer");
     }
 
-    // Bind to the compute pipeline
-    vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
-
-    // TODO: bind various descriptor sets
-    //TODO: camera
-    vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipelineLayout, 0, 1, &computeSet, 0, 0);
+    computeShader->bindShader(computeCommandBuffer);
 
     // TODO: dispatch according to the number of pixels, do in a 2d manner? see the raytracing example
     // first TODO: launch this compute shader for the triangle being rendered
