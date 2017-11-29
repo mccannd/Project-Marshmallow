@@ -199,7 +199,7 @@ public:
 };
 
 /*
-TODO: A pipeline for drawing a background quad
+  Pipeline for drawing a background quad
 */
 
 class BackgroundShader : public Shader
@@ -245,7 +245,7 @@ public:
 };
 
 /*
-TODO: A pipeline for computing clouds
+  Pipeline for computing clouds
 */
 
 class ComputeShader : public Shader
@@ -302,5 +302,53 @@ public:
     void bindShader(VkCommandBuffer& commandBuffer) override {
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
+    }
+};
+
+/*
+  Pipeline for post processing effects
+*/
+
+class PostProcessShader : public Shader
+{
+private:
+
+protected:
+    virtual void createDescriptorSetLayout();
+    virtual void createDescriptorPool();
+    virtual void createDescriptorSet();
+
+    virtual void createUniformBuffer();
+
+    virtual void createPipeline();
+
+    virtual void cleanupUniforms();
+
+    // Uniform buffers and buffer memory eventually
+public:
+    void setupShader(std::string vertPath, std::string fragPath) {
+        shaderFilePaths.push_back(vertPath);
+        shaderFilePaths.push_back(fragPath);
+
+        createDescriptorSetLayout();
+        createPipeline();
+        createUniformBuffer();
+        createDescriptorPool();
+        createDescriptorSet();
+    }
+
+    PostProcessShader(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue queue, VkExtent2D extent) : Shader(device, physicalDevice, commandPool, queue, extent) {}
+    PostProcessShader(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue queue, VkExtent2D extent, VkRenderPass *renderPass, std::string vertPath, std::string fragPath, Texture* tex) :
+        Shader(device, physicalDevice, commandPool, queue, extent) {
+        this->renderPass = renderPass;
+        addTexture(tex);
+        setupShader(vertPath, fragPath);
+    }
+
+    virtual ~PostProcessShader() { cleanupUniforms(); }
+
+    void bindShader(VkCommandBuffer& commandBuffer) override {
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
     }
 };
