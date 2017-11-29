@@ -55,10 +55,7 @@ void VulkanApplication::initVulkan() {
     createImageViews();
 
     createRenderPass();
-    //createDescriptorSetLayout();
 
-
-    //createComputePipeline();
     createCommandPool();
     
     initializeTextures();
@@ -68,10 +65,6 @@ void VulkanApplication::initVulkan() {
     initializeGeometry();
 
     initializeShaders();
-
-    //createUniformBuffer(); // TODO
-    //createDescriptorPool();
-    //createDescriptorSet();
     createCommandBuffers();
     createComputeCommandBuffer();
     createSemaphores();
@@ -117,10 +110,6 @@ void VulkanApplication::cleanup() {
     vkDestroySwapchainKHR(device, swapChain, nullptr);
 
     cleanupGeometry();
-
-    /*vkDestroyBuffer(device, uniformBuffer, nullptr); // TODO shader
-    vkFreeMemory(device, uniformBufferMemory, nullptr); // TODO shader
-    */
 
     cleanupTextures();
     cleanupShaders();
@@ -276,21 +265,6 @@ void VulkanApplication::cleanupShaders() {
 void VulkanApplication::updateUniformBuffer() {
     float time = prevTime + deltaTime;
 
-    /*UniformBufferObject ubo = {};
-    ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.f), glm::vec3(0.f, 0.f, 1.f));
-    ubo.model = glm::mat4(1.0f);
-    ubo.view = mainCamera.getView();
-    ubo.proj = mainCamera.getProj();
-    ubo.proj[1][1] *= -1; // :(
-    ubo.pos = mainCamera.getPosition();
-
-    // TODO: move to camera class
-    void* data;
-    vkMapMemory(device, uniformBufferMemory, 0, sizeof(ubo), 0, &data);
-    memcpy(data, &ubo, sizeof(ubo));
-    vkUnmapMemory(device, uniformBufferMemory);*/
-
-
     UniformCameraObject uco = {};
     uco.proj = mainCamera.getProj();
     uco.proj[1][1] *= -1; // :(
@@ -319,33 +293,6 @@ uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties, V
     throw std::runtime_error("failed to find suitable memory type!");
 }
 
-// TODO: once shader for compute is encapsulated we can remove this
-void VulkanApplication::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) {
-    VkBufferCreateInfo bufferInfo = {};
-    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bufferInfo.size = size;
-    bufferInfo.usage = usage;
-    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-    if (vkCreateBuffer(device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create buffer!");
-    }
-
-    VkMemoryRequirements memRequirements;
-    vkGetBufferMemoryRequirements(device, buffer, &memRequirements);
-
-    VkMemoryAllocateInfo allocInfo = {};
-    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    allocInfo.allocationSize = memRequirements.size;
-    allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties, physicalDevice);
-
-    if (vkAllocateMemory(device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS) {
-        throw std::runtime_error("failed to allocate buffer memory!");
-    }
-
-    vkBindBufferMemory(device, buffer, bufferMemory, 0);
-}
-
 // copy the contents from one buffer to another
 void VulkanApplication::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) {
     VkCommandBuffer commandBuffer = beginSingleTimeCommands();
@@ -356,108 +303,6 @@ void VulkanApplication::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDev
 
     endSingleTimeCommands(commandBuffer);
 }
-
-/*void VulkanApplication::createDescriptorSetLayout() {
-    /// Compute
-    //TODO: add camera descriptor set (uniform buffer) to this layout
-
-    VkDescriptorSetLayoutBinding storageImageBinding_compute = {};
-    storageImageBinding_compute.binding = 0;
-    storageImageBinding_compute.descriptorCount = 1;
-    storageImageBinding_compute.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-    storageImageBinding_compute.pImmutableSamplers = nullptr;
-    storageImageBinding_compute.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-
-    VkDescriptorSetLayoutBinding UBOLayoutBinding_compute = {};
-    UBOLayoutBinding_compute.binding = 1;
-    UBOLayoutBinding_compute.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    UBOLayoutBinding_compute.descriptorCount = 1;
-    UBOLayoutBinding_compute.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-    UBOLayoutBinding_compute.pImmutableSamplers = nullptr;
-
-    std::array<VkDescriptorSetLayoutBinding, 2> bindings_compute = { storageImageBinding_compute, UBOLayoutBinding_compute };
-
-    VkDescriptorSetLayoutCreateInfo layoutInfo_compute = {};
-    layoutInfo_compute.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutInfo_compute.bindingCount = static_cast<uint32_t>(bindings_compute.size());
-    layoutInfo_compute.pBindings = bindings_compute.data();
-
-    if (vkCreateDescriptorSetLayout(device, &layoutInfo_compute, nullptr, &computeSetLayout) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create descriptor set layout!");
-    }
-}*/
-
-/*void VulkanApplication::createUniformBuffer() {
-    VkDeviceSize bufferSize = sizeof(UniformBufferObject);
-    createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffer, uniformBufferMemory);
-}*/
-
-/*void VulkanApplication::createDescriptorPool() {
-    /// Compute
-
-    std::array<VkDescriptorPoolSize, 2> poolSizes_compute = {};
-
-    poolSizes_compute[0].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-    poolSizes_compute[0].descriptorCount = 1;
-
-    poolSizes_compute[1].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    poolSizes_compute[1].descriptorCount = 1;
-
-    VkDescriptorPoolCreateInfo poolInfo_compute = {};
-    poolInfo_compute.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolInfo_compute.poolSizeCount = static_cast<uint32_t>(poolSizes_compute.size());
-    poolInfo_compute.pPoolSizes = poolSizes_compute.data();
-    poolInfo_compute.maxSets = 1;
-
-    if (vkCreateDescriptorPool(device, &poolInfo_compute, nullptr, &computeDescriptorPool) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create compute descriptor pool!");
-    }
-}*/
-
-/*void VulkanApplication::createDescriptorSet() {
-    /// Compute
-    VkDescriptorImageInfo imageInfo2 = {};
-    imageInfo2.imageLayout = VK_IMAGE_LAYOUT_GENERAL; //according to a vulkan error
-    imageInfo2.imageView = backgroundTexture->textureImageView;
-    imageInfo2.sampler = backgroundTexture->textureSampler;
-
-    VkDescriptorBufferInfo bufferInfo = {};
-    bufferInfo.buffer = uniformBuffer;
-    bufferInfo.offset = 0;
-    bufferInfo.range = sizeof(UniformBufferObject);
-
-    VkDescriptorSetLayout layouts_compute[] = { computeSetLayout };
-    VkDescriptorSetAllocateInfo allocInfo_compute = {};
-    allocInfo_compute.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    allocInfo_compute.descriptorPool = computeDescriptorPool;
-    allocInfo_compute.descriptorSetCount = 1;
-    allocInfo_compute.pSetLayouts = layouts_compute;
-
-    if (vkAllocateDescriptorSets(device, &allocInfo_compute, &computeSet) != VK_SUCCESS) {
-        throw std::runtime_error("failed to allocate compute descriptor set!");
-    }
-
-    std::array<VkWriteDescriptorSet, 2> computeWrites = {};
-    computeWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    computeWrites[0].dstSet = computeSet;
-    computeWrites[0].dstBinding = 0;
-    computeWrites[0].dstArrayElement = 0;
-    computeWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-    computeWrites[0].descriptorCount = 1;
-    computeWrites[0].pImageInfo = &imageInfo2;
-
-    computeWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    computeWrites[1].dstSet = computeSet;
-    computeWrites[1].dstBinding = 1;
-    computeWrites[1].dstArrayElement = 0;
-    computeWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    computeWrites[1].descriptorCount = 1;
-    computeWrites[1].pBufferInfo = &bufferInfo;
-
-    vkUpdateDescriptorSets(device, static_cast<uint32_t>(computeWrites.size()), computeWrites.data(), 0, nullptr);
-}*/
-
-
 
 VkImageView VulkanApplication::createImageView(VkImage image, VkFormat format) {
     VkImageViewCreateInfo viewInfo = {};

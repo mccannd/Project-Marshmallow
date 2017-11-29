@@ -88,8 +88,6 @@ private:
     VkCommandBuffer beginSingleTimeCommands();
     void endSingleTimeCommands(VkCommandBuffer commandBuffer);
 
-    //void createUniformBuffer();
-
     /// --- Compute Pipeline
     void createComputeCommandBuffer(); // TODO: rename this to be plural if we end up needing more compute shaders
 
@@ -162,7 +160,6 @@ private:
     VkCommandPool computeCommandPool;
 
     void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
-    void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
 
     Geometry* sceneGeometry;
     Geometry* backgroundGeometry;
