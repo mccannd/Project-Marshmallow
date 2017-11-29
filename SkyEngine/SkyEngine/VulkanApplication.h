@@ -49,13 +49,6 @@ struct SwapChainSupportDetails {
     std::vector<VkPresentModeKHR> presentModes;
 };
 
-struct UniformBufferObject {
-    glm::mat4 model;
-    glm::mat4 view;
-    glm::mat4 proj;
-    glm::vec3 pos;
-};
-
 class VulkanApplication
 {
 private:
@@ -87,7 +80,6 @@ private:
 
     /// --- Graphics Pipeline
     void createRenderPass(); // <------ ech
-    //void createGraphicsPipeline();
     void createFramebuffers();
     void createCommandPool();
     void createCommandBuffers();
@@ -96,13 +88,7 @@ private:
     VkCommandBuffer beginSingleTimeCommands();
     void endSingleTimeCommands(VkCommandBuffer commandBuffer);
 
-    void createDescriptorSetLayout();
-    void createUniformBuffer();
-    void createDescriptorPool();
-    void createDescriptorSet();
-
     /// --- Compute Pipeline
-    void createComputePipeline();
     void createComputeCommandBuffer(); // TODO: rename this to be plural if we end up needing more compute shaders
 
     void drawFrame();
@@ -165,23 +151,15 @@ private:
     // for a graphics pipeline
     VkRenderPass renderPass;
 
-    // TODO: abstract compute
-    VkDescriptorSetLayout computeSetLayout;
-    VkDescriptorSet computeSet;
-
-
     std::vector<VkFramebuffer> swapChainFramebuffers;
     VkCommandPool commandPool;
     std::vector<VkCommandBuffer> commandBuffers;
-    // Compute pipeline
-    VkPipelineLayout computePipelineLayout;
-    VkPipeline computePipeline;
+    // Compute
     VkCommandBuffer computeCommandBuffer; // TODO: if we need multiple compute shaders for some reason,
                                           // make this a vector like above
     VkCommandPool computeCommandPool;
 
     void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
-    void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
 
     Geometry* sceneGeometry;
     Geometry* backgroundGeometry;
@@ -192,7 +170,6 @@ private:
     VkDeviceMemory uniformBufferMemory;
 
     VkDescriptorPool descriptorPool;
-    VkDescriptorPool computeDescriptorPool;
 
     // TODO: convenient way of managing textures
     void initializeTextures();
@@ -205,6 +182,7 @@ private:
     void cleanupShaders();
     MeshShader* meshShader;
     BackgroundShader* backgroundShader;
+    ComputeShader* computeShader;
 
 #if _DEBUG
     // enable a range of validation layers through the SDK

@@ -31,7 +31,7 @@ struct UniformCameraObject {
         uboLayoutBinding.binding = bind;
         uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         uboLayoutBinding.descriptorCount = 1;
-        uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+        uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT;
         uboLayoutBinding.pImmutableSamplers = nullptr;
 
         return uboLayoutBinding;
@@ -52,6 +52,21 @@ struct UniformModelObject {
         uboLayoutBinding.pImmutableSamplers = nullptr;
 
         return uboLayoutBinding;
+    }
+};
+
+struct UniformStorageImageObject {
+    // This doesn't actually store anything, the destination texture should be set to be the texture of the scene's background image
+    static VkDescriptorSetLayoutBinding getLayoutBinding(uint32_t bind)
+    {
+        VkDescriptorSetLayoutBinding storageImageBinding = {};
+        storageImageBinding.binding = bind;
+        storageImageBinding.descriptorCount = 1;
+        storageImageBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+        storageImageBinding.pImmutableSamplers = nullptr;
+        storageImageBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+        return storageImageBinding;
     }
 };
 
@@ -233,3 +248,59 @@ public:
 TODO: A pipeline for computing clouds
 */
 
+class ComputeShader : public Shader
+{
+private:
+
+protected:
+    virtual void createDescriptorSetLayout();
+    virtual void createDescriptorPool();
+    virtual void createDescriptorSet();
+
+    virtual void createUniformBuffer();
+
+    virtual void createPipeline();
+
+    virtual void cleanupUniforms();
+
+    UniformStorageImageObject storageImageUniform;
+    UniformCameraObject cameraUniforms;
+
+    VkBuffer uniformStorageImageBuffer;
+    VkDeviceMemory uniformStorageImageBufferMemory;
+    VkBuffer uniformCameraBuffer;
+    VkDeviceMemory uniformCameraBufferMemory;
+public:
+    void setupShader(std::string path) {
+        shaderFilePaths.push_back(path);
+
+        createDescriptorSetLayout();
+        createPipeline();
+        createUniformBuffer();
+        createDescriptorPool();
+        createDescriptorSet();
+    }
+
+    ComputeShader(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue queue, VkExtent2D extent) : Shader(device, physicalDevice, commandPool, queue, extent) {}
+    ComputeShader(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue queue, VkExtent2D extent, VkRenderPass *renderPass, std::string path, Texture* tex) :
+        Shader(device, physicalDevice, commandPool, queue, extent) {
+        this->renderPass = renderPass;
+        // Note: This texture is intended to be written to. In this application, it is set to be the sampled texture of a separate BackgroundShader.
+        addTexture(tex);
+        setupShader(path);
+    }
+
+    virtual ~ComputeShader() { cleanupUniforms(); }
+
+    void updateUniformBuffers(UniformCameraObject cam) {
+        void* data;
+        vkMapMemory(device, uniformCameraBufferMemory, 0, sizeof(cam), 0, &data);
+        memcpy(data, &cam, sizeof(cam));
+        vkUnmapMemory(device, uniformCameraBufferMemory);
+    }
+
+    void bindShader(VkCommandBuffer& commandBuffer) override {
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
+    }
+};
