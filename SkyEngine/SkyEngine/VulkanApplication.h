@@ -169,8 +169,6 @@ private:
     VkBuffer uniformBuffer;
     VkDeviceMemory uniformBufferMemory;
 
-    VkDescriptorPool descriptorPool;
-
     // TODO: convenient way of managing textures
     void initializeTextures();
     void cleanupTextures();

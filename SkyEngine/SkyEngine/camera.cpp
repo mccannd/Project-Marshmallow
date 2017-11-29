@@ -1,7 +1,5 @@
 #include "camera.h"
 
-
-
 Camera::Camera()
 {
 	m_position = glm::vec3(0, 0, -3);
@@ -9,7 +7,6 @@ Camera::Camera()
 	glm::vec3 wUp = glm::vec3(0, 1, 0);
 	m_right = glm::normalize(glm::cross(m_forward, wUp));
 	m_up = glm::normalize(glm::cross(m_right, m_forward));
-
 	m_proj = glm::perspective(DEG2RAD * m_fov, m_aspect, m_near, m_far);
 }
 
@@ -29,7 +26,6 @@ Camera::Camera(glm::vec3 pos, glm::vec3 target, float newNear, float newFar, flo
 
 glm::mat4 Camera::getView()
 {
-    
 	glm::mat4 trans = glm::mat4(1.0);
 	trans[3] = glm::vec4(-m_position.x, -m_position.y, -m_position.z, 1.0);
 
@@ -38,8 +34,7 @@ glm::mat4 Camera::getView()
 	view[1] = glm::vec4(m_right.y, m_up.y, m_forward.y, 0.0);
 	view[2] = glm::vec4(m_right.z, m_up.z, m_forward.z, 0.0);
 
-
-	return view * trans;
+    return view * trans;
 }
 
 glm::mat4 Camera::getProj()
@@ -68,11 +63,9 @@ void Camera::movePosition(Camera::directions direction, float delta)
 		dir = glm::vec3(m_forward);
 		break;
 	case UP:
-		//dir = glm::vec3(-m_up);
         dir = glm::vec3(0, 1, 0);
 		break;
 	case DOWN:
-		//dir = glm::vec3(m_up);
         dir = glm::vec3(0, -1, 0);
 		break;
 	case RIGHT:
@@ -126,20 +119,10 @@ void Camera::addYawLocal(float delta) {
     glm::mat3 rot = angleAxis(m_up, delta);
     m_right = glm::normalize(rot * m_right);
     m_forward = glm::normalize(rot * m_forward);
-
 }
 
 void Camera::addPitch(float delta) {
     if (m_lockedTarget) return;
-    /*
-    glm::mat3 rot = angleAxis(glm::normalize(glm::cross(m_forward, glm::vec3(0, 1, 0))), delta);
-    glm::vec3 newForward = glm::normalize(rot * m_forward);
-    if (1.0f - abs(newForward.y) > 0.01) {
-        m_forward = newForward;
-        m_up = glm::normalize(rot * m_up);
-        m_right = glm::normalize(rot * m_right);
-    }
-    */
     m_pitch += delta;
     if (RAD2DEG * m_pitch < -89.0f) m_pitch = DEG2RAD * -89.0f;
     if (RAD2DEG * m_pitch > 89.0f) m_pitch = DEG2RAD * 89.0f;
@@ -152,12 +135,6 @@ void Camera::addPitch(float delta) {
 
 void Camera::addYaw(float delta) {
     if (m_lockedTarget) return;
-    /*
-    glm::mat3 rot = angleAxis(glm::vec3(0, 1, 0), delta);
-    m_forward = glm::normalize(rot * m_forward);
-    m_up = glm::normalize(rot * m_up);
-    m_right = glm::normalize(rot * m_right);
-    */
     m_yaw += delta;
     m_forward = glm::vec3(std::cos(m_yaw) * std::cos(m_pitch), std::sin(m_pitch), std::sin(m_yaw) * std::cos(m_pitch));
     glm::vec3 wUp = (1.0f - std::abs(glm::dot(m_forward, glm::vec3(0, 1, 0))) < EPSILON) ?
@@ -238,8 +215,8 @@ void Camera::mouseRotate(double x, double y) {
         firstMouse = false;
     }
 
-    float xoffset = lastX - x;
-    float yoffset = y - lastY; // borf
+    float xoffset = static_cast<float>(lastX - x);
+    float yoffset = static_cast<float>(y - lastY); // borf
     lastX = x;
     lastY = y;
 
@@ -258,7 +235,4 @@ void Camera::mouseRotate(double x, double y) {
         glm::vec3(0, 0, 1) : glm::vec3(0, 1, 0);
     m_right = glm::normalize(glm::cross(m_forward, wUp));
     m_up = glm::normalize(glm::cross(m_right, m_forward));
-
-    //addPitch(yoffset);
-    //addYaw(xoffset);
 }
