@@ -231,7 +231,7 @@ void main() {
 
     /// Raytrace the scene (a sphere, to become the atmosphere)
     vec3 earthCenter = cameraPos;
-    earthCenter.y = -ATMOSPHERE_RADIUS * 0.5 * 0.93;
+    earthCenter.y = -ATMOSPHERE_RADIUS * 0.5 * 0.91;
     vec4 atmosphereSphereInner = vec4(earthCenter, ATMOSPHERE_RADIUS);
     vec4 atmosphereSphereOuter = vec4(earthCenter, ATMOSPHERE_RADIUS * 1.05);
     Intersection atmosphereIsectInner = raySphereIntersection(cameraPos, rayDirection, atmosphereSphereInner);
