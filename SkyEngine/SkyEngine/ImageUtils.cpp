@@ -121,22 +121,30 @@ float remap(float x, float oldMin, float oldMax, float newMin, float newMax) {
 void GenerateCurlNoise(std::string path) {
     unsigned char* pixels = new unsigned char[4 * CURL_DIM * CURL_DIM];
     glm::vec3* curls = new glm::vec3[CURL_DIM * CURL_DIM];
-    float lowerBound = FLT_MAX;
-    float upperBound = -FLT_MAX;
+    float lowerBoundx = FLT_MAX;
+    float upperBoundx = -FLT_MAX;
+    float lowerBoundy = FLT_MAX;
+    float upperBoundy = -FLT_MAX;
+    float lowerBoundz = FLT_MAX;
+    float upperBoundz = -FLT_MAX;
     // create an interleaved image
     for (int row = 0; row < CURL_DIM; row++) {
         for (int col = 0; col < CURL_DIM; col++) {
             glm::vec3 noise = curlNoise(glm::vec2((float)col / CURL_DIM, (float)row / CURL_DIM), 8.f);
             curls[row * CURL_DIM + col] = noise;
-            lowerBound = std::min(lowerBound, std::min(noise.x, std::min(noise.y, noise.z)));
-            upperBound = std::max(upperBound, std::max(noise.x, std::max(noise.y, noise.z)));
+            lowerBoundx = std::min(lowerBoundx, noise.x);
+            upperBoundx = std::max(upperBoundx, noise.x);
+            lowerBoundy = std::min(lowerBoundy, noise.y);
+            upperBoundy = std::max(upperBoundy, noise.y);
+            lowerBoundz = std::min(lowerBoundz, noise.z);
+            upperBoundz = std::max(upperBoundz, noise.z);
         }
     }
 
     for (int i = 0; i < CURL_DIM * CURL_DIM; i++) {
-        curls[i].x = remap(curls[i].x, lowerBound, upperBound, 0.f, 1.f);
-        curls[i].y = remap(curls[i].y, lowerBound, upperBound, 0.f, 1.f);
-        curls[i].z = remap(curls[i].z, lowerBound, upperBound, 0.f, 1.f);
+        curls[i].x = remap(curls[i].x, lowerBoundx, upperBoundx, 0.f, 1.f);
+        curls[i].y = remap(curls[i].y, lowerBoundy, upperBoundy, 0.f, 1.f);
+        curls[i].z = remap(curls[i].z, lowerBoundz, upperBoundz, 0.f, 1.f);
     }
 
     for (int row = 0; row < CURL_DIM; row++) {
