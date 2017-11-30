@@ -5,7 +5,7 @@
 #include <algorithm>
 
 #define CURL_DIM 128
-#define EPS 0.001
+#define EPS 0.0005
 
 const glm::vec3 basis[12]{
     glm::vec3(0.7071, 0.7071, 0),
@@ -72,6 +72,20 @@ float perlinNoise(glm::vec3 pt_normal, float freq) {
 
 }
 
+float FBM(glm::vec3 pt_normal, float freq, int octaves) {
+    float noise = 0.0f;
+    float weight = 1.0f;
+    float persistence = 0.4f;
+    float totalWeight = 0.0f;
+    for (int i = 0; i < octaves; i++) {
+        totalWeight += weight;
+        noise += weight * perlinNoise(pt_normal, freq);
+        freq *= 2.0f;
+        weight *= persistence;
+    }
+    return noise / totalWeight;
+}
+
 glm::vec3 curlNoise(glm::vec2 pt, float freq) {
     float a, b;
 
@@ -113,6 +127,47 @@ glm::vec3 curlNoise(glm::vec2 pt, float freq) {
     return glm::vec3(dzdy - dydz, dxdz - dzdx, dydx - dxdy);
 }
 
+glm::vec3 curlNoiseFBM(glm::vec2 pt, float freq, int octaves) {
+    float a, b;
+
+    // dydx
+    a = FBM(glm::vec3(pt.x - EPS, pt.y, 0.5f), freq, octaves);
+    b = FBM(glm::vec3(pt.x + EPS, pt.y, 0.5f), freq, octaves);
+    float dydx = (b - a) / (2.f * EPS);
+
+    // dxdy
+    a = FBM(glm::vec3(pt.x, pt.y - EPS, 0.5f), freq, octaves);
+    b = FBM(glm::vec3(pt.x, pt.y + EPS, 0.5f), freq, octaves);
+    float dxdy = (b - a) / (2.f * EPS);
+
+
+
+    // dxdz
+    a = FBM(glm::vec3(pt.x, 0.5f, pt.y - EPS), freq, octaves);
+    b = FBM(glm::vec3(pt.x, 0.5f, pt.y + EPS), freq, octaves);
+    float dxdz = (b - a) / (2.f * EPS);
+
+    // dzdx
+    a = FBM(glm::vec3(pt.x - EPS, 0.5f, pt.y), freq, octaves);
+    b = FBM(glm::vec3(pt.x + EPS, 0.5f, pt.y), freq, octaves);
+    float dzdx = (b - a) / (2.f * EPS);
+
+
+
+    // dzdy
+    a = FBM(glm::vec3(0.5, pt.y - EPS, pt.x), freq, octaves);
+    b = FBM(glm::vec3(0.5, pt.y + EPS, pt.x), freq, octaves);
+    float dzdy = (b - a) / (2.f * EPS);
+
+    // dydz
+    a = FBM(glm::vec3(0.5f, pt.y, pt.x - EPS), freq, octaves);
+    b = FBM(glm::vec3(0.5f, pt.y, pt.x + EPS), freq, octaves);
+    float dydz = (b - a) / (2.f * EPS);
+
+
+    return glm::vec3(dzdy - dydz, dxdz - dzdx, dydx - dxdy);
+}
+
 float remap(float x, float oldMin, float oldMax, float newMin, float newMax) {
     float m = newMin + ((x - oldMin) / (oldMax - oldMin) * (newMax - newMin));
     return m;
@@ -130,7 +185,8 @@ void GenerateCurlNoise(std::string path) {
     // create an interleaved image
     for (int row = 0; row < CURL_DIM; row++) {
         for (int col = 0; col < CURL_DIM; col++) {
-            glm::vec3 noise = curlNoise(glm::vec2((float)col / CURL_DIM, (float)row / CURL_DIM), 8.f);
+            //glm::vec3 noise = curlNoise(glm::vec2((float)col / CURL_DIM, (float)row / CURL_DIM), 16.f);
+            glm::vec3 noise = curlNoiseFBM(glm::vec2((float)col / CURL_DIM, (float)row / CURL_DIM), 3.f, 4);
             curls[row * CURL_DIM + col] = noise;
             lowerBoundx = std::min(lowerBoundx, noise.x);
             upperBoundx = std::max(upperBoundx, noise.x);
