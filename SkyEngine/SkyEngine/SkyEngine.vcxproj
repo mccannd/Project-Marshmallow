@@ -162,6 +162,7 @@
   <ItemGroup>
     <ClCompile Include="camera.cpp" />
     <ClCompile Include="Geometry.cpp" />
+    <ClCompile Include="ImageUtils.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Shader.cpp" />
     <ClCompile Include="Texture.cpp" />
@@ -171,6 +172,7 @@
   <ItemGroup>
     <ClInclude Include="camera.h" />
     <ClInclude Include="Geometry.h" />
+    <ClInclude Include="ImageUtils.h" />
     <ClInclude Include="Shader.h" />
     <ClInclude Include="Texture.h" />
     <ClInclude Include="VulkanApplication.h" />
