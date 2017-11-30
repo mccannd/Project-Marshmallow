@@ -26,8 +26,8 @@ struct Intersection {
 #define PI 3.14159265
 #define E 2.718281828459
 
-#define THREE_OVER_SIXTEENPI = 0.05968310365946075
-#define ONE_OVER_FOURPI = 0.07957747154594767
+#define THREE_OVER_SIXTEENPI 0.05968310365946075
+#define ONE_OVER_FOURPI 0.07957747154594767
 
 //#define VISUALIZE_NOISE
 
@@ -48,7 +48,7 @@ float remap(in float value, in float oldMin, in float oldMax, in float newMin, i
 #define RAYLEIGH 2.0
 #define MIE_C 0.005
 #define MIE_DG 0.8
-#define TURBIDITY 10.0
+#define TURBIDITY 5.0
 #define SUN_LUMINANCE 1.0
 
 // TODO direction on CPU instead
@@ -78,14 +78,17 @@ vec3 totalMie(in float T) {
 }
 
 #define RAYLEIGH_TOTAL vec3(5.804542996261093E-6, 1.3562911419845635E-5, 3.0265902468824876E-5)
+#define SUN_ANGULAR_COS 0.999956676946448443553574619906976478926848692873900859324
 
 
 float rayleighPhase(in float cosTheta) {
-    return 0.0;
+    return THREE_OVER_SIXTEENPI * (1.0 + cosTheta * cosTheta);
 }
 
 float hgPhase(in float cosTheta, in float g) {
-    return 0.0;
+    float g2 = g * g;
+    float inv = 1.0 / pow(1.0 - 2.0 * g * cosTheta + g2, 1.5);
+    return ONE_OVER_FOURPI * ((1.0 - g2) * inv);
 }
 
 vec3 getAtmosphereColorPhysical(in vec3 dir) {
@@ -102,6 +105,35 @@ vec3 getAtmosphereColorPhysical(in vec3 dir) {
 
     // TODO END
 
+    // optical length
+    float zenith = acos(max(0.0, dir.y)); // acos?
+    float inverse = 1.0 / (cos(zenith) + 0.15 * pow(93.885 - ((zenith * 180.0) / PI), -1.253));
+    float sR = 8.4E3 * inverse;
+    float sM = 1.25E3 * inverse;
+
+    vec3 fex = exp( -BetaR * sR + BetaM * sM);
+
+    float cosTheta = dot(sunDir, dir);
+    float rPhase = rayleighPhase(cosTheta * 0.5 + 0.5);
+    vec3 betaRTheta = BetaR * rPhase;
+    float mPhase = hgPhase(cosTheta, MIE_DG);
+    vec3 betaMTheta = BetaM * mPhase;
+
+    float yDot = 1.0 - sunDir.y;
+    yDot *= yDot * yDot * yDot * yDot;
+    vec3 betas = (betaRTheta + betaMTheta) / (BetaR + BetaM);
+    vec3 Lin = pow(sunE * (betas) * (1.0 - fex), vec3(1.5));
+    Lin *= mix(vec3(1), pow(sunE * (betas) * fex, vec3(0.5)), clamp(yDot, 0.0, 1.0));
+
+    vec3 L0 = 0.1 * fex;
+
+    float sunDisk = smoothstep(SUN_ANGULAR_COS, SUN_ANGULAR_COS + 0.00002, cosTheta);
+    L0 += (sunE * 19000.0 * fex) * sunDisk;
+
+    color = (Lin + L0) * 0.04 + vec3(0.0, 0.0003, 0.00075);
+
+    // basic tonemap for now, should do in post.
+    color = vec3(1.0) - exp(-color);
     return color;
 }
 
@@ -218,7 +250,7 @@ void main() {
 
     vec3 rayDirection = normalize(p - cameraPos);
 
-    vec3 backgroundCol = getAtmosphereColor(rayDirection);
+    vec3 backgroundCol = getAtmosphereColorPhysical(rayDirection);
 
     // It is likely we will never have an entirely unobstructed view of the horizon, so kill rays that would otherwise be executing.
     // TODO: low-res stencil check first
