@@ -134,6 +134,9 @@ vec3 getAtmosphereColorPhysical(in vec3 dir) {
 
     // basic tonemap for now, should do in post.
     color = vec3(1.0) - exp(-color);
+    // trouble: gamma correction depends on another parameter (sunFade)
+    // we could hack this into a color attachment, potentially
+    color = pow(color, vec3(1.0 / (1.2 + (1.2 * sunFade))));
     return color;
 }
 
