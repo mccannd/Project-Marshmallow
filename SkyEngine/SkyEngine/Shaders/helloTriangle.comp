@@ -53,7 +53,7 @@ float remap(in float value, in float oldMin, in float oldMax, in float newMin, i
 
 // TODO direction on CPU instead
 #define AZIMUTH 0.25
-#define ELEVATION 0.49
+#define ELEVATION 0.25
 void sunLocation(inout vec3 pos, inout vec3 dir) {
     float theta = PI * (ELEVATION - 0.5);
     float phi = 2.0 * PI * (AZIMUTH - 0.5);
@@ -91,12 +91,12 @@ float hgPhase(in float cosTheta, in float g) {
     return ONE_OVER_FOURPI * ((1.0 - g2) * inv);
 }
 
-vec3 getAtmosphereColorPhysical(in vec3 dir) {
+vec3 getAtmosphereColorPhysical(in vec3 dir, inout vec3 sunDir) {
     vec3 color = vec3(0);
 
     // TODO START: doable on CPU
 
-    vec3 sunPos, sunDir;
+    vec3 sunPos;
     sunLocation(sunPos, sunDir);
     float sunE = sunIntensity(sunDir.y);
     float sunFade = 1.0 - clamp(1.0  - exp( sunPos.y / 450000.0 ) , 0.0, 1.0);
@@ -132,11 +132,12 @@ vec3 getAtmosphereColorPhysical(in vec3 dir) {
 
     color = (Lin + L0) * 0.04 + vec3(0.0, 0.0003, 0.00075);
 
+    color *= max(0.3, (-sunDir.y) * 0.5 + 0.5);
     // basic tonemap for now, should do in post.
     color = vec3(1.0) - exp(-color);
     // trouble: gamma correction depends on another parameter (sunFade)
     // we could hack this into a color attachment, potentially
-    color = pow(color, vec3(1.0 / (1.2 + (1.2 * sunFade))));
+    color = pow(color, vec3(1.0 / 2.2)); //(1.2 + (1.2 * sunFade))));
     return color;
 }
 
@@ -253,7 +254,9 @@ void main() {
 
     vec3 rayDirection = normalize(p - cameraPos);
 
-    vec3 backgroundCol = getAtmosphereColorPhysical(rayDirection);
+    vec3 sunDir;
+
+    vec3 backgroundCol = getAtmosphereColorPhysical(rayDirection, sunDir);
 
     // It is likely we will never have an entirely unobstructed view of the horizon, so kill rays that would otherwise be executing.
     // TODO: low-res stencil check first
@@ -277,13 +280,19 @@ void main() {
     float stepSize = (atmosphereIsectOuter.t - atmosphereIsectInner.t) / numSteps;
 
     // TODO: need good way to randomly sample in cone
-    const vec3 samples[6] = {
-        vec3(2),
+    vec3 samples[6] = {
+        /*vec3(2),
         vec3(1),
         vec3(0.5),
         vec3(0.5, 1, 1),
         vec3(1, 1, 0.5),
-        vec3(0.5, 1, 0.5),
+        vec3(0.5, 1, 0.5),*/
+        sunDir * 0.5,
+        sunDir * 0.7,
+        sunDir * 1.0,
+        sunDir * 1.1,
+        sunDir * 2.0,
+        sunDir * vec3(0.8, 1, 0.8)
     };
 
     for(float t = atmosphereIsectInner.t; t < atmosphereIsectOuter.t; t += stepSize) {
@@ -309,8 +318,7 @@ void main() {
                 vec3 lightSamplePoint = currentPos + 6.0 * stepSize * samples[i];
                 vec3 lightSamplePointProj = 0.5 * ATMOSPHERE_RADIUS * normalize(lightSamplePoint - earthCenter) + earthCenter;
                 float cumulus2 = length(lightSamplePoint - lightSamplePointProj)  / (0.5 * ATMOSPHERE_RADIUS * 0.05); 
-                cumulus2 = clamp(cumulus2, 0, 1);
-                cumulus2 = remap(cumulus2, 0.0, 0.3, 0.0, 1.0) * remap(cumulus2, 0.7, 1.0, 1.0, 0.0);
+                cumulus2 = cumulus2 > 1.0 ? 0.0 : remap(clamp(cumulus2, 0, 1), 0.0, 0.3, 0.0, 1.0) * remap(clamp(cumulus2, 0, 1), 0.7, 1.0, 1.0, 0.0);
                 densityAlongLight += cumulus2 * FBM((lightSamplePoint.xz - cameraPos.xz) / 20000.0);
             }
         
