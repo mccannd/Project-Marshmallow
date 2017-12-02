@@ -847,7 +847,6 @@ void VulkanApplication::createCommandBuffers() {
         VkClearValue clearColor = { 0.0f, 0.0f, 0.0f, 1.0f };
         renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
         renderPassInfo.pClearValues = clearValues.data();
-        
 
         // Render pass recording. This is only done once.
         vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
@@ -927,6 +926,10 @@ void VulkanApplication::createFramebuffers() {
         }
     }
 }
+
+// Needs to be called once for each post process effect
+// Expects a framebuffer, color and depth format to sample
+
 
 void VulkanApplication::createSwapChain() {
     SwapChainSupportDetails swapChainSupport = querySwapChainSupport(physicalDevice);

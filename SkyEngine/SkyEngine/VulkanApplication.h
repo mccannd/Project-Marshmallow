@@ -49,6 +49,33 @@ struct SwapChainSupportDetails {
     std::vector<VkPresentModeKHR> presentModes;
 };
 
+/// Post structs
+// For now, closely modeled after: https://github.com/SaschaWillems/Vulkan/blob/master/examples/bloom/bloom.cpp
+
+struct FrameBufferAttachment {
+    VkImage image;
+    VkDeviceMemory mem;
+    VkImageView view;
+};
+
+struct FrameBuffer {
+    VkFramebuffer framebuffer;
+    FrameBufferAttachment color, depth;
+    VkDescriptorImageInfo descriptor;
+};
+
+struct OffscreenPass {
+    int32_t width, height;
+    VkRenderPass renderPass;
+    VkSampler sampler;
+    VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
+    // Semaphore used to synchronize between offscreen and final scene rendering
+    VkSemaphore semaphore = VK_NULL_HANDLE;
+    std::array<FrameBuffer, 1> framebuffers; // the length of the array is equal to the total number of render passes - 1
+} offscreenPass;                             // as in everything prior to the last pass is offscreen
+
+
+
 class VulkanApplication
 {
 private:
@@ -81,6 +108,7 @@ private:
     /// --- Graphics Pipeline
     void createRenderPass(); // <------ ech
     void createFramebuffers();
+    void createOffscreenFramebuffers();
     void createCommandPool();
     void createCommandBuffers();
 
@@ -158,6 +186,8 @@ private:
     VkCommandBuffer computeCommandBuffer; // TODO: if we need multiple compute shaders for some reason,
                                           // make this a vector like above
     VkCommandPool computeCommandPool;
+    //Post
+    VkCommandBuffer postCommandBuffer;
 
     void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 
