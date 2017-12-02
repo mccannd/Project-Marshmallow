@@ -165,6 +165,7 @@
     <ClCompile Include="ImageUtils.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Shader.cpp" />
+    <ClCompile Include="SkyManager.cpp" />
     <ClCompile Include="Texture.cpp" />
     <ClCompile Include="VulkanApplication.cpp" />
     <ClCompile Include="VulkanObject.cpp" />
@@ -174,6 +175,7 @@
     <ClInclude Include="Geometry.h" />
     <ClInclude Include="ImageUtils.h" />
     <ClInclude Include="Shader.h" />
+    <ClInclude Include="SkyManager.h" />
     <ClInclude Include="Texture.h" />
     <ClInclude Include="VulkanApplication.h" />
     <ClInclude Include="VulkanObject.h" />

@@ -71,6 +71,7 @@ void VulkanApplication::initVulkan() {
 
     mainCamera = Camera(glm::vec3(0.0f, 1.0f, 1.0f), glm::vec3(0.0f, 1.0f, 0.0f), 0.1f, 100.0f, 45.0f);
     mainCamera.setAspect((float) swapChainExtent.width, (float)swapChainExtent.height);
+    skySystem = SkyManager();
 }
 
 void VulkanApplication::mainLoop() {
@@ -278,8 +279,16 @@ void VulkanApplication::updateUniformBuffer() {
     umo.model[2][2] = 8.0f;
     umo.invTranspose = glm::inverse(glm::transpose(umo.model));
 
+    float interp = sin(time * 0.2f) * 0.5 + 0.5;
+
+    skySystem.rebuildSkyFromNewSun(interp * 0.5f, 0.25f);
+
+    UniformSkyObject sky = skySystem.getSky();
+    UniformSunObject sun = skySystem.getSun();
+    
+
     meshShader->updateUniformBuffers(uco, umo);
-    computeShader->updateUniformBuffers(uco);
+    computeShader->updateUniformBuffers(uco, sky, sun);
 }
 
 uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties, VkPhysicalDevice physicalDevice) {

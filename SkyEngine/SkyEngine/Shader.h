@@ -1,6 +1,7 @@
 #pragma once
 #include "Texture.h"
 #include "Geometry.h"
+#include "SkyManager.h"
 #include <fstream>
 
 // Need to move this
@@ -270,6 +271,11 @@ protected:
     VkDeviceMemory uniformStorageImageBufferMemory;
     VkBuffer uniformCameraBuffer;
     VkDeviceMemory uniformCameraBufferMemory;
+
+    VkBuffer uniformSunBuffer;
+    VkBuffer uniformSkyBuffer;
+    VkDeviceMemory uniformSunBufferMemory;
+    VkDeviceMemory uniformSkyBufferMemory;
 public:
     void setupShader(std::string path) {
         shaderFilePaths.push_back(path);
@@ -292,13 +298,7 @@ public:
 
     virtual ~ComputeShader() { cleanupUniforms(); }
 
-    void updateUniformBuffers(UniformCameraObject cam) {
-        void* data;
-        vkMapMemory(device, uniformCameraBufferMemory, 0, sizeof(cam), 0, &data);
-        memcpy(data, &cam, sizeof(cam));
-        vkUnmapMemory(device, uniformCameraBufferMemory);
-    }
-
+    void updateUniformBuffers(UniformCameraObject& cam, UniformSkyObject& sky, UniformSunObject& sun);
     void bindShader(VkCommandBuffer& commandBuffer) override {
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
