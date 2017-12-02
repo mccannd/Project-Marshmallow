@@ -72,7 +72,7 @@ struct OffscreenPass {
     // Semaphore used to synchronize between offscreen and final scene rendering
     VkSemaphore semaphore = VK_NULL_HANDLE;
     std::array<FrameBuffer, 1> framebuffers; // the length of the array is equal to the total number of render passes - 1
-} offscreenPass;                             // as in everything prior to the last pass is offscreen
+};                                           // as in everything prior to the last pass is offscreen
 
 
 
@@ -108,7 +108,7 @@ private:
     /// --- Graphics Pipeline
     void createRenderPass(); // <------ ech
     void createFramebuffers();
-    void createOffscreenFramebuffers();
+    void createOffscreenFramebuffer(FrameBuffer* frameBuf, VkFormat colorFormat, VkFormat depthFormat);
     void createCommandPool();
     void createCommandBuffers();
 
@@ -123,6 +123,9 @@ private:
     VkSemaphore imageAvailableSemaphore;
     VkSemaphore renderFinishedSemaphore;
     void createSemaphores();
+    
+    /// Post
+    void setupOffscreenPass();
 
     /// --- Swap Chain Setup Functions
     void createSwapChain();
@@ -208,6 +211,9 @@ private:
     MeshShader* meshShader;
     BackgroundShader* backgroundShader;
     ComputeShader* computeShader;
+
+    /// Post
+    OffscreenPass offscreenPass;
 
 #if _DEBUG
     // enable a range of validation layers through the SDK

@@ -65,6 +65,9 @@ void VulkanApplication::initVulkan() {
     initializeGeometry();
 
     initializeShaders();
+
+    setupOffscreenPass();
+
     createCommandBuffers();
     createComputeCommandBuffer();
     createSemaphores();
@@ -113,6 +116,8 @@ void VulkanApplication::cleanup() {
 
     cleanupTextures();
     cleanupShaders();
+
+    // TODO: Post cleanup
 
     vkDestroyDevice(device, nullptr);
 
@@ -929,7 +934,211 @@ void VulkanApplication::createFramebuffers() {
 
 // Needs to be called once for each post process effect
 // Expects a framebuffer, color and depth format to sample
+void VulkanApplication::createOffscreenFramebuffer(FrameBuffer* framebuffer, VkFormat colorFormat, VkFormat depthFormat)
+{
+    // Color attachment
+    VkImageCreateInfo image {};
+    image.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    image.imageType = VK_IMAGE_TYPE_2D;
+    image.format = colorFormat;
+    image.extent.width = WIDTH;
+    image.extent.height = HEIGHT;
+    image.extent.depth = 1;
+    image.mipLevels = 1;
+    image.arrayLayers = 1;
+    image.samples = VK_SAMPLE_COUNT_1_BIT;
+    image.tiling = VK_IMAGE_TILING_OPTIMAL;
+    // We will sample directly from the color attachment
+    image.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 
+    VkMemoryAllocateInfo memAlloc {};
+    memAlloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    VkMemoryRequirements memReqs;
+
+    VkImageViewCreateInfo colorImageView {};
+    colorImageView.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    colorImageView.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    colorImageView.format = colorFormat;
+    colorImageView.flags = 0;
+    colorImageView.subresourceRange = {};
+    colorImageView.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    colorImageView.subresourceRange.baseMipLevel = 0;
+    colorImageView.subresourceRange.levelCount = 1;
+    colorImageView.subresourceRange.baseArrayLayer = 0;
+    colorImageView.subresourceRange.layerCount = 1;
+
+    if (vkCreateImage(device, &image, nullptr, &framebuffer->color.image) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create image!");
+    }
+
+    vkGetImageMemoryRequirements(device, framebuffer->color.image, &memReqs);
+    memAlloc.allocationSize = memReqs.size;
+    memAlloc.memoryTypeIndex = findMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, physicalDevice);
+    if (vkAllocateMemory(device, &memAlloc, nullptr, &framebuffer->color.mem) != VK_SUCCESS) {
+        throw std::runtime_error("failed to allocate memory!");
+    }
+
+    if (vkBindImageMemory(device, framebuffer->color.image, framebuffer->color.mem, 0) != VK_SUCCESS) {
+        throw std::runtime_error("failed to bind image memory!");
+    }
+
+    colorImageView.image = framebuffer->color.image;
+    if(vkCreateImageView(device, &colorImageView, nullptr, &framebuffer->color.view) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create image view!");
+    }
+
+    // Depth stencil attachment
+    image.format = depthFormat;
+    image.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+
+    VkImageViewCreateInfo depthStencilView {};
+    depthStencilView.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    depthStencilView.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    depthStencilView.format = depthFormat;
+    depthStencilView.flags = 0;
+    depthStencilView.subresourceRange = {};
+    depthStencilView.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+    depthStencilView.subresourceRange.baseMipLevel = 0;
+    depthStencilView.subresourceRange.levelCount = 1;
+    depthStencilView.subresourceRange.baseArrayLayer = 0;
+    depthStencilView.subresourceRange.layerCount = 1;
+
+    if (vkCreateImage(device, &image, nullptr, &framebuffer->depth.image) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create image!");
+    }
+    vkGetImageMemoryRequirements(device, framebuffer->depth.image, &memReqs);
+    memAlloc.allocationSize = memReqs.size;
+    memAlloc.memoryTypeIndex = findMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, physicalDevice);
+    if (vkAllocateMemory(device, &memAlloc, nullptr, &framebuffer->depth.mem) != VK_SUCCESS) {
+        throw std::runtime_error("failed to allocate memory!");
+    }
+
+    if (vkBindImageMemory(device, framebuffer->depth.image, framebuffer->depth.mem, 0) != VK_SUCCESS) {
+        throw std::runtime_error("failed to bind image!");
+    }
+
+    depthStencilView.image = framebuffer->depth.image;
+    if (vkCreateImageView(device, &depthStencilView, nullptr, &framebuffer->depth.view) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create image view!");
+    }
+
+    VkImageView attachments[2];
+    attachments[0] = framebuffer->color.view;
+    attachments[1] = framebuffer->depth.view;
+
+    VkFramebufferCreateInfo fbufCreateInfo {};
+    fbufCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+    fbufCreateInfo.renderPass = offscreenPass.renderPass;
+    fbufCreateInfo.attachmentCount = 2;
+    fbufCreateInfo.pAttachments = attachments;
+    fbufCreateInfo.width = WIDTH;
+    fbufCreateInfo.height = HEIGHT;
+    fbufCreateInfo.layers = 1;
+
+    if (vkCreateFramebuffer(device, &fbufCreateInfo, nullptr, &framebuffer->framebuffer) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create framebuffer!");
+    }
+
+    // Fill a descriptor for later use in a descriptor set 
+    framebuffer->descriptor.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    framebuffer->descriptor.imageView = framebuffer->color.view;
+    framebuffer->descriptor.sampler = offscreenPass.sampler;
+}
+
+void VulkanApplication::setupOffscreenPass() {
+    offscreenPass.width = WIDTH;
+    offscreenPass.height = HEIGHT;
+
+    // Find a suitable depth format
+    VkFormat fbDepthFormat = findDepthFormat(physicalDevice);
+
+    // Create a separate render pass for the offscreen rendering as it may differ from the one used for scene rendering
+    std::array<VkAttachmentDescription, 2> attchmentDescriptions = {};
+
+    // Color attachment
+    attchmentDescriptions[0].format = VK_FORMAT_R8G8B8A8_UNORM;
+    attchmentDescriptions[0].samples = VK_SAMPLE_COUNT_1_BIT;
+    attchmentDescriptions[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    attchmentDescriptions[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    attchmentDescriptions[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    attchmentDescriptions[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    attchmentDescriptions[0].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    attchmentDescriptions[0].finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    // Depth attachment
+    attchmentDescriptions[1].format = fbDepthFormat;
+    attchmentDescriptions[1].samples = VK_SAMPLE_COUNT_1_BIT;
+    attchmentDescriptions[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    attchmentDescriptions[1].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    attchmentDescriptions[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    attchmentDescriptions[1].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    attchmentDescriptions[1].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    attchmentDescriptions[1].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+    VkAttachmentReference colorReference = { 0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
+    VkAttachmentReference depthReference = { 1, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL };
+
+    VkSubpassDescription subpassDescription = {};
+    subpassDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    subpassDescription.colorAttachmentCount = 1;
+    subpassDescription.pColorAttachments = &colorReference;
+    subpassDescription.pDepthStencilAttachment = &depthReference;
+
+    // Use subpass dependencies for layout transitions
+    std::array<VkSubpassDependency, 2> dependencies;
+
+    dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
+    dependencies[0].dstSubpass = 0;
+    dependencies[0].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+    dependencies[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependencies[0].srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+    dependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    dependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+    dependencies[1].srcSubpass = 0;
+    dependencies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
+    dependencies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependencies[1].dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+    dependencies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    dependencies[1].dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+    dependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+    // Create the actual renderpass
+    VkRenderPassCreateInfo renderPassInfo = {};
+    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+    renderPassInfo.attachmentCount = static_cast<uint32_t>(attchmentDescriptions.size());
+    renderPassInfo.pAttachments = attchmentDescriptions.data();
+    renderPassInfo.subpassCount = 1;
+    renderPassInfo.pSubpasses = &subpassDescription;
+    renderPassInfo.dependencyCount = static_cast<uint32_t>(dependencies.size());
+    renderPassInfo.pDependencies = dependencies.data();
+
+    if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &offscreenPass.renderPass) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create render pass!");
+    }
+
+    // Create sampler to sample from the color attachments
+    VkSamplerCreateInfo sampler {};
+    sampler.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    sampler.magFilter = VK_FILTER_LINEAR;
+    sampler.minFilter = VK_FILTER_LINEAR;
+    sampler.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    sampler.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    sampler.addressModeV = sampler.addressModeU;
+    sampler.addressModeW = sampler.addressModeU;
+    sampler.mipLodBias = 0.0f;
+    sampler.maxAnisotropy = 1.0f;
+    sampler.minLod = 0.0f;
+    sampler.maxLod = 1.0f;
+    sampler.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+    if (vkCreateSampler(device, &sampler, nullptr, &offscreenPass.sampler) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create sampler!");
+    }
+
+    // Create two frame buffers
+    createOffscreenFramebuffer(&offscreenPass.framebuffers[0], VK_FORMAT_R8G8B8A8_UNORM, fbDepthFormat);
+    //createOffscreenFramebuffer(&offscreenPass.framebuffers[1], VK_FORMAT_R8G8B8A8_UNORM, fbDepthFormat); additional passes go here and below
+}
 
 void VulkanApplication::createSwapChain() {
     SwapChainSupportDetails swapChainSupport = querySwapChainSupport(physicalDevice);
