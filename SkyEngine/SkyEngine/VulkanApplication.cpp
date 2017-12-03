@@ -241,7 +241,7 @@ void VulkanApplication::drawFrame() {
 void VulkanApplication::initializeTextures() {
     meshTexture = new Texture(device, physicalDevice, commandPool, graphicsQueue);
     meshTexture->initFromFile("Textures/tilesColor.png");
-    backgroundTexture = new Texture(device, physicalDevice, commandPool, graphicsQueue); // compute queue?
+    backgroundTexture = new Texture(device, physicalDevice, commandPool, graphicsQueue, VK_FORMAT_R32G32B32A32_SFLOAT); // compute queue?
     backgroundTexture->initForStorage(swapChainExtent);
     depthTexture = new Texture(device, physicalDevice, commandPool, graphicsQueue);
     depthTexture->initForDepthAttachment(swapChainExtent);
@@ -1174,7 +1174,7 @@ void VulkanApplication::setupOffscreenPass() {
     std::array<VkAttachmentDescription, 2> attachmentDescriptions = {};
 
     // Color attachment
-    attachmentDescriptions[0].format = VK_FORMAT_R8G8B8A8_UNORM;
+    attachmentDescriptions[0].format = VK_FORMAT_R32G32B32A32_SFLOAT;
     attachmentDescriptions[0].samples = VK_SAMPLE_COUNT_1_BIT;
     attachmentDescriptions[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     attachmentDescriptions[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -1254,7 +1254,7 @@ void VulkanApplication::setupOffscreenPass() {
     }
 
     // Create two frame buffers
-    createOffscreenFramebuffer(&offscreenPass.framebuffers[0], VK_FORMAT_R8G8B8A8_UNORM, fbDepthFormat);
+    createOffscreenFramebuffer(&offscreenPass.framebuffers[0], VK_FORMAT_R32G32B32A32_SFLOAT, fbDepthFormat);
     //createOffscreenFramebuffer(&offscreenPass.framebuffers[1], VK_FORMAT_R8G8B8A8_UNORM, fbDepthFormat); additional passes go here and below
 }
 

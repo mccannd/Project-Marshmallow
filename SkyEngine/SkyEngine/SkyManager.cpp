@@ -13,7 +13,7 @@ float clamp(float t, float min, float max) {
 }
 
 void SkyManager::calcSunColor() {
-    glm::vec3 sunset = glm::vec3(1.f, 0.73922, 0.4431f);
+    glm::vec3 sunset = glm::vec3(2.f, 0.33922, 0.0431f);
     float t = (sun.direction.y) * 13.f;
     t = clamp(t, 0.f, 1.f);
     glm::vec3 color = (1.f - t) * sunset + (t) * glm::vec3(1.f);

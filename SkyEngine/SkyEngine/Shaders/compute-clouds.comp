@@ -3,7 +3,7 @@
 
 #define WORKGROUP_SIZE 32
 layout (local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE) in;
-layout (binding = 0, rgba8) uniform writeonly image2D resultImage; // TODO: HDR
+layout (binding = 0, rgba32f) uniform writeonly image2D resultImage; // TODO: HDR
 
 layout(binding = 1) uniform UniformCameraObject {
     mat4 view;
@@ -51,21 +51,6 @@ struct Intersection {
 
 float remap(in float value, in float oldMin, in float oldMax, in float newMin, in float newMax) {
     return newMin + (((value - oldMin) / (oldMax - oldMin)) * (newMax - newMin));
-}
-
-/// TODO: proper tonemapping pipeline
-// Uncharted 2 Tonemapping made by John Hable, filmicworlds.com
-vec3 uc2Tonemap(vec3 x)
-{
-   return ((x*(0.15*x+0.1*0.5)+0.2*0.02)/(x*(0.15*x+0.5)+0.2*0.3))-0.02/0.3;
-}
-
-vec3 tonemap(vec3 x, float exposure, float invGamma, float whiteBalance) {
-    vec3 white = vec3(11.2);
-    vec3 color = uc2Tonemap(exposure * x);
-    vec3 whitemap = 1.0 / uc2Tonemap(white);
-    color *= whitemap;
-    return pow(color, vec3(invGamma));
 }
 
 float hgPhase(in float cosTheta, in float g) {
@@ -243,12 +228,10 @@ void main() {
     vec3 sunDir;
 
     vec3 backgroundCol = getAtmosphereColorPhysical(rayDirection, sunDir);
-    //backgroundCol = mix(backgroundCol, rayDirection * 0.5 + 0.5, 0.5);
 
     // It is likely we will never have an entirely unobstructed view of the horizon, so kill rays that would otherwise be executing.
     // TODO: low-res stencil check first
     if(dot(rayDirection, vec3(0, 1, 0)) < 0.0) {
-        backgroundCol = tonemap(backgroundCol, 1.0, 1.0 / 2.2, 11.2); // TODO remove tonemap
         imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), vec4(backgroundCol, 1));
         return;
     }
@@ -334,11 +317,7 @@ void main() {
 
     vec3 cloudColor = cSunColor * max(0, transmittance);
 
-
     vec4 finalColor = vec4(mix(backgroundCol, cloudColor, accumDensity), 1.0);
-
-    // TODO remove tonemap
-    finalColor.xyz = tonemap(finalColor.xyz, 1.0, 1.0 / 2.2, 11.2);
 
     imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), finalColor);
 }
