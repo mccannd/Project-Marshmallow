@@ -9,5 +9,5 @@ layout(location = 0) out vec4 outColor;
 
 void main() {
     vec3 col = texture(texColor, fragUV).xyz;
-    outColor = vec4(col, 1.0);
+    outColor = vec4(vec3(1.0) - exp(-2.0 * col), 1.0);
 }
