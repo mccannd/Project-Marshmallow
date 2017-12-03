@@ -309,6 +309,8 @@ public:
   Pipeline for post processing effects
 */
 
+// This class should be extended by classes for each individual post processing effect, because each will have different uniform setups.
+// at the moment, this is identical to the background shader class
 class PostProcessShader : public Shader
 {
 private:
@@ -324,7 +326,11 @@ protected:
 
     virtual void cleanupUniforms();
 
+    VkDescriptorImageInfo* descriptorImageInfo;
+
     // Uniform buffers and buffer memory eventually
+    // ex: gaussian blur parameters, high pass parameters, sun position for radial blur, god rays, etc
+
 public:
     void setupShader(std::string vertPath, std::string fragPath) {
         shaderFilePaths.push_back(vertPath);
@@ -337,11 +343,12 @@ public:
         createDescriptorSet();
     }
 
+    //TODO: change this constructor to take an image descriptor instead of a texture, or somehow create a texture from the framebuffer image descriptor
     PostProcessShader(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue queue, VkExtent2D extent) : Shader(device, physicalDevice, commandPool, queue, extent) {}
-    PostProcessShader(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue queue, VkExtent2D extent, VkRenderPass *renderPass, std::string vertPath, std::string fragPath, Texture* tex) :
-        Shader(device, physicalDevice, commandPool, queue, extent) {
+    PostProcessShader(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue queue, VkExtent2D extent, VkRenderPass *renderPass, std::string vertPath, std::string fragPath, VkDescriptorImageInfo* tex) :
+        Shader(device, physicalDevice, commandPool, queue, extent), descriptorImageInfo(tex) {
         this->renderPass = renderPass;
-        addTexture(tex);
+        //addTexture(tex);
         setupShader(vertPath, fragPath);
     }
 

@@ -34,6 +34,7 @@ public:
     ~Texture() {
         cleanup();
     }
+
     VkFormat getFormat() { return imageFormat; }
     VkImageView textureImageView;
     VkSampler textureSampler;

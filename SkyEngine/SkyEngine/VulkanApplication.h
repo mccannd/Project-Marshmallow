@@ -111,6 +111,7 @@ private:
     void createOffscreenFramebuffer(FrameBuffer* frameBuf, VkFormat colorFormat, VkFormat depthFormat);
     void createCommandPool();
     void createCommandBuffers();
+    void createPostProcessCommandBuffer();
 
     // command buffer helpers
     VkCommandBuffer beginSingleTimeCommands();
@@ -189,8 +190,6 @@ private:
     VkCommandBuffer computeCommandBuffer; // TODO: if we need multiple compute shaders for some reason,
                                           // make this a vector like above
     VkCommandPool computeCommandPool;
-    //Post
-    VkCommandBuffer postCommandBuffer;
 
     void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 
@@ -211,9 +210,11 @@ private:
     MeshShader* meshShader;
     BackgroundShader* backgroundShader;
     ComputeShader* computeShader;
+    PostProcessShader* postShader; // first of many
 
     /// Post
     OffscreenPass offscreenPass;
+    void cleanupOffscreenPass();
 
 #if _DEBUG
     // enable a range of validation layers through the SDK

@@ -38,7 +38,7 @@ void VulkanApplication::initWindow() {
     glfwSetWindowUserPointer(window, this);
     glfwSetWindowSizeCallback(window, VulkanApplication::onWindowResized);
 
-    mainCamera = Camera(glm::vec3(0.f, 1.f, 1.f), glm::vec3(0.f, 0.f, 0.f), 0.1f, 10.0f, 45.0f); // hi
+    mainCamera = Camera(glm::vec3(0.f, 1.f, 1.f), glm::vec3(0.f, 0.f, 0.f), 0.1f, 10.0f, 45.0f);
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
 }
@@ -62,13 +62,14 @@ void VulkanApplication::initVulkan() {
 
     createFramebuffers(); // must come after so depth texture is initialized
 
+    setupOffscreenPass();
+
     initializeGeometry();
 
     initializeShaders();
 
-    setupOffscreenPass();
-
     createCommandBuffers();
+    createPostProcessCommandBuffer();
     createComputeCommandBuffer();
     createSemaphores();
 
@@ -104,6 +105,7 @@ void VulkanApplication::cleanup() {
     for (size_t i = 0; i < swapChainImageViews.size(); i++) {
         vkDestroyImageView(device, swapChainImageViews[i], nullptr);
     }
+    cleanupOffscreenPass();
     vkDestroyCommandPool(device, commandPool, nullptr);
     vkDestroyCommandPool(device, computeCommandPool, nullptr);
     vkDestroySemaphore(device, renderFinishedSemaphore, nullptr);
@@ -197,17 +199,28 @@ void VulkanApplication::drawFrame() {
     submitInfo.pWaitSemaphores = waitSemaphores;
     submitInfo.pWaitDstStageMask = waitStages; // what part of the pipeline is blocked by semaphore; vertex processing can still continue
 
+    // Do all offscreen rendering
+    submitInfo.pSignalSemaphores = { &offscreenPass.semaphore };
+    submitInfo.signalSemaphoreCount = 1;
     submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &commandBuffers[imageIndex]; // what is executed
+    submitInfo.pCommandBuffers = &offscreenPass.commandBuffer;
+
+    if (vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
+        throw std::runtime_error("failed to submit offscreen command buffer!");
+    }
 
     VkSemaphore signalSemaphores[] = { renderFinishedSemaphore };
-    submitInfo.signalSemaphoreCount = 1;
+
+    // Draw the scene onto the screen
+    submitInfo.pWaitSemaphores = &offscreenPass.semaphore;
     submitInfo.pSignalSemaphores = signalSemaphores;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &commandBuffers[imageIndex]; // what is executed
 
     if (vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
         throw std::runtime_error("failed to submit draw command buffer!");
     }
-
+    
     VkPresentInfoKHR presentInfo = {};
     presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 
@@ -254,17 +267,42 @@ void VulkanApplication::cleanupGeometry() {
 }
 
 void VulkanApplication::initializeShaders() {
-    meshShader = new MeshShader(device, physicalDevice, commandPool, graphicsQueue, swapChainExtent, &renderPass, std::string("Shaders/helloTriangle.vert.spv"), std::string("Shaders/helloTriangle.frag.spv"), meshTexture);
-    backgroundShader = new BackgroundShader(device, physicalDevice, commandPool, graphicsQueue, swapChainExtent, &renderPass, std::string("Shaders/screenSpace.vert.spv"), std::string("Shaders/screenSpace.frag.spv"), backgroundTexture);
+    meshShader = new MeshShader(device, physicalDevice, commandPool, graphicsQueue, swapChainExtent, &offscreenPass.renderPass, std::string("Shaders/helloTriangle.vert.spv"), std::string("Shaders/helloTriangle.frag.spv"), meshTexture);
+    backgroundShader = new BackgroundShader(device, physicalDevice, commandPool, graphicsQueue, swapChainExtent, &offscreenPass.renderPass, std::string("Shaders/screenSpace.vert.spv"), std::string("Shaders/screenSpace.frag.spv"), backgroundTexture);
 
     // Note: we pass the background shader's texture with the intention of writing to it with the compute shader
-    computeShader = new ComputeShader(device, physicalDevice, commandPool, graphicsQueue, swapChainExtent, &renderPass, std::string("Shaders/helloTriangle.comp.spv"), backgroundTexture);
+    computeShader = new ComputeShader(device, physicalDevice, commandPool, computeQueue, swapChainExtent, &offscreenPass.renderPass, std::string("Shaders/helloTriangle.comp.spv"), backgroundTexture);
+
+    // Post shaders: there will be many
+    postShader = new PostProcessShader(device, physicalDevice, commandPool, graphicsQueue, swapChainExtent, &renderPass, std::string("Shaders/post-pass.vert.spv"), std::string("Shaders/tonemap.frag.spv"), &offscreenPass.framebuffers[0].descriptor);
 }
 
 void VulkanApplication::cleanupShaders() {
     delete meshShader;
     delete backgroundShader;
     delete computeShader;
+    delete postShader;
+}
+
+void VulkanApplication::cleanupOffscreenPass() {
+    vkDestroySampler(device, offscreenPass.sampler, nullptr);
+    
+    for (auto& framebuffer : offscreenPass.framebuffers)
+    {
+        // Attachments
+        vkDestroyImageView(device, framebuffer.color.view, nullptr);
+        vkDestroyImage(device, framebuffer.color.image, nullptr);
+        vkFreeMemory(device, framebuffer.color.mem, nullptr);
+        vkDestroyImageView(device, framebuffer.depth.view, nullptr);
+        vkDestroyImage(device, framebuffer.depth.image, nullptr);
+        vkFreeMemory(device, framebuffer.depth.mem, nullptr);
+
+        vkDestroyFramebuffer(device, framebuffer.framebuffer, nullptr);
+    }
+
+    vkDestroyRenderPass(device, offscreenPass.renderPass, nullptr);
+    vkFreeCommandBuffers(device, commandPool, 1, &offscreenPass.commandBuffer);
+    vkDestroySemaphore(device, offscreenPass.semaphore, nullptr);
 }
 
 void VulkanApplication::updateUniformBuffer() {
@@ -818,7 +856,83 @@ void VulkanApplication::endSingleTimeCommands(VkCommandBuffer commandBuffer) {
     vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
 }
 
+// This function renders everything that is offscreen. The PostProcessCommandBuffer actually renders to the screen.
 void VulkanApplication::createCommandBuffers() {
+
+    if (offscreenPass.commandBuffer == VK_NULL_HANDLE)
+    {
+        VkCommandBufferAllocateInfo commandBufferAllocateInfo{};
+        commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+        commandBufferAllocateInfo.commandPool = commandPool;
+        commandBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        commandBufferAllocateInfo.commandBufferCount = 1;
+
+        if (vkAllocateCommandBuffers(device, &commandBufferAllocateInfo, &offscreenPass.commandBuffer) != VK_SUCCESS) {
+            throw std::runtime_error("failed to allocate offscreen command buffer!");
+        }
+    }
+
+    if (offscreenPass.semaphore == VK_NULL_HANDLE)
+    {
+        VkSemaphoreCreateInfo semaphoreCreateInfo {};
+        semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+        if (vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &offscreenPass.semaphore) != VK_SUCCESS) {
+            throw std::runtime_error("failed to allocate offscreen semaphore!");
+        }
+    }
+
+    VkCommandBufferAllocateInfo allocInfo = {};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.commandPool = commandPool;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandBufferCount = 1;
+
+    if (vkAllocateCommandBuffers(device, &allocInfo, &offscreenPass.commandBuffer) != VK_SUCCESS) {
+        throw std::runtime_error("failed to allocate offscreen command buffer!");
+    }
+ 
+     VkCommandBufferBeginInfo beginInfo = {};
+     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+     beginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
+     beginInfo.pInheritanceInfo = nullptr; // Optional
+
+     vkBeginCommandBuffer(offscreenPass.commandBuffer, &beginInfo);
+
+     std::array<VkClearValue, 2> clearValues = {};
+     clearValues[0].color = { 0.0f, 0.0f, 0.0f, 1.0f };
+     clearValues[1].depthStencil = { 1.0f, 0 };
+
+     // Actual render pass creation
+     VkRenderPassBeginInfo renderPassInfo = {};
+     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+     renderPassInfo.renderPass = offscreenPass.renderPass;
+     renderPassInfo.framebuffer = offscreenPass.framebuffers[0].framebuffer;
+     renderPassInfo.renderArea.offset = { 0, 0 };
+     renderPassInfo.renderArea.extent = swapChainExtent;
+     VkClearValue clearColor = { 0.0f, 0.0f, 0.0f, 1.0f };
+     renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+     renderPassInfo.pClearValues = clearValues.data();
+
+     // Render pass recording. This is only done once.
+     vkCmdBeginRenderPass(offscreenPass.commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+     // Draw Background
+     backgroundShader->bindShader(offscreenPass.commandBuffer);
+     backgroundGeometry->enqueueDrawCommands(offscreenPass.commandBuffer);
+     
+     // Draw Scene
+     meshShader->bindShader(offscreenPass.commandBuffer);
+     sceneGeometry->enqueueDrawCommands(offscreenPass.commandBuffer);
+
+     vkCmdEndRenderPass(offscreenPass.commandBuffer);
+
+     if (vkEndCommandBuffer(offscreenPass.commandBuffer) != VK_SUCCESS) {
+         throw std::runtime_error("failed to record offscreen command buffer!");
+     }
+}
+
+// Run the final post process that renders to the screen
+void VulkanApplication::createPostProcessCommandBuffer() {
     commandBuffers.resize(swapChainFramebuffers.size());
     VkCommandBufferAllocateInfo allocInfo = {};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -856,13 +970,8 @@ void VulkanApplication::createCommandBuffers() {
         // Render pass recording. This is only done once.
         vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-        // Draw Background
-        backgroundShader->bindShader(commandBuffers[i]);
+        postShader->bindShader(commandBuffers[i]);
         backgroundGeometry->enqueueDrawCommands(commandBuffers[i]);
-        
-        // Draw Scene
-        meshShader->bindShader(commandBuffers[i]);
-        sceneGeometry->enqueueDrawCommands(commandBuffers[i]);
 
         vkCmdEndRenderPass(commandBuffers[i]);
 
@@ -997,7 +1106,7 @@ void VulkanApplication::createOffscreenFramebuffer(FrameBuffer* framebuffer, VkF
     depthStencilView.format = depthFormat;
     depthStencilView.flags = 0;
     depthStencilView.subresourceRange = {};
-    depthStencilView.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+    depthStencilView.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;// | VK_IMAGE_ASPECT_STENCIL_BIT;
     depthStencilView.subresourceRange.baseMipLevel = 0;
     depthStencilView.subresourceRange.levelCount = 1;
     depthStencilView.subresourceRange.baseArrayLayer = 0;
@@ -1053,27 +1162,27 @@ void VulkanApplication::setupOffscreenPass() {
     VkFormat fbDepthFormat = findDepthFormat(physicalDevice);
 
     // Create a separate render pass for the offscreen rendering as it may differ from the one used for scene rendering
-    std::array<VkAttachmentDescription, 2> attchmentDescriptions = {};
+    std::array<VkAttachmentDescription, 2> attachmentDescriptions = {};
 
     // Color attachment
-    attchmentDescriptions[0].format = VK_FORMAT_R8G8B8A8_UNORM;
-    attchmentDescriptions[0].samples = VK_SAMPLE_COUNT_1_BIT;
-    attchmentDescriptions[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    attchmentDescriptions[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    attchmentDescriptions[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    attchmentDescriptions[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    attchmentDescriptions[0].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    attchmentDescriptions[0].finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    attachmentDescriptions[0].format = VK_FORMAT_R8G8B8A8_UNORM;
+    attachmentDescriptions[0].samples = VK_SAMPLE_COUNT_1_BIT;
+    attachmentDescriptions[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    attachmentDescriptions[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    attachmentDescriptions[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    attachmentDescriptions[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    attachmentDescriptions[0].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    attachmentDescriptions[0].finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     // Depth attachment
-    attchmentDescriptions[1].format = fbDepthFormat;
-    attchmentDescriptions[1].samples = VK_SAMPLE_COUNT_1_BIT;
-    attchmentDescriptions[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    attchmentDescriptions[1].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    attchmentDescriptions[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    attchmentDescriptions[1].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    attchmentDescriptions[1].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    attchmentDescriptions[1].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    attachmentDescriptions[1].format = fbDepthFormat;
+    attachmentDescriptions[1].samples = VK_SAMPLE_COUNT_1_BIT;
+    attachmentDescriptions[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    attachmentDescriptions[1].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    attachmentDescriptions[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    attachmentDescriptions[1].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    attachmentDescriptions[1].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    attachmentDescriptions[1].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
     VkAttachmentReference colorReference = { 0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
     VkAttachmentReference depthReference = { 1, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL };
@@ -1106,8 +1215,8 @@ void VulkanApplication::setupOffscreenPass() {
     // Create the actual renderpass
     VkRenderPassCreateInfo renderPassInfo = {};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-    renderPassInfo.attachmentCount = static_cast<uint32_t>(attchmentDescriptions.size());
-    renderPassInfo.pAttachments = attchmentDescriptions.data();
+    renderPassInfo.attachmentCount = static_cast<uint32_t>(attachmentDescriptions.size());
+    renderPassInfo.pAttachments = attachmentDescriptions.data();
     renderPassInfo.subpassCount = 1;
     renderPassInfo.pSubpasses = &subpassDescription;
     renderPassInfo.dependencyCount = static_cast<uint32_t>(dependencies.size());

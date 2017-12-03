@@ -706,10 +706,10 @@ void PostProcessShader::createDescriptorSet() {
         throw std::runtime_error("failed to allocate descriptor set!");
     }
 
-    VkDescriptorImageInfo imageInfo = {};
+    /*VkDescriptorImageInfo imageInfo = {};
     imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    imageInfo.imageView = textures[ALBEDO]->textureImageView;
-    imageInfo.sampler = textures[ALBEDO]->textureSampler;
+    imageInfo.imageView = ; //textures[ALBEDO]->textureImageView;
+    imageInfo.sampler = ; //textures[ALBEDO]->textureSampler;*/
 
     std::array<VkWriteDescriptorSet, 1> descriptorWrites = {};
 
@@ -719,7 +719,7 @@ void PostProcessShader::createDescriptorSet() {
     descriptorWrites[0].dstArrayElement = 0;
     descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     descriptorWrites[0].descriptorCount = 1;
-    descriptorWrites[0].pImageInfo = &imageInfo;
+    descriptorWrites[0].pImageInfo = descriptorImageInfo;
 
     vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 }
