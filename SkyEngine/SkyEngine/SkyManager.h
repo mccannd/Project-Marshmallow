@@ -6,11 +6,12 @@
 #include <algorithm>
 
 struct UniformSunObject {
-    float intensity;
+    
     glm::vec4 location; // only really used for the procedural scattering. regard this as a directional light
     glm::vec4 direction; 
     glm::vec4 color;
     glm::mat4 directionBasis; // Equivalent to TBN, for transforming cone samples in ray marcher
+    float intensity;
     static VkDescriptorSetLayoutBinding getLayoutBinding(uint32_t bind)
     {
         VkDescriptorSetLayoutBinding uboLayoutBinding = {};
@@ -25,12 +26,14 @@ struct UniformSunObject {
 };
 
 struct UniformSkyObject{
-    float mie_directional;
+    
     // many other constants are stored in the sky manager, minimizing the amount of stuff transferred to shader
 
     // precalculated, depends on sun
     glm::vec4 betaR;
     glm::vec4 betaV;
+
+    float mie_directional;
 
     static VkDescriptorSetLayoutBinding getLayoutBinding(uint32_t bind)
     {
@@ -56,7 +59,7 @@ private:
     UniformSunObject sun;
     void calcSunPosition();
     void calcSunIntensity();
-    
+    void calcSunColor();
 
     void calcSkyBetaR();
     void calcSkyBetaV();

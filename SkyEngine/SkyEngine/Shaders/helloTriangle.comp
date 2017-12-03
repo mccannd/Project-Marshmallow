@@ -13,18 +13,20 @@ layout(binding = 1) uniform UniformCameraObject {
 
 // all of these components are calculated in SkyManager.h/.cpp
 layout(set = 0, binding = 2) uniform UniformSunObject {
-    float intensity;
+    
     vec4 location;
     vec4 direction;
     vec4 color;
     mat4 directionBasis;
+    float intensity;
 } sun;
 
 // note: a lot of sky constants are stored/precalculated in SkyManager.h / .cpp
 layout(binding = 3) uniform UniformSkyObject {
-    float mie_directional;
+    
     vec4 betaR;
     vec4 betaV;
+    float mie_directional;
 } sky;
 
 struct Intersection {
@@ -286,8 +288,6 @@ void main() {
         return;
     }
 
-    imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), vec4(backgroundCol, 1));
-        return;
 
     /// Raytrace the scene (a sphere, to become the atmosphere)
     vec3 earthCenter = cameraPos;
@@ -357,8 +357,11 @@ void main() {
 
     // opacity fades to prevent hard cutoff at horizon
     accumDensity *= smoothstep(0, 1, min(1, remap(rayDirection.y, 0, 0.1, 0, 1)));
-    
-    vec4 finalColor = vec4(mix(backgroundCol, vec3(clamp(transmittance, 0.0, 1.0)), accumDensity), 1.0);
+    vec3 cSunColor = mix(sun.color.xyz * sun.intensity / 100.0, backgroundCol, 0.0);
+    vec3 cloudColor = cSunColor * clamp(transmittance, 0.0, 1.0);
+    cloudColor = 1.0 - exp(-cloudColor);
+    cloudColor = pow(cloudColor, vec3(1.0 / 2.2)); 
+    vec4 finalColor = vec4(mix(backgroundCol, cloudColor, accumDensity), 1.0);
 
     imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), finalColor);
 }

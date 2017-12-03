@@ -12,7 +12,13 @@ float clamp(float t, float min, float max) {
     return std::max(min, std::min(max, t));
 }
 
-
+void SkyManager::calcSunColor() {
+    glm::vec3 sunset = glm::vec3(1.f, 0.83922, 0.6431f);
+    float t = (sun.direction.y) * 13.f;
+    t = clamp(t, 0.f, 1.f);
+    glm::vec3 color = (1.f - t) * sunset + (t) * glm::vec3(1.f);
+    sun.color = glm::vec4(color, 0.f);
+}
 
 void SkyManager::calcSunIntensity() {
     float zenithAngleCos = clamp(sun.direction.y, -1.f, 1.f);
@@ -56,20 +62,21 @@ SkyManager::SkyManager()
     //sun = {};
     //sky = {};
     sun = {
-        0.0f,
         glm::vec4(0.f),
         glm::vec4(0.f),
         glm::vec4(0.f),
         glm::mat4(1.f),
+        0.0f
     };
     sky = {
+        glm::vec4(0.f),
+        glm::vec4(0.f),
         0.f,
-        glm::vec4(0.f),
-        glm::vec4(0.f),
     };
     sun.color = glm::vec4(1); // TODO
     calcSunPosition();
     calcSunIntensity();
+    calcSunColor();
     mie = 0.005f;
     sky.mie_directional = 0.8;
     rayleigh = 2.f;
@@ -88,6 +95,7 @@ void SkyManager::rebuildSkyFromNewSun(float elevation, float azimuth) {
     this->azimuth = azimuth;
     calcSunPosition();
     calcSunIntensity();
+    calcSunColor();
     calcSkyBetaR();
     calcSkyBetaV();
 }
@@ -104,6 +112,7 @@ void SkyManager::rebuildSky(float elevation, float azimuth, float turbidity, flo
     this->azimuth = azimuth;
     calcSunPosition();
     calcSunIntensity();
+    calcSunColor();
     sky.mie_directional = mie_directional;
     this->mie = mie;
     calcSkyBetaR();
