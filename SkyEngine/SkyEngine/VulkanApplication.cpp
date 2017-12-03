@@ -268,11 +268,11 @@ void VulkanApplication::cleanupGeometry() {
 }
 
 void VulkanApplication::initializeShaders() {
-    meshShader = new MeshShader(device, physicalDevice, commandPool, graphicsQueue, swapChainExtent, &offscreenPass.renderPass, std::string("Shaders/helloTriangle.vert.spv"), std::string("Shaders/helloTriangle.frag.spv"), meshTexture);
-    backgroundShader = new BackgroundShader(device, physicalDevice, commandPool, graphicsQueue, swapChainExtent, &offscreenPass.renderPass, std::string("Shaders/screenSpace.vert.spv"), std::string("Shaders/screenSpace.frag.spv"), backgroundTexture);
+    meshShader = new MeshShader(device, physicalDevice, commandPool, graphicsQueue, swapChainExtent, &offscreenPass.renderPass, std::string("Shaders/model.vert.spv"), std::string("Shaders/model.frag.spv"), meshTexture);
+    backgroundShader = new BackgroundShader(device, physicalDevice, commandPool, graphicsQueue, swapChainExtent, &offscreenPass.renderPass, std::string("Shaders/background.vert.spv"), std::string("Shaders/background.frag.spv"), backgroundTexture);
 
     // Note: we pass the background shader's texture with the intention of writing to it with the compute shader
-    computeShader = new ComputeShader(device, physicalDevice, commandPool, computeQueue, swapChainExtent, &offscreenPass.renderPass, std::string("Shaders/helloTriangle.comp.spv"), backgroundTexture);
+    computeShader = new ComputeShader(device, physicalDevice, commandPool, computeQueue, swapChainExtent, &offscreenPass.renderPass, std::string("Shaders/compute-clouds.comp.spv"), backgroundTexture);
 
     // Post shaders: there will be many
     postShader = new PostProcessShader(device, physicalDevice, commandPool, graphicsQueue, swapChainExtent, &renderPass, std::string("Shaders/post-pass.vert.spv"), std::string("Shaders/tonemap.frag.spv"), &offscreenPass.framebuffers[0].descriptor);
