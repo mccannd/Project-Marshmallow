@@ -317,7 +317,8 @@ void main() {
     Intersection atmosphereIsectInner = raySphereIntersection(cameraPos, rayDirection, atmosphereSphereInner);
     Intersection atmosphereIsectOuter = raySphereIntersection(cameraPos, rayDirection, atmosphereSphereOuter);
 
-    float cosToSun = clamp(dot(rayDirection, sunDir) + 1.0, 0.1, 1.0);
+    float cosToSun = smoothstep(0.0, 1.0, clamp(dot(rayDirection, sunDir) + 1.0, 0.0, 1.0));
+    cosToSun = remap(cosToSun, 0.0, 1.0, 0.1, 1.0);
 
     float t;
     float accumDensity = 0.0;
