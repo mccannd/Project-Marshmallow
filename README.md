@@ -29,6 +29,10 @@ Presentation slides: https://docs.google.com/presentation/d/1VIR9ZQW38At9B_MwrqZ
 
 Presentation slides: https://docs.google.com/presentation/d/19dwzTKkiu7RWJAS3FNpQn3g2C4npBGnQCg2l3P1VmgM/edit?usp=sharing
 
+## Milestone 3
+
+- Marching has density and lighting accumulation
+
 # Credits: 
 https://vulkan-tutorial.com/Introduction - Base code creation / explanation for the graphics pipeline
 
@@ -37,6 +41,10 @@ https://github.com/SaschaWillems/Vulkan - Additional Vulkan reference code, heav
 https://github.com/PacktPublishing/Vulkan-Cookbook/ - Even more Vulkan reference that helped with rendering to texture
 
 https://github.com/moneimne and https://github.com/byumjin - Significant help on learning and properly using Vulkan. Check out their stuff!
+
+http://filmicworlds.com/blog/filmic-tonemapping-operators/ - Tonemapping Algorithm
+
+zz85 on github: implementation of Preetham Sky for Three.js. zz85 credits implementations by Simon Wallner and Martin Upitis. Relevant code is also credited in the shader.
 
 ## Libraries:
 https://github.com/syoyo/tinyobjloader - OBJ loading in a single header

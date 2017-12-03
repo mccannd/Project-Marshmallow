@@ -179,6 +179,8 @@ private:
     BackgroundShader* backgroundShader;
     ComputeShader* computeShader;
 
+    SkyManager skySystem;
+
 #if _DEBUG
     // enable a range of validation layers through the SDK
     const std::vector<const char*> validationLayers = {
