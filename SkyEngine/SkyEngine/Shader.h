@@ -200,7 +200,7 @@ public:
 };
 
 /*
-TODO: A pipeline for drawing a background quad
+  Pipeline for drawing a background quad
 */
 
 class BackgroundShader : public Shader
@@ -246,7 +246,7 @@ public:
 };
 
 /*
-TODO: A pipeline for computing clouds
+  Pipeline for computing clouds
 */
 
 class ComputeShader : public Shader
@@ -302,5 +302,60 @@ public:
     void bindShader(VkCommandBuffer& commandBuffer) override {
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
+    }
+};
+
+/*
+  Pipeline for post processing effects
+*/
+
+// This class should be extended by classes for each individual post processing effect, because each will have different uniform setups.
+// at the moment, this is identical to the background shader class
+class PostProcessShader : public Shader
+{
+private:
+
+protected:
+    virtual void createDescriptorSetLayout();
+    virtual void createDescriptorPool();
+    virtual void createDescriptorSet();
+
+    virtual void createUniformBuffer();
+
+    virtual void createPipeline();
+
+    virtual void cleanupUniforms();
+
+    VkDescriptorImageInfo* descriptorImageInfo;
+
+    // Uniform buffers and buffer memory eventually
+    // ex: gaussian blur parameters, high pass parameters, sun position for radial blur, god rays, etc
+
+public:
+    void setupShader(std::string vertPath, std::string fragPath) {
+        shaderFilePaths.push_back(vertPath);
+        shaderFilePaths.push_back(fragPath);
+
+        createDescriptorSetLayout();
+        createPipeline();
+        createUniformBuffer();
+        createDescriptorPool();
+        createDescriptorSet();
+    }
+
+    //TODO: change this constructor to take an image descriptor instead of a texture, or somehow create a texture from the framebuffer image descriptor
+    PostProcessShader(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue queue, VkExtent2D extent) : Shader(device, physicalDevice, commandPool, queue, extent) {}
+    PostProcessShader(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue queue, VkExtent2D extent, VkRenderPass *renderPass, std::string vertPath, std::string fragPath, VkDescriptorImageInfo* tex) :
+        Shader(device, physicalDevice, commandPool, queue, extent), descriptorImageInfo(tex) {
+        this->renderPass = renderPass;
+        //addTexture(tex);
+        setupShader(vertPath, fragPath);
+    }
+
+    virtual ~PostProcessShader() { cleanupUniforms(); }
+
+    void bindShader(VkCommandBuffer& commandBuffer) override {
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
     }
 };
