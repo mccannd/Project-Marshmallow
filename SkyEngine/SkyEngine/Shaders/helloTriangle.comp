@@ -44,6 +44,8 @@ struct Intersection {
 #define PI 3.14159265
 #define E 2.718281828459
 
+
+
 #define THREE_OVER_SIXTEENPI 0.05968310365946075
 #define ONE_OVER_FOURPI 0.07957747154594767
 
@@ -56,6 +58,21 @@ struct Intersection {
 
 float remap(in float value, in float oldMin, in float oldMax, in float newMin, in float newMax) {
     return newMin + (((value - oldMin) / (oldMax - oldMin)) * (newMax - newMin));
+}
+
+/// TODO: proper tonemapping pipeline
+// Uncharted 2 Tonemapping made by John Hable, filmicworlds.com
+vec3 uc2Tonemap(vec3 x)
+{
+   return ((x*(0.15*x+0.1*0.5)+0.2*0.02)/(x*(0.15*x+0.5)+0.2*0.3))-0.02/0.3;
+}
+
+vec3 tonemap(vec3 x, float exposure, float invGamma, float whiteBalance) {
+    vec3 white = vec3(11.2);
+    vec3 color = uc2Tonemap(exposure * x);
+    vec3 whitemap = 1.0 / uc2Tonemap(white);
+    color *= whitemap;
+    return pow(color, vec3(invGamma));
 }
 
 /// ATMOSPHERE COLOR BEGIN: adapted from open source of zz85 on Github, math from Preetham Model, initially implemented by Simon Wallner and Martin Upitis
@@ -155,11 +172,10 @@ vec3 getAtmosphereColorPhysical(in vec3 dir, inout vec3 sunDir) {
 
     color = (Lin + L0) * 0.04 + vec3(0.0, 0.0003, 0.00075);
 
-    //color *= max(0.3, (-sunDir.y) * 0.5 + 0.5);
+    
     // basic tonemap for now, should do in post.
-    color = vec3(1.0) - exp(-color);
-    // we could hack this into a color attachment, potentially
-    color = pow(color, vec3(1.0 / 2.2)); 
+    //color = vec3(1.0) - exp(-color);
+    //color = pow(color, vec3(1.0 / 2.2)); 
     return color;
 }
 
@@ -174,6 +190,9 @@ vec3 getAtmosphereColor(in vec3 dir) {
 
 
 /// ATMOSPHERE COLOR END: see credit at BEGIN
+
+
+
 
 // Compute sphere intersection
 Intersection raySphereIntersection(in vec3 ro, in vec3 rd, in vec4 sphere) {
@@ -284,6 +303,7 @@ void main() {
     // It is likely we will never have an entirely unobstructed view of the horizon, so kill rays that would otherwise be executing.
     // TODO: low-res stencil check first
     if(dot(rayDirection, vec3(0, 1, 0)) < 0.0) {
+        backgroundCol = tonemap(backgroundCol, 1.0, 1.0 / 2.2, 11.2); // TODO remove tonemap
         imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), vec4(backgroundCol, 1));
         return;
     }
@@ -359,9 +379,12 @@ void main() {
     accumDensity *= smoothstep(0, 1, min(1, remap(rayDirection.y, 0, 0.1, 0, 1)));
     vec3 cSunColor = mix(sun.color.xyz * sun.intensity / 100.0, backgroundCol, 0.0);
     vec3 cloudColor = cSunColor * clamp(transmittance, 0.0, 1.0);
-    cloudColor = 1.0 - exp(-cloudColor);
-    cloudColor = pow(cloudColor, vec3(1.0 / 2.2)); 
+
+
     vec4 finalColor = vec4(mix(backgroundCol, cloudColor, accumDensity), 1.0);
+
+    // TODO remove tonemap
+    finalColor.xyz = tonemap(finalColor.xyz, 1.0, 1.0 / 2.2, 11.2);
 
     imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), finalColor);
 }
