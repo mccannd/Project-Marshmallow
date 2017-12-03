@@ -269,6 +269,11 @@ float FBM(in vec2 p) {
     return max(0.0, remap(noiseVal, 0.5, 1.0, 0.0, 0.9));
 }
 
+float HG (in float cosTheta, in float eccentricity) {
+    float e2 = eccentricity * eccentricity;
+    return 0.07957747154 * (1.0 - e2) / pow((1.0 + e2 - 2.0 * eccentricity * cosTheta), 1.5);
+}
+
 void main() {
     /// Extract the UV
     ivec2 dim = imageSize(resultImage); // prob better as uniform
@@ -317,8 +322,9 @@ void main() {
     Intersection atmosphereIsectInner = raySphereIntersection(cameraPos, rayDirection, atmosphereSphereInner);
     Intersection atmosphereIsectOuter = raySphereIntersection(cameraPos, rayDirection, atmosphereSphereOuter);
 
-    float cosToSun = smoothstep(0.0, 1.0, clamp(dot(rayDirection, sunDir) + 1.0, 0.0, 1.0));
-    cosToSun = remap(cosToSun, 0.0, 1.0, 0.1, 1.0);
+    float cosTheta = dot(rayDirection, sunDir);
+    //imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), vec4(vec3(cosTheta * 0.5 + 0.5), 1));
+    //return;
 
     float t;
     float accumDensity = 0.0;
@@ -364,9 +370,17 @@ void main() {
                 densityAlongLight += cumulus2 * FBM((lightSamplePoint.xz - cameraPos.xz) / 10000.0);
             }
         
+            float henyeyGreenstein = max(HG(cosTheta, 0.6), 0.7 * HG(cosTheta, 0.99 - 0.1));
             // Beer's Law with extra / artistic light penetration, blend with front-to-back opacity
-            transmittance = mix(transmittance,  cosToSun * (max(exp(-densityAlongLight), 0.7 * exp(-0.25 * densityAlongLight))), (1.0 - accumDensity));
+            float beersLaw = exp(-densityAlongLight);
+            float beersModulated = max(beersLaw, 0.7 * exp(-0.25 * densityAlongLight));
 
+            // HDR component to the cloud color in beer's law, representing energy from light
+            // clamping this between 0 and 1 makes clouds very dark while applying HG
+            beersLaw = sun.intensity / 5.0 * mix(beersLaw, beersModulated, -cosTheta * 0.5 + 0.5);
+
+            transmittance = mix(transmittance, henyeyGreenstein * beersLaw , (1.0 - accumDensity));
+            //transmittance = mix(transmittance, henyeyGreenstein, (1.0 - accumDensity));
             // Opacity
             
         }
@@ -380,8 +394,10 @@ void main() {
 
     // opacity fades to prevent hard cutoff at horizon
     accumDensity *= smoothstep(0, 1, min(1, remap(rayDirection.y, 0, 0.1, 0, 1)));
-    vec3 cSunColor = mix(sun.color.xyz * 5.0, backgroundCol, 0.0);
-    vec3 cloudColor = cSunColor * clamp(transmittance, 0.0, 1.0);
+    accumDensity = min(accumDensity, 0.999);
+    vec3 cSunColor = mix(sun.color.xyz, backgroundCol, 0.0);
+
+    vec3 cloudColor = cSunColor * max(0, transmittance);
 
 
     vec4 finalColor = vec4(mix(backgroundCol, cloudColor, accumDensity), 1.0);
