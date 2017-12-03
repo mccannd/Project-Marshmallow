@@ -36,7 +36,7 @@ struct Intersection {
     float t;
 };
 
-#define ATMOSPHERE_RADIUS 1000000.0
+#define ATMOSPHERE_RADIUS 2000000.0
 #define LIGHT_VEC normalize(vec3(1, 1, 0))
 #define BLOB_CLOUD_STEP_SIZE ATMOSPHERE_RADIUS / 100.0
 #define NUM_FBM_OCTAVES 8
@@ -311,11 +311,13 @@ void main() {
 
     /// Raytrace the scene (a sphere, to become the atmosphere)
     vec3 earthCenter = cameraPos;
-    earthCenter.y = -ATMOSPHERE_RADIUS * 0.5 * 0.91;
+    earthCenter.y = -ATMOSPHERE_RADIUS * 0.5 * 0.99;
     vec4 atmosphereSphereInner = vec4(earthCenter, ATMOSPHERE_RADIUS);
-    vec4 atmosphereSphereOuter = vec4(earthCenter, ATMOSPHERE_RADIUS * 1.05);
+    vec4 atmosphereSphereOuter = vec4(earthCenter, ATMOSPHERE_RADIUS * 1.01);
     Intersection atmosphereIsectInner = raySphereIntersection(cameraPos, rayDirection, atmosphereSphereInner);
     Intersection atmosphereIsectOuter = raySphereIntersection(cameraPos, rayDirection, atmosphereSphereOuter);
+
+    float cosToSun = clamp(dot(rayDirection, sunDir) + 1.0, 0.1, 1.0);
 
     float t;
     float accumDensity = 0.0;
@@ -342,11 +344,11 @@ void main() {
         // Sample is read from XZ of bounding sphere. Maybe there's a better way, but we'll never see the equator, so...
         vec3 sampleProjected = 0.5 * ATMOSPHERE_RADIUS * fromCenter + earthCenter;
 
-        float cumulus = length(currentPos - sampleProjected) / (0.5 * ATMOSPHERE_RADIUS * 0.05); // radial distance from inner to outer shell, normalized
+        float cumulus = length(currentPos - sampleProjected) / (0.5 * ATMOSPHERE_RADIUS * 0.01); // radial distance from inner to outer shell, normalized
         cumulus = clamp(cumulus, 0, 1);
         cumulus = remap(cumulus, 0.0, 0.3, 0.0, 1.0) * remap(cumulus, 0.7, 1.0, 1.0, 0.0); // TODO: remap based on cloud type, not just cumulus
 
-        vec2 samplePoint = (sampleProjected.xz - cameraPos.xz) / 20000.0;
+        vec2 samplePoint = (sampleProjected.xz - cameraPos.xz) / 10000.0;
         float density = cumulus * FBM(samplePoint); // TODO: placement texture as described in paper
 
         if (density > 0.00) {
@@ -356,13 +358,13 @@ void main() {
             for (int i = 0; i < 6; i++) {
                 vec3 lightSamplePoint = currentPos + 6.0 * stepSize * samples[i];
                 vec3 lightSamplePointProj = 0.5 * ATMOSPHERE_RADIUS * normalize(lightSamplePoint - earthCenter) + earthCenter;
-                float cumulus2 = length(lightSamplePoint - lightSamplePointProj)  / (0.5 * ATMOSPHERE_RADIUS * 0.05); 
+                float cumulus2 = length(lightSamplePoint - lightSamplePointProj)  / (0.5 * ATMOSPHERE_RADIUS * 0.01); 
                 cumulus2 = remap(clamp(cumulus2, 0, 1), 0.0, 0.3, 0.0, 1.0) * remap(clamp(cumulus2, 0, 1), 0.7, 1.0, 1.0, 0.0);
-                densityAlongLight += cumulus2 * FBM((lightSamplePoint.xz - cameraPos.xz) / 20000.0);
+                densityAlongLight += cumulus2 * FBM((lightSamplePoint.xz - cameraPos.xz) / 10000.0);
             }
         
             // Beer's Law with extra / artistic light penetration, blend with front-to-back opacity
-            transmittance = mix(transmittance, max(exp(-densityAlongLight), 0.7 * exp(-0.25 * densityAlongLight)), (1.0 - accumDensity));
+            transmittance = mix(transmittance,  cosToSun * (max(exp(-densityAlongLight), 0.7 * exp(-0.25 * densityAlongLight))), (1.0 - accumDensity));
 
             // Opacity
             
@@ -377,7 +379,7 @@ void main() {
 
     // opacity fades to prevent hard cutoff at horizon
     accumDensity *= smoothstep(0, 1, min(1, remap(rayDirection.y, 0, 0.1, 0, 1)));
-    vec3 cSunColor = mix(sun.color.xyz * sun.intensity / 100.0, backgroundCol, 0.0);
+    vec3 cSunColor = mix(sun.color.xyz * 5.0, backgroundCol, 0.0);
     vec3 cloudColor = cSunColor * clamp(transmittance, 0.0, 1.0);
 
 
