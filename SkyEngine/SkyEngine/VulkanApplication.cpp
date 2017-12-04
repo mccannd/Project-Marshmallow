@@ -247,6 +247,8 @@ void VulkanApplication::initializeTextures() {
     depthTexture->initForDepthAttachment(swapChainExtent);
     cloudPlacementTexture = new Texture(device, physicalDevice, commandPool, graphicsQueue);
     cloudPlacementTexture->initFromFile("Textures/CloudPlacement.png");
+    lowResCloudShapeTexture3D = new Texture3D(device, physicalDevice, commandPool, graphicsQueue, 128, 128, 128); // 128, 128, 128
+    lowResCloudShapeTexture3D->initFromFile("Textures/3DTextures/lowResCloudShape/lowResCloud"); // note: no .png
 }
 
 // TODO: management
@@ -255,6 +257,7 @@ void VulkanApplication::cleanupTextures() {
     delete backgroundTexture;
     delete depthTexture;
     delete cloudPlacementTexture;
+    delete lowResCloudShapeTexture3D;
 }
 
 void VulkanApplication::initializeGeometry() {
@@ -279,7 +282,7 @@ void VulkanApplication::initializeShaders() {
 
     // Note: we pass the background shader's texture with the intention of writing to it with the compute shader
     computeShader = new ComputeShader(device, physicalDevice, commandPool, computeQueue, swapChainExtent, 
-        &offscreenPass.renderPass, std::string("Shaders/compute-clouds.comp.spv"), backgroundTexture, cloudPlacementTexture);
+        &offscreenPass.renderPass, std::string("Shaders/compute-clouds.comp.spv"), backgroundTexture, cloudPlacementTexture, lowResCloudShapeTexture3D);
 
     // Post shaders: there will be many
     postShader = new PostProcessShader(device, physicalDevice, commandPool, graphicsQueue, swapChainExtent,
@@ -330,7 +333,7 @@ void VulkanApplication::updateUniformBuffer() {
     umo.model[2][2] = 8.0f;
     umo.invTranspose = glm::inverse(glm::transpose(umo.model));
 
-    float interp = sin(time * 0.2f) * 0.5 + 0.5;
+    float interp = sin(time * 0.2f) * 0.5f + 0.5f;
 
     skySystem.rebuildSkyFromNewSun(interp * 0.5f, 0.25f);
 

@@ -28,7 +28,6 @@
 #include "Geometry.h"
 #include "Shader.h"
 
-
 #define DEBUG_VALIDATION 1
 
 #define WORKGROUP_SIZE 32
@@ -73,8 +72,6 @@ struct OffscreenPass {
     VkSemaphore semaphore = VK_NULL_HANDLE;
     std::array<FrameBuffer, 1> framebuffers; // the length of the array is equal to the total number of render passes - 1
 };                                           // as in everything prior to the last pass is offscreen
-
-
 
 class VulkanApplication
 {
@@ -205,6 +202,7 @@ private:
     Texture* backgroundTexture;
     Texture* depthTexture;
     Texture* cloudPlacementTexture;
+    Texture3D* lowResCloudShapeTexture3D;
 
     void initializeShaders();
     void cleanupShaders();
