@@ -282,7 +282,7 @@ void VulkanApplication::initializeShaders() {
 
     // Note: we pass the background shader's texture with the intention of writing to it with the compute shader
     computeShader = new ComputeShader(device, physicalDevice, commandPool, computeQueue, swapChainExtent, 
-        &offscreenPass.renderPass, std::string("Shaders/compute-clouds.comp.spv"), backgroundTexture, cloudPlacementTexture);
+        &offscreenPass.renderPass, std::string("Shaders/compute-clouds.comp.spv"), backgroundTexture, cloudPlacementTexture, lowResCloudShapeTexture3D);
 
     // Post shaders: there will be many
     postShader = new PostProcessShader(device, physicalDevice, commandPool, graphicsQueue, swapChainExtent,

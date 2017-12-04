@@ -99,6 +99,7 @@ protected:
 
     // Textures to be used for samplers
     std::vector<Texture*> textures;
+    std::vector<Texture3D*> textures3D;
     // Renderpass will handle attachments like depth/stencil, MUST initialize externally
     VkRenderPass* renderPass;
     // View size
@@ -121,6 +122,7 @@ public:
     
     // Samplers must be initialized before pipeline / descriptor creation.
     void addTexture(Texture* tex) { textures.push_back(tex); }
+    void addTexture3D(Texture3D* tex) { textures3D.push_back(tex); }
 
     virtual void bindShader(VkCommandBuffer& commandBuffer) = 0;
 };
@@ -288,12 +290,14 @@ public:
     }
 
     ComputeShader(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue queue, VkExtent2D extent) : Shader(device, physicalDevice, commandPool, queue, extent) {}
-    ComputeShader(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue queue, VkExtent2D extent, VkRenderPass *renderPass, std::string path, Texture* storageTex, Texture* placementTex) :
+    ComputeShader(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue queue, VkExtent2D extent,
+                  VkRenderPass *renderPass, std::string path, Texture* storageTex, Texture* placementTex, Texture3D* lowResCloudShapeTex) :
         Shader(device, physicalDevice, commandPool, queue, extent) {
         this->renderPass = renderPass;
         // Note: This texture is intended to be written to. In this application, it is set to be the sampled texture of a separate BackgroundShader.
         addTexture(storageTex);
         addTexture(placementTex);
+        addTexture3D(lowResCloudShapeTex);
         setupShader(path);
     }
 

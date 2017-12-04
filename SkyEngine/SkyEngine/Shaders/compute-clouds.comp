@@ -30,6 +30,7 @@ layout(binding = 3) uniform UniformSkyObject {
 } sky;
 
 layout(binding = 4) uniform sampler2D cloudPlacement;
+layout(binding = 5) uniform sampler3D lowResCloudShape;
 
 struct Intersection {
     vec3 normal;
@@ -38,6 +39,7 @@ struct Intersection {
     float t;
 };
 
+#define VIS_3D_TEX
 #define ATMOSPHERE_RADIUS 2000000.0
 
 #define NUM_FBM_OCTAVES 8

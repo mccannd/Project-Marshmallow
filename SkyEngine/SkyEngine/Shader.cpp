@@ -537,10 +537,14 @@ void ComputeShader::createDescriptorSetLayout() {
     VkDescriptorSetLayoutBinding sunLayoutBinding = UniformSunObject::getLayoutBinding(2);
     VkDescriptorSetLayoutBinding skyLayoutBinding = UniformSkyObject::getLayoutBinding(3);
 
+    // Cloud placement texture
     VkDescriptorSetLayoutBinding samplerLayoutBinding = Texture::getLayoutBinding(4);
     samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
-    std::array<VkDescriptorSetLayoutBinding, 5> bindings = { storageImageLayoutBinding, camLayoutBinding, sunLayoutBinding, skyLayoutBinding, samplerLayoutBinding };
+    VkDescriptorSetLayoutBinding samplerLayoutBinding2 = Texture::getLayoutBinding(5);
+    samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    std::array<VkDescriptorSetLayoutBinding, 6> bindings = { storageImageLayoutBinding, camLayoutBinding, sunLayoutBinding, skyLayoutBinding, samplerLayoutBinding, samplerLayoutBinding2 };
     VkDescriptorSetLayoutCreateInfo layoutInfo = {};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
@@ -552,7 +556,7 @@ void ComputeShader::createDescriptorSetLayout() {
 }
 
 void ComputeShader::createDescriptorPool() {
-    std::array<VkDescriptorPoolSize, 5> poolSizes = {};
+    std::array<VkDescriptorPoolSize, 6> poolSizes = {};
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
     poolSizes[0].descriptorCount = 1;
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -563,6 +567,8 @@ void ComputeShader::createDescriptorPool() {
     poolSizes[3].descriptorCount = 1;
     poolSizes[4].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     poolSizes[4].descriptorCount = 1;
+    poolSizes[5].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    poolSizes[5].descriptorCount = 1;
 
     VkDescriptorPoolCreateInfo poolInfo = {};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -613,7 +619,12 @@ void ComputeShader::createDescriptorSet() {
     imageInfo2.imageView = textures[1]->textureImageView;
     imageInfo2.sampler = textures[1]->textureSampler;
 
-    std::array<VkWriteDescriptorSet, 5> descriptorWrites = {};
+    VkDescriptorImageInfo imageInfo3 = {};
+    imageInfo3.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    imageInfo3.imageView = textures3D[0]->textureImageView;
+    imageInfo3.sampler = textures3D[0]->textureSampler;
+
+    std::array<VkWriteDescriptorSet, 6> descriptorWrites = {};
 
     descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     descriptorWrites[0].dstSet = descriptorSet;
@@ -655,6 +666,13 @@ void ComputeShader::createDescriptorSet() {
     descriptorWrites[4].descriptorCount = 1;
     descriptorWrites[4].pImageInfo = &imageInfo2;
 
+    descriptorWrites[5].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrites[5].dstSet = descriptorSet;
+    descriptorWrites[5].dstBinding = 5;
+    descriptorWrites[5].dstArrayElement = 0;
+    descriptorWrites[5].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    descriptorWrites[5].descriptorCount = 1;
+    descriptorWrites[5].pImageInfo = &imageInfo3;
 
     vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 }
@@ -714,7 +732,6 @@ void ComputeShader::createUniformBuffer() {
     VulkanObject::createBuffer(sunBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformSunBuffer, uniformSunBufferMemory);
     VkDeviceSize skyBufferSize = sizeof(UniformSkyObject);
     VulkanObject::createBuffer(skyBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformSkyBuffer, uniformSkyBufferMemory);
-
 }
 
 void ComputeShader::updateUniformBuffers(UniformCameraObject &cam, UniformSkyObject &sky, UniformSunObject &sun) {
@@ -736,8 +753,6 @@ void ComputeShader::updateUniformBuffers(UniformCameraObject &cam, UniformSkyObj
     vkMapMemory(device, uniformSkyBufferMemory, 0, sizeof(c), 0, &data2);
     memcpy(data2, &c, sizeof(c));
     vkUnmapMemory(device, uniformSkyBufferMemory);
-
-
 }
 
 /// Post Process Shader
