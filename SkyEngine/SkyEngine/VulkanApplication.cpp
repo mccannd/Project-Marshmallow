@@ -249,6 +249,8 @@ void VulkanApplication::initializeTextures() {
     cloudPlacementTexture->initFromFile("Textures/CloudPlacement.png");
     lowResCloudShapeTexture3D = new Texture3D(device, physicalDevice, commandPool, graphicsQueue, 128, 128, 128); // 128, 128, 128
     lowResCloudShapeTexture3D->initFromFile("Textures/3DTextures/lowResCloudShape/lowResCloud"); // note: no .png
+    hiResCloudShapeTexture3D = new Texture3D(device, physicalDevice, commandPool, graphicsQueue, 32, 32, 32); // 128, 128, 128
+    hiResCloudShapeTexture3D->initFromFile("Textures/3DTextures/hiResCloudShape/hiResClouds "); // note: no .png
 }
 
 // TODO: management
@@ -258,6 +260,7 @@ void VulkanApplication::cleanupTextures() {
     delete depthTexture;
     delete cloudPlacementTexture;
     delete lowResCloudShapeTexture3D;
+    delete hiResCloudShapeTexture3D;
 }
 
 void VulkanApplication::initializeGeometry() {
@@ -282,7 +285,8 @@ void VulkanApplication::initializeShaders() {
 
     // Note: we pass the background shader's texture with the intention of writing to it with the compute shader
     computeShader = new ComputeShader(device, physicalDevice, commandPool, computeQueue, swapChainExtent, 
-        &offscreenPass.renderPass, std::string("Shaders/compute-clouds.comp.spv"), backgroundTexture, cloudPlacementTexture, lowResCloudShapeTexture3D);
+        &offscreenPass.renderPass, std::string("Shaders/compute-clouds.comp.spv"), backgroundTexture, cloudPlacementTexture, 
+        lowResCloudShapeTexture3D, hiResCloudShapeTexture3D);
 
     // Post shaders: there will be many
     postShader = new PostProcessShader(device, physicalDevice, commandPool, graphicsQueue, swapChainExtent,
@@ -334,7 +338,7 @@ void VulkanApplication::updateUniformBuffer() {
     umo.invTranspose = glm::inverse(glm::transpose(umo.model));
     float interp = sin(time * 0.2f) * 0.5f + 0.5f;
 
-    skySystem.rebuildSkyFromNewSun(0.45f, 0.25f);
+    skySystem.rebuildSkyFromNewSun(0.15f, 0.25f);
     skySystem.setTime(std::fmod(time * 2.f, 10000.f));
 
     UniformSkyObject sky = skySystem.getSky();

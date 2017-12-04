@@ -32,6 +32,7 @@ layout(binding = 3) uniform UniformSkyObject {
 
 layout(binding = 4) uniform sampler2D cloudPlacement;
 layout(binding = 5) uniform sampler3D lowResCloudShape;
+layout(binding = 6) uniform sampler3D hiResCloudShape;
 
 struct Intersection {
     vec3 normal;
@@ -249,8 +250,8 @@ void main() {
     vec3 earthCenter = cameraPos;
     earthCenter.y = -ATMOSPHERE_RADIUS * 0.5 * 0.99;
     vec4 atmosphereSphereInner = vec4(earthCenter, ATMOSPHERE_RADIUS);
-    float atmosphereThickness = 0.5 * ATMOSPHERE_RADIUS * 0.01;
-    vec4 atmosphereSphereOuter = vec4(earthCenter, ATMOSPHERE_RADIUS * 1.01);
+    float atmosphereThickness = 0.5 * ATMOSPHERE_RADIUS * 0.02;
+    vec4 atmosphereSphereOuter = vec4(earthCenter, ATMOSPHERE_RADIUS * 1.02);
     Intersection atmosphereIsectInner = raySphereIntersection(cameraPos, rayDirection, atmosphereSphereInner);
     Intersection atmosphereIsectOuter = raySphereIntersection(cameraPos, rayDirection, atmosphereSphereOuter);
 
@@ -264,10 +265,10 @@ void main() {
     mat3 basis = mat3(sun.directionBasis);
     vec3 samples[6] = {
         basis * vec3(0, 0.1, 0),
-        basis * vec3(0, 0.5, 0),
-        basis * vec3(0, 1, 0),
-        basis * vec3(0, 1.5, 0),
-        basis * vec3(0, 2, 0),
+        basis * vec3(0, 0.5, 0.05),
+        basis * vec3(0.1, 0.75, 0),
+        basis * vec3(0.2, 1.5, 0.3),
+        basis * vec3(-0.1, 1, -0.2),
         basis * vec3(0, 6, 0),
     };
 
@@ -284,16 +285,21 @@ void main() {
         vec4 density3d = texture(lowResCloudShape, vec3((currentPos + windOffset) / 20000.0));
 
         float density = layerDensity * cloudInfo.y;
-        density3d.b = erodeBlend(density3d.b, min(0.9, 0.0));//sunDir.y));
+        float coverage = heightBiasCoverage(cloudInfo.r, rHeight);
+        density3d.b = erodeBlend(density3d.b, min(0.9, coverage));
         density = max(0.0, remap(density, density3d.b, 1.0, 0.0, 1.0));
-
+        
 
         if (density > 0.0) {
+            float loDensity = density;
+            vec4 hiResDensity = texture(hiResCloudShape, vec3((currentPos + windOffset) / 7000.0));
+            density = max(0.0, remap(density, hiResDensity.r, 1.0, 0.0, 1.0));
+            
             float densityAlongLight = 0.0;
 
             // Sample light propogation for Beer's law in a cone towards the light
             for (int i = 0; i < 6; i++) {
-                vec3 lightSamplePoint = currentPos + 6.0 * stepSize * samples[i];
+                vec3 lightSamplePoint = currentPos + 4.0 * stepSize * samples[i];
                 vec3 lightSamplePointProj = getProjectedShellPoint(lightSamplePoint, earthCenter);
                 float lsHeight = getRelativeHeight(lightSamplePoint, lightSamplePointProj, atmosphereThickness);
                 cloudInfo = texture(cloudPlacement, (lightSamplePointProj.xz - cameraPos.xz) / 80000.0).xyz;
@@ -303,8 +309,12 @@ void main() {
                 density3d = texture(lowResCloudShape, vec3((lightSamplePoint + windOffset)/ 20000.0));
                 float lsDensity = layerDensity * cloudInfo.y;
 
-                density3d.b = erodeBlend(density3d.b, min(0.9, sunDir.y));
+                coverage = heightBiasCoverage(cloudInfo.r, lsHeight);
+                density3d.b = erodeBlend(density3d.b, min(0.9, coverage));
                 lsDensity = max(0.0, remap(lsDensity, density3d.b, 1.0, 0.0, 1.0));
+
+                hiResDensity = texture(hiResCloudShape, vec3((lightSamplePoint + windOffset) / 7000.0));
+                lsDensity = max(0.0, remap(lsDensity, hiResDensity.r, 1.0, 0.0, 1.0));
 
                 densityAlongLight += lsDensity;
 
@@ -316,14 +326,10 @@ void main() {
             float beersModulated = max(beersLaw, 0.7 * exp(-0.25 * densityAlongLight));
 
             beersLaw = sun.intensity * mix(beersLaw, beersModulated, -cosTheta * 0.5 + 0.5);
-            float inScatter = 0.05 + pow(density, clamp(remap(rHeight, 0.3, 0.85, 0.5, 2.0), 0.5, 2.0));
+            float inScatter = 0.05 + pow(loDensity, clamp(remap(rHeight, 0.3, 0.85, 0.6, 2.0), 0.6, 2.0));
             inScatter *= pow(clamp(remap(rHeight, 0.07, 0.14, 0.1, 1.0), 0.1, 1.0), 0.8);
 
-            inScatter = 0.3; // remove when both resolution 3d noises densities are in
-
             transmittance = mix(transmittance, inScatter * henyeyGreenstein * beersLaw , (1.0 - accumDensity));
-            
-            
 
             accumDensity += density;
         }
@@ -339,7 +345,7 @@ void main() {
     accumDensity *= smoothstep(0, 1, min(1, remap(rayDirection.y, 0, 0.1, 0, 1)));
     accumDensity = min(accumDensity, 0.999);
     vec3 cSunColor = mix(sun.color.xyz, backgroundCol, 0.0);
-    vec3 cloudColor = cSunColor * (vec3(max(0.0, transmittance)) + 0.08 * backgroundCol * exp(-transmittance));
+    vec3 cloudColor = cSunColor * (accumDensity * vec3(max(0.0, transmittance)) + 0.08 * backgroundCol * exp(-transmittance));
 
     vec4 finalColor = vec4(mix(backgroundCol, cloudColor, accumDensity), 1.0);
     imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), finalColor);
