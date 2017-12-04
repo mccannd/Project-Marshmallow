@@ -71,6 +71,7 @@ SkyManager::SkyManager()
     sky = {
         glm::vec4(0.f),
         glm::vec4(0.f),
+        glm::vec4(1, 0, 1, 0),
         0.f,
     };
     sun.color = glm::vec4(1); // TODO

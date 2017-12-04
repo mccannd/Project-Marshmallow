@@ -332,10 +332,10 @@ void VulkanApplication::updateUniformBuffer() {
     umo.model[0][0] = 8.0f;
     umo.model[2][2] = 8.0f;
     umo.invTranspose = glm::inverse(glm::transpose(umo.model));
-
     float interp = sin(time * 0.2f) * 0.5f + 0.5f;
 
-    skySystem.rebuildSkyFromNewSun(interp * 0.5f, 0.25f);
+    skySystem.rebuildSkyFromNewSun(0.45f, 0.25f);
+    skySystem.setTime(std::fmod(time * 2.f, 10000.f));
 
     UniformSkyObject sky = skySystem.getSky();
     UniformSunObject sun = skySystem.getSun();

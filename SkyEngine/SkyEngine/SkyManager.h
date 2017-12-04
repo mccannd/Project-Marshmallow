@@ -32,7 +32,7 @@ struct UniformSkyObject{
     // precalculated, depends on sun
     glm::vec4 betaR;
     glm::vec4 betaV;
-
+    glm::vec4 wind;
     float mie_directional;
 
     static VkDescriptorSetLayoutBinding getLayoutBinding(uint32_t bind)
@@ -70,7 +70,8 @@ public:
     void rebuildSkyFromNewSun(float elevation, float azimuth);
     void rebuildSkyFromScattering(float turbidity, float mie, float mie_directional);
     void rebuildSky(float elevation, float azimuth, float turbidity, float mie, float mie_directional);
-
+    void setWindDirection(const glm::vec3 dir) { sky.wind = glm::vec4(dir, sky.wind.w); }
+    void setTime(float t) { sky.wind.w = t; }
     UniformSunObject getSun() { return sun; }
     UniformSkyObject getSky() { return sky; }
 };
