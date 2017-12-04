@@ -196,10 +196,10 @@ void main() {
 	vec2 uv = vec2(gl_GlobalInvocationID.xy) / dim;
     
     // sample the tex
-    vec3 col = texture(lowResCloudShape, vec3(uv, 0.5)).xyz;
+    /*vec3 col = texture(lowResCloudShape, vec3(uv, 0.5)).xyz;
     vec4 finalColor2 = vec4(col, 1.0);
     imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), finalColor2);
-    return;
+    return;*/
 
     /// Cast a ray
     // Compute screen space point from UVs
@@ -245,7 +245,7 @@ void main() {
     float t;
     float accumDensity = 0.0;
     float transmittance = 1.0;
-    float numSteps = floor(mix(32, 64, 1.0 - rayDirection.y)); // Paper lists range more like 50 - 80
+    float numSteps = floor(mix(50, 80, 1.0 - rayDirection.y)); // Paper lists range more like 50 - 80
     float stepSize = (atmosphereIsectOuter.t - atmosphereIsectInner.t) / numSteps;
 
     // TODO: need good way to randomly sample in cone
@@ -269,9 +269,12 @@ void main() {
 
         float layerDensity = cloudLayerDensity(rHeight, cloudInfo.z);
 
-        float density = layerDensity * max(0.0, cloudInfo.y - 0.2);
+        vec3 density3d = texture(lowResCloudShape, vec3(currentPos / 10000.0)).xyz;
 
-        if (density > 0.00) {
+        float density = layerDensity * cloudInfo.y;
+        density = max(0.0, remap(density, density3d.y, 1.0, 0.0, 1.0));
+
+        if (density > 0.0) {
             float densityAlongLight = 0.0;
 
             // Sample light propogation for Beer's law in a cone towards the light
@@ -281,7 +284,10 @@ void main() {
                 rHeight = getRelativeHeight(lightSamplePoint, lightSamplePointProj, atmosphereThickness);
                 cloudInfo = texture(cloudPlacement, (lightSamplePointProj.xz - cameraPos.xz) / 80000.0).xyz;
                 layerDensity = cloudLayerDensity(rHeight, cloudInfo.z);
-                densityAlongLight += layerDensity * max(0.0, cloudInfo.y - 0.2);
+                density3d = texture(lowResCloudShape, vec3(lightSamplePoint / 10000.0)).xyz;
+                float ldStep = layerDensity * cloudInfo.y;
+                ldStep = max(0.0, remap(ldStep, density3d.y, 1.0, 0.0, 1.0));
+                densityAlongLight += layerDensity * cloudInfo.y;
             }
         
             // Beer's Law with extra / artistic light penetration, blend with front-to-back opacity     
