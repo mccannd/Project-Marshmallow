@@ -301,8 +301,9 @@ void main() {
         float rHeight = getRelativeHeight(currentPos, currentProj, atmosphereThickness);
 
         float layerDensity = cloudLayerDensity(rHeight, cloudInfo.z);
-
-        float density = layerDensity * max(0.0, cloudInfo.y - 0.2);
+        float coverage = cloudInfo.r;
+        cloudInfo.y = min(1.0, remap(cloudInfo.y + coverage, coverage, 1.0, 0.0, 1.0));
+        float density = layerDensity * cloudInfo.y;
 
         if (density > 0.00) {
             float densityAlongLight = 0.0;
@@ -314,7 +315,10 @@ void main() {
                 rHeight = getRelativeHeight(lightSamplePoint, lightSamplePointProj, atmosphereThickness);
                 cloudInfo = texture(cloudPlacement, (lightSamplePointProj.xz - cameraPos.xz) / 80000.0).xyz;
                 layerDensity = cloudLayerDensity(rHeight, cloudInfo.z);
-                densityAlongLight += layerDensity * max(0.0, cloudInfo.y - 0.2);
+                coverage = cloudInfo.r;
+                cloudInfo.y = min(1.0, remap(cloudInfo.y + coverage, coverage, 1.0, 0.0, 1.0));
+                float lDensity = layerDensity * cloudInfo.y;
+                densityAlongLight += lDensity;
             }
         
             // Beer's Law with extra / artistic light penetration, blend with front-to-back opacity     
