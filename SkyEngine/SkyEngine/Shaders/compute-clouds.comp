@@ -161,48 +161,6 @@ Intersection raySphereIntersection(in vec3 ro, in vec3 rd, in vec4 sphere) {
     return isect;
 }
 
-// Procedural noise function for Fractal Brownian Motion taken from here: https://thebookofshaders.com/13/
-float noise(in vec2 p) { 
-    return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453123);
-}
-
-float interpolateNoise(in vec2 p) {
-    vec2 p_floor = floor(p);
-    vec2 p_fract = p - p_floor;
-
-    // Sample the noise function at grid intervals
-    vec2 offset = vec2(0.0, 1.0);
-    float noise00 = noise(p_floor);
-    float noise01 = noise(p_floor + offset);
-    float noise10 = noise(p_floor + offset.yx);
-    float noise11 = noise(p_floor + offset.yy);
-
-    // Bilinearly interpolate
-    float noise_x1 = mix(noise00, noise10, p_fract.x);
-    float noise_x2 = mix(noise01, noise11, p_fract.x);
-
-    return mix(noise_x1, noise_x2, p_fract.y);
-}
-
-float FBM(in vec2 p) {
-    float amplitude = 0.75;
-    float frequency = 1.0;
-    const float persistence = 0.5;
-    float maxVal = 0.0;
-    float accumNoise = 0.0;
-
-    for(int i = 0; i < NUM_FBM_OCTAVES; ++i) {
-        accumNoise += interpolateNoise(p * frequency) * amplitude;
-        maxVal += amplitude;
-        amplitude *= persistence;
-        frequency *= 2.0;
-    }
-
-    float noiseVal = accumNoise / maxVal;
-    noiseVal *= step(0.5, noiseVal);
-    return max(0.0, remap(noiseVal, 0.5, 1.0, 0.0, 0.9));
-}
-
 // Get the point projected to the inner atmosphere shell
 vec3 getProjectedShellPoint(in vec3 pt, in vec3 center) {
     return 0.5 * ATMOSPHERE_RADIUS * normalize(pt - center) + center;
