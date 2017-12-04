@@ -219,7 +219,6 @@ void Texture::initFromFile(std::string path) {
         throw std::runtime_error("failed to load texture image!");
     }
 
-
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingBufferMemory;
     createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
@@ -502,21 +501,21 @@ void Texture3D::createImage(uint32_t width, uint32_t height, uint32_t depth, VkI
 
 void Texture3D::initFromFile(std::string path) {
     if (initialized) return;
-
+    
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingBufferMemory;
     VkDeviceSize imageSize = width * height * 4;
     createBuffer(imageSize * depth, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
 
     for (uint32_t i = 0; i < static_cast<uint32_t>(depth); ++i) {
-        stbi_uc* pixels = stbi_load((path + std::to_string(i) + ".png").c_str(), &width, &height, &channels, STBI_rgb_alpha);
+        stbi_uc* pixels = stbi_load((path + "(" + std::to_string(i) + ").tga").c_str(), &width, &height, &channels, STBI_rgb_alpha);
 
         if (!pixels) {
             throw std::runtime_error("failed to load texture image!");
         }
 
         void* data;
-        vkMapMemory(device, stagingBufferMemory, i * imageSize, imageSize, 0, &data);
+        vkMapMemory(device, stagingBufferMemory, static_cast<uint64_t>(i) * imageSize, imageSize, 0, &data);
         memcpy(data, pixels, static_cast<size_t>(imageSize));
         vkUnmapMemory(device, stagingBufferMemory);
 

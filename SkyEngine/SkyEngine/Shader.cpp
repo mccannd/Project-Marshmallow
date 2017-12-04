@@ -541,8 +541,8 @@ void ComputeShader::createDescriptorSetLayout() {
     VkDescriptorSetLayoutBinding samplerLayoutBinding = Texture::getLayoutBinding(4);
     samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
-    VkDescriptorSetLayoutBinding samplerLayoutBinding2 = Texture::getLayoutBinding(5);
-    samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+    // Low Res cloud shape
+    VkDescriptorSetLayoutBinding samplerLayoutBinding2 = Texture3D::getLayoutBinding(5);
 
     std::array<VkDescriptorSetLayoutBinding, 6> bindings = { storageImageLayoutBinding, camLayoutBinding, sunLayoutBinding, skyLayoutBinding, samplerLayoutBinding, samplerLayoutBinding2 };
     VkDescriptorSetLayoutCreateInfo layoutInfo = {};

@@ -39,7 +39,6 @@ struct Intersection {
     float t;
 };
 
-#define VIS_3D_TEX
 #define ATMOSPHERE_RADIUS 2000000.0
 
 #define NUM_FBM_OCTAVES 8
@@ -192,8 +191,16 @@ void main() {
     ivec2 dim = imageSize(resultImage); // prob better as uniform
     // TODO: half resolution reprojection
     // TODO: ? quarter resolution reprojection ?
+    // TODO: ???????
+    // TODO: Profit
 	vec2 uv = vec2(gl_GlobalInvocationID.xy) / dim;
     
+    // sample the tex
+    vec3 col = texture(lowResCloudShape, vec3(uv, 0.5)).xyz;
+    vec4 finalColor2 = vec4(col, 1.0);
+    imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), finalColor2);
+    return;
+
     /// Cast a ray
     // Compute screen space point from UVs
     vec2 screenPoint = uv * 2.0 - 1.0;
@@ -300,10 +307,8 @@ void main() {
     accumDensity *= smoothstep(0, 1, min(1, remap(rayDirection.y, 0, 0.1, 0, 1)));
     accumDensity = min(accumDensity, 0.999);
     vec3 cSunColor = mix(sun.color.xyz, backgroundCol, 0.0);
-
     vec3 cloudColor = cSunColor * max(0, transmittance);
 
     vec4 finalColor = vec4(mix(backgroundCol, cloudColor, accumDensity), 1.0);
-
     imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), finalColor);
 }

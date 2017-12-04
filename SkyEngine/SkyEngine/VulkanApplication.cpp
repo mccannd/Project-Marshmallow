@@ -247,8 +247,8 @@ void VulkanApplication::initializeTextures() {
     depthTexture->initForDepthAttachment(swapChainExtent);
     cloudPlacementTexture = new Texture(device, physicalDevice, commandPool, graphicsQueue);
     cloudPlacementTexture->initFromFile("Textures/CloudPlacement.png");
-    lowResCloudShapeTexture3D = new Texture3D(device, physicalDevice, commandPool, graphicsQueue, 16, 16, 4); // 128, 128, 128
-    lowResCloudShapeTexture3D->initFromFile("Textures/3DTextures/lowResCloudShape/lowResCloudShape"); // note: no .png
+    lowResCloudShapeTexture3D = new Texture3D(device, physicalDevice, commandPool, graphicsQueue, 128, 128, 128); // 128, 128, 128
+    lowResCloudShapeTexture3D->initFromFile("Textures/3DTextures/lowResCloudShape/lowResCloud"); // note: no .png
 }
 
 // TODO: management
