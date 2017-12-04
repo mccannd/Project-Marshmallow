@@ -204,6 +204,7 @@ private:
     Texture* meshTexture;
     Texture* backgroundTexture;
     Texture* depthTexture;
+    Texture* cloudPlacementTexture;
 
     void initializeShaders();
     void cleanupShaders();

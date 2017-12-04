@@ -32,6 +32,8 @@ Presentation slides: https://docs.google.com/presentation/d/19dwzTKkiu7RWJAS3FNp
 ## Milestone 3
 
 - Marching has density and lighting accumulation
+- Pipeline supports post-processing and HDR
+- Sun and sky are controllable and based on Preetham model
 
 # Credits: 
 https://vulkan-tutorial.com/Introduction - Base code creation / explanation for the graphics pipeline
