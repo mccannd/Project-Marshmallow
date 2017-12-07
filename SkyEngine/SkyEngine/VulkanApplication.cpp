@@ -120,8 +120,6 @@ void VulkanApplication::cleanup() {
     cleanupTextures();
     cleanupShaders();
 
-    // TODO: Post cleanup
-
     vkDestroyDevice(device, nullptr);
 
 #ifdef _DEBUG
@@ -289,15 +287,19 @@ void VulkanApplication::initializeShaders() {
         lowResCloudShapeTexture3D, hiResCloudShapeTexture3D);
 
     // Post shaders: there will be many
-    postShader = new PostProcessShader(device, physicalDevice, commandPool, graphicsQueue, swapChainExtent,
+    toneMapShader = new PostProcessShader(device, physicalDevice, commandPool, graphicsQueue, swapChainExtent,
         &renderPass, std::string("Shaders/post-pass.vert.spv"), std::string("Shaders/tonemap.frag.spv"), &offscreenPass.framebuffers[0].descriptor);
+
+    godRayShader = new PostProcessShader(device, physicalDevice, commandPool, graphicsQueue, swapChainExtent,
+        &renderPass, std::string("Shaders/post-pass.vert.spv"), std::string("Shaders/god-ray.frag.spv"), &offscreenPass.framebuffers[1].descriptor);
 }
 
 void VulkanApplication::cleanupShaders() {
     delete meshShader;
     delete backgroundShader;
     delete computeShader;
-    delete postShader;
+    delete toneMapShader;
+    delete godRayShader;
 }
 
 void VulkanApplication::cleanupOffscreenPass() {
@@ -937,7 +939,7 @@ void VulkanApplication::createCommandBuffers() {
      renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
      renderPassInfo.pClearValues = clearValues.data();
 
-     // Render pass recording. This is only done once.
+     // Render pass recording
      vkCmdBeginRenderPass(offscreenPass.commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
      // Draw Background
@@ -947,6 +949,16 @@ void VulkanApplication::createCommandBuffers() {
      // Draw Scene
      meshShader->bindShader(offscreenPass.commandBuffer);
      sceneGeometry->enqueueDrawCommands(offscreenPass.commandBuffer);
+
+     vkCmdEndRenderPass(offscreenPass.commandBuffer);
+
+     // Use the next framebuffer in the offscreen pass
+     renderPassInfo.framebuffer = offscreenPass.framebuffers[1].framebuffer;
+     
+     vkCmdBeginRenderPass(offscreenPass.commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+     godRayShader->bindShader(offscreenPass.commandBuffer);
+     backgroundGeometry->enqueueDrawCommands(offscreenPass.commandBuffer);
 
      vkCmdEndRenderPass(offscreenPass.commandBuffer);
 
@@ -994,7 +1006,7 @@ void VulkanApplication::createPostProcessCommandBuffer() {
         // Render pass recording. This is only done once.
         vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-        postShader->bindShader(commandBuffers[i]);
+        toneMapShader->bindShader(commandBuffers[i]);
         backgroundGeometry->enqueueDrawCommands(commandBuffers[i]);
 
         vkCmdEndRenderPass(commandBuffers[i]);
@@ -1268,9 +1280,9 @@ void VulkanApplication::setupOffscreenPass() {
         throw std::runtime_error("failed to create sampler!");
     }
 
-    // Create two frame buffers
+    // Create offscreen frame buffers - note the image format, they are HDR
     createOffscreenFramebuffer(&offscreenPass.framebuffers[0], VK_FORMAT_R32G32B32A32_SFLOAT, fbDepthFormat);
-    //createOffscreenFramebuffer(&offscreenPass.framebuffers[1], VK_FORMAT_R8G8B8A8_UNORM, fbDepthFormat); additional passes go here and below
+    createOffscreenFramebuffer(&offscreenPass.framebuffers[1], VK_FORMAT_R32G32B32A32_SFLOAT, fbDepthFormat);
 }
 
 void VulkanApplication::createSwapChain() {

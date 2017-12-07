@@ -70,7 +70,7 @@ struct OffscreenPass {
     VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
     // Semaphore used to synchronize between offscreen and final scene rendering
     VkSemaphore semaphore = VK_NULL_HANDLE;
-    std::array<FrameBuffer, 1> framebuffers; // the length of the array is equal to the total number of render passes - 1
+    std::array<FrameBuffer, 2> framebuffers; // the length of the array is equal to the total number of render passes - 1
 };                                           // as in everything prior to the last pass is offscreen
 
 class VulkanApplication
@@ -210,7 +210,8 @@ private:
     MeshShader* meshShader;
     BackgroundShader* backgroundShader;
     ComputeShader* computeShader;
-    PostProcessShader* postShader; // first of many
+    PostProcessShader* toneMapShader;
+    PostProcessShader* godRayShader;
 
     /// Post
     OffscreenPass offscreenPass;
