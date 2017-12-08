@@ -444,7 +444,7 @@ void main() {
 
     // For the god rays, write to the alpha channel according the density of the image
     // we want this before the haze thing is taken into account
-    finalColor.a = 1.0 - step(accumDensity, 0.2);
+    finalColor.a = 1.0 - step(accumDensity, 0.1);
 
     // opacity fades to prevent hard cutoff at horizon
     // TODO: find a good way to make atmospheric haze
