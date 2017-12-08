@@ -288,10 +288,10 @@ void VulkanApplication::initializeShaders() {
 
     // Post shaders: there will be many
     toneMapShader = new PostProcessShader(device, physicalDevice, commandPool, graphicsQueue, swapChainExtent,
-        &renderPass, std::string("Shaders/post-pass.vert.spv"), std::string("Shaders/tonemap.frag.spv"), &offscreenPass.framebuffers[0].descriptor);
+        &renderPass, std::string("Shaders/post-pass.vert.spv"), std::string("Shaders/tonemap.frag.spv"), &offscreenPass.framebuffers[1].descriptor);
 
     godRayShader = new PostProcessShader(device, physicalDevice, commandPool, graphicsQueue, swapChainExtent,
-        &renderPass, std::string("Shaders/post-pass.vert.spv"), std::string("Shaders/god-ray.frag.spv"), &offscreenPass.framebuffers[1].descriptor);
+        &renderPass, std::string("Shaders/post-pass.vert.spv"), std::string("Shaders/god-ray.frag.spv"), &offscreenPass.framebuffers[0].descriptor);
 }
 
 void VulkanApplication::cleanupShaders() {
@@ -345,10 +345,10 @@ void VulkanApplication::updateUniformBuffer() {
 
     UniformSkyObject sky = skySystem.getSky();
     UniformSunObject sun = skySystem.getSun();
-    
 
     meshShader->updateUniformBuffers(uco, umo);
     computeShader->updateUniformBuffers(uco, sky, sun);
+    godRayShader->updateUniformBuffers(uco, sun);
 }
 
 uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties, VkPhysicalDevice physicalDevice) {
