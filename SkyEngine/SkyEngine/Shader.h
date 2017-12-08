@@ -336,6 +336,15 @@ protected:
 
     // Uniform buffers and buffer memory eventually
     // ex: gaussian blur parameters, high pass parameters, sun position for radial blur, god rays, etc
+    // TODO: make this class's function virtual and override them in the subclass
+    // need a GodRayShader class that has these uniforms:
+    
+    // God ray shader uniforms
+    VkBuffer uniformSunBuffer;
+    VkDeviceMemory uniformSunBufferMemory;
+
+    VkBuffer uniformCameraBuffer;
+    VkDeviceMemory uniformCameraBufferMemory;
 
 public:
     void setupShader(std::string vertPath, std::string fragPath) {
@@ -360,6 +369,7 @@ public:
 
     virtual ~PostProcessShader() { cleanupUniforms(); }
 
+    void updateUniformBuffers(UniformCameraObject& cam, UniformSunObject& sun);
     void bindShader(VkCommandBuffer& commandBuffer) override {
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
