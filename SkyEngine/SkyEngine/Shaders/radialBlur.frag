@@ -50,7 +50,7 @@ void main() {
 
     // Sample the image along the light vector
     for(int i = 0; i < NUM_SAMPLES; ++i) {
-        accumSampleAmt += texture(texColor, (scrPt + samples[i] * lightVec * 0.5) * 0.5 + 0.5).a;
+        accumSampleAmt += texture(texColor, (scrPt + samples[i] * lightVec * 0.2) * 0.5 + 0.5).a;
     }
 
     accumSampleAmt *= 1.0 / float(NUM_SAMPLES); // optimize later
