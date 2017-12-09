@@ -134,7 +134,7 @@ public:
 // 4. Find ways to pack alpha channels?
 enum PBRTEXTURES
 {
-    ALBEDO = 0, ROUGH_METAL_AO, NORMAL
+    ALBEDO = 0, ROUGH_METAL_AO_HEIGHT, NORMAL
 };
 
 /*
@@ -175,10 +175,11 @@ public:
     }
     
     MeshShader(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue queue, VkExtent2D extent) : Shader(device, physicalDevice, commandPool, queue, extent) {}
-    MeshShader(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue queue, VkExtent2D extent, VkRenderPass *renderPass, std::string vertPath, std::string fragPath, Texture* tex) :
+    MeshShader(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue queue, VkExtent2D extent, VkRenderPass *renderPass, std::string vertPath, std::string fragPath, Texture* tex, Texture* pbrTex) :
         Shader(device, physicalDevice, commandPool, queue, extent) {
         this->renderPass = renderPass;
         addTexture(tex);
+        addTexture(pbrTex);
         setupShader(vertPath, fragPath);
     }
 

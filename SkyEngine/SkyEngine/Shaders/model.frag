@@ -15,6 +15,8 @@ layout(binding = 1) uniform UniformModelObject {
 } model;
 
 layout(binding = 2) uniform sampler2D texColor;
+layout(binding = 3) uniform sampler2D pbrInfo; 
+// rough metal AO height
 
 layout(location = 0) in vec3 fragColor;
 layout(location = 1) in vec2 fragUV;
@@ -72,13 +74,14 @@ vec3 pbrMaterialColor(in vec3 fresnel, in vec3 N, in vec3 L, in vec3 V, in float
 
 void main() {
     vec4 albedo = texture(texColor, fragUV);
+    vec4 pbrParams = texture(pbrInfo, fragUV);
     vec3 N = normalize(fragNormal);
     vec3 V = -normalize(fragPosition);
     vec3 L = normalize((camera.view * vec4(normalize(vec3(1, 1, 1)), 0)).xyz); // arbitrary for now
 
-    float roughness = 0.2;
+    float roughness = pbrParams.r;
     roughness *= roughness; // perceptual roughness
-    float metalness = 1.0;
+    float metalness = pbrParams.g;
 
     vec3 f0 = vec3(0.04); // baseline specularity for metallic model
     vec3 diffuse = mix(albedo.rgb * (1.0 - f0), vec3(0.0), metalness);
@@ -89,6 +92,9 @@ void main() {
     color *= 100.0 * vec3(1.0, 0.8, 0.6); // hard code light color for now
 
     color += diffuse * mix(vec3(0), 2.0 * vec3(0.6, 0.7, 1.0), 0.5 + 0.5 * dot(N, normalize((camera.view * vec4(normalize(vec3(0, 1, 0)), 0)).xyz)));
-
+    vec3 aoColor = mix(vec3(0.1, 0.1, 0.3), vec3(1), pbrParams.b);
+    color.rgb *= aoColor;
     outColor = vec4(color, 1.0);
+
+    //outColor = vec4(pbrParams.rgb, 1.0);
 }

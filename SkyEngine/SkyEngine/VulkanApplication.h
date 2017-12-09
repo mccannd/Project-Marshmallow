@@ -199,6 +199,7 @@ private:
     void initializeTextures();
     void cleanupTextures();
     Texture* meshTexture;
+    Texture* meshPBRInfo;
     Texture* backgroundTexture;
     Texture* depthTexture;
     Texture* cloudPlacementTexture;
