@@ -95,9 +95,15 @@ void main() {
     vec3 diffuse = mix(albedo.rgb * (1.0 - f0), vec3(0.0), metalness);
     vec3 specular = mix(f0, albedo.rgb, metalness);
 
+    // spooky tricks since no real shadow mapping
+    float shadowHack = dot(L, normalize((fragNormal)));
+    shadowHack = clamp(5.0 * (shadowHack + 0.1), 0.0, 1.0);
+
     vec3 F = fresnelSchlick(specular, N, V);
     vec3 color = pbrMaterialColor(F, N, L, V, roughness, diffuse, specular);
-    color *= 20.0 * vec3(1.0, 0.8, 0.6); // hard code light color for now
+    color *= shadowHack * 20.0 * vec3(1.0, 0.8, 0.6); // hard code light color for now
+
+
 
     color += diffuse * mix(vec3(0), 2.0 * vec3(0.6, 0.7, 1.0), 0.5 + 0.5 * dot(N, normalize((camera.view * vec4(normalize(vec3(0, 1, 0)), 0)).xyz)));
     vec3 aoColor = mix(vec3(0.1, 0.1, 0.3), vec3(1), pbrParams.b);
