@@ -102,7 +102,7 @@ void main() {
 
     vec3 F = fresnelSchlick(specular, N, V);
     vec3 color = pbrMaterialColor(F, N, L, V, roughness, diffuse, specular);
-    color *= shadowHack * 20.0 * vec3(1.0, 0.8, 0.6); // hard code light color for now
+    color *= shadowHack * 100.0 * vec3(1.0, 0.8, 0.6); // hard code light color for now
 
 
 

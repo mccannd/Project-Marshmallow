@@ -213,16 +213,16 @@ float cloudHiRes(in vec3 pos, in float curlStrength, in float origDensity) {
     );
     */
 
-    vec3 curl = texture(lowResCloudShape, 0.000007 * pos).yzw;
+    vec3 curl = texture(hiResCloudShape, 0.0001 * pos).yzw;
     curl = 2.0 * curl - 1.0;
     pos += curlStrength * curl;
 
-    vec4 densityNoise = texture(hiResCloudShape, 0.00045 * pos);
+    vec4 densityNoise = texture(hiResCloudShape, 0.00043 * pos);
     float erosion = 0.625 * densityNoise.y + 0.25 * densityNoise.z + 0.125 * densityNoise.a;
 
     erosion = remapClamped(densityNoise.x, erosion, 1.0, 0.0, 1.0);
 
-    return remapClamped(origDensity, 0.5 * erosion, 1.0, 0.0, 1.0);
+    return remapClamped(origDensity, erosion, 1.0, 0.0, 1.0);
 }
 
 // Checks if a cloud is at this point. If not, return 0 immediately. Otherwise get low-res density. (can still be 0 given cloud coverage)
@@ -231,23 +231,24 @@ float cloudTest(in vec3 pos, in float relativeHeight, in vec3 earthCenter, inout
     float density;
 
     vec3 currentProj = getProjectedShellPoint(pos, earthCenter);
-    vec3 cloudInfo = texture(cloudPlacement, 0.000015 * (currentProj.xz - camera.cameraPosition.xz)).xyz;
+    vec3 cloudInfo = texture(cloudPlacement, 0.00001 * (currentProj.xz - camera.cameraPosition.xz)).xyz;
     float layerDensity = cloudLayerDensity(relativeHeight, cloudInfo.z);
 
-    vec4 densityNoise = texture(lowResCloudShape, 0.00000025 * vec3(pos));
+    vec4 densityNoise = texture(lowResCloudShape, 0.000057 * vec3(pos));
 
-    density = layerDensity * densityNoise.x;
+    density = layerDensity * remapClamped(densityNoise.x, 0.3, 1.0, 0.0, 1.0);
+
 
     coverage = 0.0;
     // early check before more expensive math
     if (density < 0.0001) return 0.0;
 
-    coverage = heightBiasCoverage(relativeHeight, min(0.9, cloudInfo.r));
+    coverage = heightBiasCoverage(relativeHeight, min(0.85, cloudInfo.r));
 
     float erosion = 0.625 * densityNoise.y + 0.25 * densityNoise.z + 0.125 * densityNoise.w;
 
     erosion = remapClamped(erosion, coverage, 1.0, 0.0, 1.0);
-
+    //density = remapClamped(density, 1.0 - coverage, 1.0, 0.0, 1.0);
     density = remapClamped(density, erosion, 1.0, 0.0, 1.0);
 
     return density;
@@ -296,6 +297,8 @@ void main() {
 
     vec3 backgroundCol = getAtmosphereColorPhysical(rayDirection, sunDir);
     float dotToSun = max(0.0, dot(sunDir, rayDirection));
+    float skyAmbient = dotToSun * 0.18;
+    skyAmbient *= skyAmbient * skyAmbient;
     float sunDisk = smoothstep(SUN_ANGULAR_COS, SUN_ANGULAR_COS + 0.00003, dotToSun);
     // IT'S TIME
     dotToSun *= dotToSun * dotToSun * dotToSun;
@@ -309,7 +312,7 @@ void main() {
 
     vec4 finalColor;
     finalColor.xyz = backgroundCol;
-    finalColor.a = sunDisk;
+    finalColor.a = max(skyAmbient, sunDisk);
 
     // It is likely we will never have an entirely unobstructed view of the horizon, so kill rays that would otherwise be executing.
     // TODO: low-res stencil check first
