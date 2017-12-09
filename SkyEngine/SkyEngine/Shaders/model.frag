@@ -71,23 +71,12 @@ vec3 pbrMaterialColor(in vec3 fresnel, in vec3 N, in vec3 L, in vec3 V, in float
 
 
 void main() {
-    /*
-    vec3 col = texture(texColor, fragUV).xyz;
-    vec3 N = normalize(fragNormal);
-    col *= fragColor;
-    vec3 lightVec = normalize(vec3(-1, -1, -1));
-    lightVec = (camera.view * vec4(lightVec, 0)).xyz;
-    float lighting = max(0.2, dot(N, -lightVec));
-    col *= lighting;
-    vec3 lookVec = vec3(camera.view[2][0], camera.view[2][1], camera.view[2][2]);
-    */
-
     vec4 albedo = texture(texColor, fragUV);
     vec3 N = normalize(fragNormal);
     vec3 V = -normalize(fragPosition);
     vec3 L = normalize((camera.view * vec4(normalize(vec3(1, 1, 1)), 0)).xyz); // arbitrary for now
 
-    float roughness = 0.6;
+    float roughness = 0.2;
     roughness *= roughness; // perceptual roughness
     float metalness = 1.0;
 
@@ -97,14 +86,9 @@ void main() {
 
     vec3 F = fresnelSchlick(specular, N, V);
     vec3 color = pbrMaterialColor(F, N, L, V, roughness, diffuse, specular);
-    color *= 3.0 * vec3(1.0, 0.8, 0.6); // hard code light color for now
+    color *= 100.0 * vec3(1.0, 0.8, 0.6); // hard code light color for now
 
-    //float test = specularBRDFwithoutFresnel(N, L, V, roughness);
-    //color = vec3(test);
-    //color = vec3(dot(L, normalize(V+L)));
-    //color = clamp(fragPosition, vec3(0), vec3(1));
-    //color = vec3(dot(N, abs(dot(V, L) + 1.0) < 0.01 ? L : normalize(L + V)));
-    //color = vec3(isinf(fragPosition.x) ? 1 : 0, isinf(fragPosition.y) ? 1 : 0, isinf(fragPosition.z) ? 1 : 0);
-    //color = vec3(max(0.0, dot(V, L)));
+    color += diffuse * mix(vec3(0), 2.0 * vec3(0.6, 0.7, 1.0), 0.5 + 0.5 * dot(N, normalize((camera.view * vec4(normalize(vec3(0, 1, 0)), 0)).xyz)));
+
     outColor = vec4(color, 1.0);
 }
