@@ -82,6 +82,7 @@ vec3 pbrMaterialColor(in vec3 fresnel, in vec3 N, in vec3 L, in vec3 V, in float
 
 void main() {
     vec4 albedo = texture(texColor, fragUV);
+    albedo.xyz = pow(albedo.xyz, vec3(2.2));
     vec4 pbrParams = texture(pbrInfo, fragUV);
     vec3 N = normalize(getNormal());
     vec3 V = -normalize(fragPosition);
