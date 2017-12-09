@@ -293,12 +293,15 @@ void VulkanApplication::initializeShaders() {
         lowResCloudShapeTexture3D, hiResCloudShapeTexture3D);
 
     // Post shaders: there will be many
-    toneMapShader = new PostProcessShader(device, physicalDevice, commandPool, graphicsQueue, swapChainExtent,
-        &renderPass, std::string("Shaders/post-pass.vert.spv"), std::string("Shaders/tonemap.frag.spv"), &offscreenPass.framebuffers[1].descriptor);
-
     // This is still offscreen, so the render pass is the offscreen render pass
     godRayShader = new PostProcessShader(device, physicalDevice, commandPool, graphicsQueue, swapChainExtent,
         &offscreenPass.renderPass, std::string("Shaders/post-pass.vert.spv"), std::string("Shaders/god-ray.frag.spv"), &offscreenPass.framebuffers[0].descriptor);
+
+    radialBlurShader = new PostProcessShader(device, physicalDevice, commandPool, graphicsQueue, swapChainExtent,
+        &offscreenPass.renderPass, std::string("Shaders/post-pass.vert.spv"), std::string("Shaders/radialBlur.frag.spv"), &offscreenPass.framebuffers[1].descriptor);
+
+    toneMapShader = new PostProcessShader(device, physicalDevice, commandPool, graphicsQueue, swapChainExtent,
+        &renderPass, std::string("Shaders/post-pass.vert.spv"), std::string("Shaders/tonemap.frag.spv"), &offscreenPass.framebuffers[2].descriptor);
 }
 
 void VulkanApplication::cleanupShaders() {
@@ -307,6 +310,7 @@ void VulkanApplication::cleanupShaders() {
     delete computeShader;
     delete toneMapShader;
     delete godRayShader;
+    delete radialBlurShader;
 }
 
 void VulkanApplication::cleanupOffscreenPass() {
@@ -356,6 +360,7 @@ void VulkanApplication::updateUniformBuffer() {
     meshShader->updateUniformBuffers(uco, umo);
     computeShader->updateUniformBuffers(uco, sky, sun);
     godRayShader->updateUniformBuffers(uco, sun);
+    radialBlurShader->updateUniformBuffers(uco, sun);
 }
 
 uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties, VkPhysicalDevice physicalDevice) {
@@ -958,18 +963,27 @@ void VulkanApplication::createCommandBuffers() {
      // Use the next framebuffer in the offscreen pass
      renderPassInfo.framebuffer = offscreenPass.framebuffers[1].framebuffer;
 
+     // God rays and mesh drawing
+
      vkCmdBeginRenderPass(offscreenPass.commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
      godRayShader->bindShader(offscreenPass.commandBuffer);
      backgroundGeometry->enqueueDrawCommands(offscreenPass.commandBuffer);
 
-     //vkCmdEndRenderPass(offscreenPass.commandBuffer);
-     // why does doing this clear the previous framebuffer
-     //vkCmdBeginRenderPass(offscreenPass.commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+     vkCmdEndRenderPass(offscreenPass.commandBuffer);
+
+     // Use the next framebuffer in the offscreen pass
+     renderPassInfo.framebuffer = offscreenPass.framebuffers[2].framebuffer;
+
+     // Radial Blur
+     vkCmdBeginRenderPass(offscreenPass.commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+     radialBlurShader->bindShader(offscreenPass.commandBuffer);
+     backgroundGeometry->enqueueDrawCommands(offscreenPass.commandBuffer);
 
      // Draw Scene
-     meshShader->bindShader(offscreenPass.commandBuffer);
-     sceneGeometry->enqueueDrawCommands(offscreenPass.commandBuffer);
+     /*meshShader->bindShader(offscreenPass.commandBuffer);
+     sceneGeometry->enqueueDrawCommands(offscreenPass.commandBuffer);*/
 
      vkCmdEndRenderPass(offscreenPass.commandBuffer);
 
@@ -1014,7 +1028,7 @@ void VulkanApplication::createPostProcessCommandBuffer() {
         renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
         renderPassInfo.pClearValues = clearValues.data();
 
-        // Render pass recording. This is only done once.
+        // Render pass recording
         vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
         toneMapShader->bindShader(commandBuffers[i]);
@@ -1294,6 +1308,7 @@ void VulkanApplication::setupOffscreenPass() {
     // Create offscreen frame buffers - note the image format, they are HDR
     createOffscreenFramebuffer(&offscreenPass.framebuffers[0], VK_FORMAT_R32G32B32A32_SFLOAT, fbDepthFormat);
     createOffscreenFramebuffer(&offscreenPass.framebuffers[1], VK_FORMAT_R32G32B32A32_SFLOAT, fbDepthFormat);
+    createOffscreenFramebuffer(&offscreenPass.framebuffers[2], VK_FORMAT_R32G32B32A32_SFLOAT, fbDepthFormat);
 }
 
 void VulkanApplication::createSwapChain() {
