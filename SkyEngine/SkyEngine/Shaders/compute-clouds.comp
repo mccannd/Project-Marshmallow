@@ -6,6 +6,7 @@ layout (local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE) in;
 layout (binding = 0, rgba32f) uniform writeonly image2D resultImage; // TODO: HDR
 
 layout(binding = 1) uniform UniformCameraObject {
+
     mat4 view;
     mat4 proj;
     vec4 cameraPosition;
@@ -387,12 +388,19 @@ void main() {
         }
     }
 
+    vec4 finalColor;
+
+    // For the god rays, write to the alpha channel according the density of the image
+    // we want this before the haze thing is taken into account
+    finalColor.a = 1.0 - step(accumDensity, 0.1);
+
     // opacity fades to prevent hard cutoff at horizon
     // TODO: find a good way to make atmospheric haze
     accumDensity *= smoothstep(0, 1, min(1, remap(rayDirection.y, 0, 0.1, 0, 1)));
     accumDensity = min(accumDensity, 0.999);
     vec3 cloudColor = sun.color.xyz * (sun.intensity * vec3(max(0.0, transmittance)) + 0.08 * backgroundCol * exp(-transmittance));
 
-    vec4 finalColor = vec4(mix(backgroundCol, cloudColor, accumDensity), 1.0);
+    finalColor.rgb = mix(backgroundCol, cloudColor, accumDensity);
+
     imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), finalColor);
 }
