@@ -29,7 +29,7 @@ layout(set = 0, binding = 2) uniform UniformSunObject {
 // Based on the GPU Gem: https://developer.nvidia.com/gpugems/GPUGems3/gpugems3_ch13.html
 // Also referenced: https://medium.com/community-play-3d/god-rays-whats-that-5a67f26aeac2
 
-#define NUM_SAMPLES 25
+#define NUM_SAMPLES 40
 #define NUM_SAMPLES_F float(NUM_SAMPLES)
 
 // Parameters, TODO: should move to a uniform buffer
