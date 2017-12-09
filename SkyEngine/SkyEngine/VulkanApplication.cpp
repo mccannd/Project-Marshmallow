@@ -249,6 +249,10 @@ void VulkanApplication::initializeTextures() {
     depthTexture->initForDepthAttachment(swapChainExtent);
     cloudPlacementTexture = new Texture(device, physicalDevice, commandPool, graphicsQueue);
     cloudPlacementTexture->initFromFile("Textures/CloudPlacement.png");
+    
+    cloudCurlNoise = new Texture(device, physicalDevice, commandPool, graphicsQueue);
+    cloudCurlNoise->initFromFile("Textures/CurlNoiseFBM.png");
+    
     lowResCloudShapeTexture3D = new Texture3D(device, physicalDevice, commandPool, graphicsQueue, 128, 128, 128); // 128, 128, 128
     lowResCloudShapeTexture3D->initFromFile("Textures/3DTextures/lowResCloudShape/lowResCloud"); // note: no .png
     hiResCloudShapeTexture3D = new Texture3D(device, physicalDevice, commandPool, graphicsQueue, 32, 32, 32); // 128, 128, 128
@@ -263,6 +267,7 @@ void VulkanApplication::cleanupTextures() {
     delete backgroundTexture;
     delete depthTexture;
     delete cloudPlacementTexture;
+    delete cloudCurlNoise;
     delete lowResCloudShapeTexture3D;
     delete hiResCloudShapeTexture3D;
 }
@@ -290,7 +295,7 @@ void VulkanApplication::initializeShaders() {
     // Note: we pass the background shader's texture with the intention of writing to it with the compute shader
     computeShader = new ComputeShader(device, physicalDevice, commandPool, computeQueue, swapChainExtent, 
         &offscreenPass.renderPass, std::string("Shaders/compute-clouds.comp.spv"), backgroundTexture, cloudPlacementTexture, 
-        lowResCloudShapeTexture3D, hiResCloudShapeTexture3D);
+        lowResCloudShapeTexture3D, hiResCloudShapeTexture3D, cloudCurlNoise);
 
     // Post shaders: there will be many
     // This is still offscreen, so the render pass is the offscreen render pass

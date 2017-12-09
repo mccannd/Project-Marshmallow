@@ -293,12 +293,13 @@ public:
 
     ComputeShader(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue queue, VkExtent2D extent) : Shader(device, physicalDevice, commandPool, queue, extent) {}
     ComputeShader(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue queue, VkExtent2D extent,
-                  VkRenderPass *renderPass, std::string path, Texture* storageTex, Texture* placementTex, Texture3D* lowResCloudShapeTex, Texture3D* hiResCloudShapeTex) :
+                  VkRenderPass *renderPass, std::string path, Texture* storageTex, Texture* placementTex, Texture3D* lowResCloudShapeTex, Texture3D* hiResCloudShapeTex, Texture* curlTexture) :
         Shader(device, physicalDevice, commandPool, queue, extent) {
         this->renderPass = renderPass;
         // Note: This texture is intended to be written to. In this application, it is set to be the sampled texture of a separate BackgroundShader.
         addTexture(storageTex);
         addTexture(placementTex);
+        addTexture(curlTexture);
         addTexture3D(lowResCloudShapeTex);
         addTexture3D(hiResCloudShapeTex);
         setupShader(path);

@@ -577,7 +577,9 @@ void ComputeShader::createDescriptorSetLayout() {
     // Hi res cloud shape
     VkDescriptorSetLayoutBinding samplerLayoutBinding3 = Texture3D::getLayoutBinding(6);
 
-    std::array<VkDescriptorSetLayoutBinding, 7> bindings = { storageImageLayoutBinding, camLayoutBinding, sunLayoutBinding, skyLayoutBinding, samplerLayoutBinding, samplerLayoutBinding2, samplerLayoutBinding3 };
+    VkDescriptorSetLayoutBinding samplerLayoutBindingCurl = Texture3D::getLayoutBinding(7);
+
+    std::array<VkDescriptorSetLayoutBinding, 8> bindings = { storageImageLayoutBinding, camLayoutBinding, sunLayoutBinding, skyLayoutBinding, samplerLayoutBinding, samplerLayoutBinding2, samplerLayoutBinding3, samplerLayoutBindingCurl};
     VkDescriptorSetLayoutCreateInfo layoutInfo = {};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
@@ -589,7 +591,7 @@ void ComputeShader::createDescriptorSetLayout() {
 }
 
 void ComputeShader::createDescriptorPool() {
-    std::array<VkDescriptorPoolSize, 7> poolSizes = {};
+    std::array<VkDescriptorPoolSize, 8> poolSizes = {};
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
     poolSizes[0].descriptorCount = 1;
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -604,6 +606,8 @@ void ComputeShader::createDescriptorPool() {
     poolSizes[5].descriptorCount = 1;
     poolSizes[6].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     poolSizes[6].descriptorCount = 1;
+    poolSizes[7].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    poolSizes[7].descriptorCount = 1;
 
     VkDescriptorPoolCreateInfo poolInfo = {};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -664,7 +668,15 @@ void ComputeShader::createDescriptorSet() {
     imageInfo4.imageView = textures3D[1]->textureImageView;
     imageInfo4.sampler = textures3D[1]->textureSampler;
 
-    std::array<VkWriteDescriptorSet, 7> descriptorWrites = {};
+
+    // TODO: other relevant textures
+    VkDescriptorImageInfo imageInfoCurl = {};
+    imageInfoCurl.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    imageInfoCurl.imageView = textures[2]->textureImageView;
+    imageInfoCurl.sampler = textures[2]->textureSampler;
+
+
+    std::array<VkWriteDescriptorSet, 8> descriptorWrites = {};
 
     descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     descriptorWrites[0].dstSet = descriptorSet;
@@ -721,6 +733,14 @@ void ComputeShader::createDescriptorSet() {
     descriptorWrites[6].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     descriptorWrites[6].descriptorCount = 1;
     descriptorWrites[6].pImageInfo = &imageInfo4;
+
+    descriptorWrites[7].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrites[7].dstSet = descriptorSet;
+    descriptorWrites[7].dstBinding = 7;
+    descriptorWrites[7].dstArrayElement = 0;
+    descriptorWrites[7].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    descriptorWrites[7].descriptorCount = 1;
+    descriptorWrites[7].pImageInfo = &imageInfoCurl;
 
     vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 }

@@ -42,6 +42,7 @@ void main() {
     vec2 scrPt = fragUV * 2.0 - 1.0;
     vec2 currentSamplePoint = scrPt;
     vec4 sunPos = camera.proj * camera.view * sun.location;
+    
     sunPos /= sunPos.w;
     vec2 deltaLightVec = currentSamplePoint - sunPos.xy;
     deltaLightVec *= SAMPLE_WEIGHT * DENSITY;
