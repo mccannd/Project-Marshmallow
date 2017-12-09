@@ -1026,7 +1026,6 @@ void PostProcessShader::createPipeline() {
 }
 
 void PostProcessShader::createUniformBuffer() {
-    // currently no uniforms
     VkDeviceSize camBufferSize = sizeof(UniformCameraObject);
     VulkanObject::createBuffer(camBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformCameraBuffer, uniformCameraBufferMemory);
 

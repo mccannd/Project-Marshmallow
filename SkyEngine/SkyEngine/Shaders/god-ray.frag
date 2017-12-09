@@ -29,7 +29,7 @@ layout(set = 0, binding = 2) uniform UniformSunObject {
 // Based on the GPU Gem: https://developer.nvidia.com/gpugems/GPUGems3/gpugems3_ch13.html
 // Also referenced: https://medium.com/community-play-3d/god-rays-whats-that-5a67f26aeac2
 
-#define NUM_SAMPLES 8
+#define NUM_SAMPLES 25
 #define NUM_SAMPLES_F float(NUM_SAMPLES)
 
 // Parameters, TODO: should move to a uniform buffer
@@ -46,7 +46,7 @@ void main() {
     vec2 deltaLightVec = currentSamplePoint - sunPos.xy;
     deltaLightVec *= SAMPLE_WEIGHT * DENSITY;
 
-    vec4 currentFragment = texture(texColor, fragUV);
+    const vec4 currentFragment = texture(texColor, fragUV);
     float accumSampleAmt = currentFragment.a * 0.5;
     float illuminationDecay = 1.0;
 

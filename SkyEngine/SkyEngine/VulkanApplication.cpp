@@ -976,8 +976,8 @@ void VulkanApplication::createCommandBuffers() {
      backgroundGeometry->enqueueDrawCommands(offscreenPass.commandBuffer);
 
      // Draw Scene
-     meshShader->bindShader(offscreenPass.commandBuffer);
-     sceneGeometry->enqueueDrawCommands(offscreenPass.commandBuffer);
+     /*meshShader->bindShader(offscreenPass.commandBuffer);
+     sceneGeometry->enqueueDrawCommands(offscreenPass.commandBuffer);*/
 
      vkCmdEndRenderPass(offscreenPass.commandBuffer);
 
