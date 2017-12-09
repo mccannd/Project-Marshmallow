@@ -269,8 +269,8 @@ protected:
     UniformStorageImageObject storageImageUniform;
     UniformCameraObject cameraUniforms;
 
-    VkBuffer uniformStorageImageBuffer;
-    VkDeviceMemory uniformStorageImageBufferMemory;
+    //VkBuffer uniformStorageImageBuffer;
+    //VkDeviceMemory uniformStorageImageBufferMemory;
     VkBuffer uniformCameraBuffer;
     VkDeviceMemory uniformCameraBufferMemory;
 

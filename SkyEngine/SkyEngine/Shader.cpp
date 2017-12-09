@@ -519,8 +519,8 @@ void BackgroundShader::createUniformBuffer() {
 /// Compute Shader
 
 void ComputeShader::cleanupUniforms() {
-    vkDestroyBuffer(device, uniformStorageImageBuffer, nullptr);
-    vkFreeMemory(device, uniformStorageImageBufferMemory, nullptr);
+    //vkDestroyBuffer(device, uniformStorageImageBuffer, nullptr);
+    //vkFreeMemory(device, uniformStorageImageBufferMemory, nullptr);
     vkDestroyBuffer(device, uniformCameraBuffer, nullptr);
     vkFreeMemory(device, uniformCameraBufferMemory, nullptr);
 
@@ -739,10 +739,10 @@ void ComputeShader::createPipeline() {
 }
 
 void ComputeShader::createUniformBuffer() {
-    VkDeviceSize bufferSize = sizeof(UniformStorageImageObject); // TODO: this is probably bad
-    VulkanObject::createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformStorageImageBuffer, uniformStorageImageBufferMemory);
+    /*VkDeviceSize bufferSize = sizeof(UniformStorageImageObject);
+    VulkanObject::createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformStorageImageBuffer, uniformStorageImageBufferMemory);*/
     VkDeviceSize bufferSize2 = sizeof(UniformCameraObject);
-    VulkanObject::createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformCameraBuffer, uniformCameraBufferMemory);
+    VulkanObject::createBuffer(bufferSize2, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformCameraBuffer, uniformCameraBufferMemory);
     
     VkDeviceSize sunBufferSize = sizeof(UniformSunObject);
     VulkanObject::createBuffer(sunBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformSunBuffer, uniformSunBufferMemory);

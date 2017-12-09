@@ -947,10 +947,6 @@ void VulkanApplication::createCommandBuffers() {
      backgroundShader->bindShader(offscreenPass.commandBuffer);
      backgroundGeometry->enqueueDrawCommands(offscreenPass.commandBuffer);
 
-     // Draw Scene
-     meshShader->bindShader(offscreenPass.commandBuffer);
-     sceneGeometry->enqueueDrawCommands(offscreenPass.commandBuffer);
-
      vkCmdEndRenderPass(offscreenPass.commandBuffer);
 
      // Use the next framebuffer in the offscreen pass
@@ -963,11 +959,13 @@ void VulkanApplication::createCommandBuffers() {
 
      vkCmdEndRenderPass(offscreenPass.commandBuffer);
           
-     /*vkCmdBeginRenderPass(offscreenPass.commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+     vkCmdBeginRenderPass(offscreenPass.commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-     // draw scene after god rays maybe
+     // Draw Scene
+     meshShader->bindShader(offscreenPass.commandBuffer);
+     sceneGeometry->enqueueDrawCommands(offscreenPass.commandBuffer);
 
-     vkCmdEndRenderPass(offscreenPass.commandBuffer);*/
+     vkCmdEndRenderPass(offscreenPass.commandBuffer);
 
      if (vkEndCommandBuffer(offscreenPass.commandBuffer) != VK_SUCCESS) {
          throw std::runtime_error("failed to record offscreen command buffer!");
