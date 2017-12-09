@@ -202,6 +202,7 @@ private:
     Texture* meshPBRInfo;
     Texture* meshNormals;
     Texture* backgroundTexture;
+    Texture* backgroundTexturePrev;
     Texture* depthTexture;
     Texture* cloudPlacementTexture;
     Texture3D* lowResCloudShapeTexture3D;

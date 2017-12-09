@@ -243,8 +243,10 @@ void VulkanApplication::initializeTextures() {
     meshPBRInfo->initFromFile("Textures/tilesPBRinfo.png");
     meshNormals = new Texture(device, physicalDevice, commandPool, graphicsQueue);
     meshNormals->initFromFile("Textures/tilesNormal.png");
-    backgroundTexture = new Texture(device, physicalDevice, commandPool, graphicsQueue, VK_FORMAT_R32G32B32A32_SFLOAT); // compute queue?
+    backgroundTexture = new Texture(device, physicalDevice, commandPool, graphicsQueue, VK_FORMAT_R32G32B32A32_SFLOAT);
     backgroundTexture->initForStorage(swapChainExtent);
+    backgroundTexturePrev = new Texture(device, physicalDevice, commandPool, graphicsQueue, VK_FORMAT_R32G32B32A32_SFLOAT);
+    backgroundTexturePrev->initForStorage(swapChainExtent);
     depthTexture = new Texture(device, physicalDevice, commandPool, graphicsQueue);
     depthTexture->initForDepthAttachment(swapChainExtent);
     cloudPlacementTexture = new Texture(device, physicalDevice, commandPool, graphicsQueue);
@@ -261,6 +263,7 @@ void VulkanApplication::cleanupTextures() {
     delete meshPBRInfo;
     delete meshNormals;
     delete backgroundTexture;
+    delete backgroundTexturePrev;
     delete depthTexture;
     delete cloudPlacementTexture;
     delete lowResCloudShapeTexture3D;
@@ -289,7 +292,7 @@ void VulkanApplication::initializeShaders() {
 
     // Note: we pass the background shader's texture with the intention of writing to it with the compute shader
     computeShader = new ComputeShader(device, physicalDevice, commandPool, computeQueue, swapChainExtent, 
-        &offscreenPass.renderPass, std::string("Shaders/compute-clouds.comp.spv"), backgroundTexture, cloudPlacementTexture, 
+        &offscreenPass.renderPass, std::string("Shaders/compute-clouds.comp.spv"), backgroundTexture, backgroundTexturePrev, cloudPlacementTexture, 
         lowResCloudShapeTexture3D, hiResCloudShapeTexture3D);
 
     // Post shaders: there will be many
@@ -337,6 +340,12 @@ void VulkanApplication::cleanupOffscreenPass() {
 void VulkanApplication::updateUniformBuffer() {
     float time = prevTime + deltaTime;
 
+    UniformCameraObject ucoPrev = {};
+    ucoPrev.proj = mainCamera.getProjPrev();
+    ucoPrev.proj[1][1] *= -1;
+    ucoPrev.view = mainCamera.getViewPrev();
+    ucoPrev.cameraPosition = glm::vec4(mainCamera.getPositionPrev(), 1.0f);
+
     UniformCameraObject uco = {};
     uco.proj = mainCamera.getProj();
     uco.proj[1][1] *= -1; // :(
@@ -358,7 +367,7 @@ void VulkanApplication::updateUniformBuffer() {
     UniformSunObject sun = skySystem.getSun();
 
     meshShader->updateUniformBuffers(uco, umo);
-    computeShader->updateUniformBuffers(uco, sky, sun);
+    computeShader->updateUniformBuffers(uco, ucoPrev, sky, sun);
     godRayShader->updateUniformBuffers(uco, sun);
     radialBlurShader->updateUniformBuffers(uco, sun);
 }

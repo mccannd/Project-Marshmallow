@@ -269,16 +269,17 @@ protected:
     virtual void cleanupUniforms();
 
     UniformStorageImageObject storageImageUniform;
+    UniformStorageImageObject storageImageUniformPrev;
     UniformCameraObject cameraUniforms;
 
-    //VkBuffer uniformStorageImageBuffer;
-    //VkDeviceMemory uniformStorageImageBufferMemory;
     VkBuffer uniformCameraBuffer;
     VkDeviceMemory uniformCameraBufferMemory;
+    VkBuffer uniformCameraBufferPrev;
+    VkDeviceMemory uniformCameraBufferMemoryPrev;
 
     VkBuffer uniformSunBuffer;
-    VkBuffer uniformSkyBuffer;
     VkDeviceMemory uniformSunBufferMemory;
+    VkBuffer uniformSkyBuffer;
     VkDeviceMemory uniformSkyBufferMemory;
 public:
     void setupShader(std::string path) {
@@ -293,11 +294,12 @@ public:
 
     ComputeShader(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue queue, VkExtent2D extent) : Shader(device, physicalDevice, commandPool, queue, extent) {}
     ComputeShader(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue queue, VkExtent2D extent,
-                  VkRenderPass *renderPass, std::string path, Texture* storageTex, Texture* placementTex, Texture3D* lowResCloudShapeTex, Texture3D* hiResCloudShapeTex) :
+                  VkRenderPass *renderPass, std::string path, Texture* storageTex, Texture* storageTexPrev, Texture* placementTex, Texture3D* lowResCloudShapeTex, Texture3D* hiResCloudShapeTex) :
         Shader(device, physicalDevice, commandPool, queue, extent) {
         this->renderPass = renderPass;
         // Note: This texture is intended to be written to. In this application, it is set to be the sampled texture of a separate BackgroundShader.
         addTexture(storageTex);
+        addTexture(storageTexPrev);
         addTexture(placementTex);
         addTexture3D(lowResCloudShapeTex);
         addTexture3D(hiResCloudShapeTex);
@@ -306,7 +308,7 @@ public:
 
     virtual ~ComputeShader() { cleanupUniforms(); }
 
-    void updateUniformBuffers(UniformCameraObject& cam, UniformSkyObject& sky, UniformSunObject& sun);
+    void updateUniformBuffers(UniformCameraObject& cam, UniformCameraObject& camPrev, UniformSkyObject& sky, UniformSunObject& sun);
     void bindShader(VkCommandBuffer& commandBuffer) override {
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);

@@ -41,6 +41,10 @@ private:
     double lastX;
     bool firstMouse = true;
 
+    glm::mat4 prevView;
+    glm::mat4 prevProj;
+    glm::vec3 prevPos;
+
 public:
 	enum directions {
 		FORWARD,
@@ -59,6 +63,11 @@ public:
 	glm::mat4 getProj();
 	glm::mat4 getViewProj();
 	glm::vec3 getPosition();
+
+    glm::mat4 getViewPrev() { return prevView; }
+    glm::mat4 getProjPrev() { return prevProj; }
+    glm::vec3 getPositionPrev() { return prevPos; }
+
     float getAspect() { return m_aspect; }
     float getHTanFov() { return std::tan(0.5f * DEG2RAD * m_fov); }
 
