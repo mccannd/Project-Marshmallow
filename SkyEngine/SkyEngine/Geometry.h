@@ -79,6 +79,8 @@ private:
 
     bool initialized = false;
 
+    void initializeTBN();
+
 public:
     Geometry(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue queue) : VulkanObject(device, physicalDevice, commandPool, queue) {}
     ~Geometry() { cleanup(); }

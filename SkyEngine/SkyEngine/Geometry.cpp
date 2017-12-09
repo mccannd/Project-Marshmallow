@@ -109,6 +109,15 @@ void Geometry::setupAsBackgroundQuad() {
 
 }
 
+void Geometry::initializeTBN() {
+    // for each triangle
+    for (int i = 0; i < indices.size(); i += 3) {
+        Vertex a = vertices[indices[i]];
+        Vertex b = vertices[indices[i] + 1];
+        Vertex c = vertices[indices[i] + 2];
+    }
+}
+
 void Geometry::setupFromMesh(std::string path) {
     if (initialized) cleanup();
 
