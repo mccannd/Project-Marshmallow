@@ -4,7 +4,7 @@
 #define WORKGROUP_SIZE 32
 layout (local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE) in;
 layout (binding = 0, rgba32f) uniform writeonly image2D resultImage;
-layout (binding = 1, rgba32f) uniform writeonly image2D resultImagePrev;
+layout (binding = 1, rgba32f) uniform readonly image2D resultImagePrev;
 
 layout(binding = 2) uniform UniformCameraObject {
 
@@ -142,7 +142,6 @@ vec3 getAtmosphereColor(in vec3 dir) {
 
 
 
-
 // Compute sphere intersection
 Intersection raySphereIntersection(in vec3 ro, in vec3 rd, in vec4 sphere) {
 	Intersection isect;
@@ -266,6 +265,18 @@ float cloudTest(in vec3 pos, in float relativeHeight, in vec3 earthCenter, inout
 #define WIND_STRENGTH 20.0
 
 void main() {
+    
+    // Only update every 16th pixel
+    int px = int(sun.color.a);
+    int px_x = px % 4;
+    int px_y = px / 4;
+
+    if(!((gl_GlobalInvocationID.x % 4) == px_x && (gl_GlobalInvocationID.y % 4) == px_y)) {
+        // Read from the previous frame
+        imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), imageLoad(resultImagePrev, ivec2(gl_GlobalInvocationID.xy)));
+        return;
+    }
+
     /// Extract the UV
     ivec2 dim = imageSize(resultImage); // prob better as uniform
     // TODO: half resolution reprojection

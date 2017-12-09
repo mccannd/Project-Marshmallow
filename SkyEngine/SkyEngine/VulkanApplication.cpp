@@ -364,7 +364,12 @@ void VulkanApplication::updateUniformBuffer() {
     skySystem.setTime(std::fmod(time * 2.f, 10000.f));
 
     UniformSkyObject sky = skySystem.getSky();
-    UniformSunObject sun = skySystem.getSun();
+    UniformSunObject& sun = skySystem.getSun(); // by reference so we can update the pixel counter in sun.color.a below
+    
+    // Pass a uniform value in sun.color.a indicating which of the 16 pixels should be updated.
+    // Yes, this should have its own uniform but you would have to pad to sizeof(vec4) and we are not even using 
+    // this channel already. Will probably change later.
+    sun.color.a = ((int)sun.color.a + 1) % 16; // update every 16th pixel
 
     meshShader->updateUniformBuffers(uco, umo);
     computeShader->updateUniformBuffers(uco, ucoPrev, sky, sun);

@@ -17,7 +17,7 @@ void SkyManager::calcSunColor() {
     float t = (sun.direction.y) * 13.f;
     t = clamp(t, 0.f, 1.f);
     glm::vec3 color = (1.f - t) * sunset + (t) * glm::vec3(1.f);
-    sun.color = glm::vec4(color, 0.f);
+    sun.color = glm::vec4(color, sun.color.a);
 }
 
 void SkyManager::calcSunIntensity() {
@@ -74,7 +74,7 @@ SkyManager::SkyManager()
         glm::vec4(1, 0.05, 1, 0),
         0.f,
     };
-    sun.color = glm::vec4(1); // TODO
+    sun.color = glm::vec4(1, 1, 1, 0); // TODO. Note, alpha channel has to start at 0 as it serves a much different purpose
     calcSunPosition();
     calcSunIntensity();
     calcSunColor();
