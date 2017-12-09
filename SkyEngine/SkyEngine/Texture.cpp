@@ -522,7 +522,7 @@ void Texture3D::initFromFile(std::string path) {
         stbi_image_free(pixels);
     }
 
-    createImage(width, height, depth, VK_IMAGE_USAGE_SAMPLED_BIT, imageFormat, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    createImage(width, height, depth, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, imageFormat, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
     transitionImageLayout(textureImage, imageFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
     copyBufferToImage(stagingBuffer, textureImage, static_cast<uint32_t>(width), static_cast<uint32_t>(height), static_cast<uint32_t>(depth));
