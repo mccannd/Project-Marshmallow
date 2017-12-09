@@ -234,7 +234,7 @@ float cloudTest(in vec3 pos, in float relativeHeight, in vec3 earthCenter, inout
     vec3 cloudInfo = texture(cloudPlacement, 0.00001 * (currentProj.xz - camera.cameraPosition.xz)).xyz;
     float layerDensity = cloudLayerDensity(relativeHeight, cloudInfo.z);
 
-    vec4 densityNoise = texture(lowResCloudShape, 0.000057 * vec3(pos));
+    vec4 densityNoise = texture(lowResCloudShape, 0.000047 * vec3(pos));
 
     density = layerDensity * remapClamped(densityNoise.x, 0.3, 1.0, 0.0, 1.0);
 
@@ -246,7 +246,6 @@ float cloudTest(in vec3 pos, in float relativeHeight, in vec3 earthCenter, inout
     coverage = heightBiasCoverage(relativeHeight, min(0.85, cloudInfo.r));
 
     float erosion = 0.625 * densityNoise.y + 0.25 * densityNoise.z + 0.125 * densityNoise.w;
-
     erosion = remapClamped(erosion, coverage, 1.0, 0.0, 1.0);
     //density = remapClamped(density, 1.0 - coverage, 1.0, 0.0, 1.0);
     density = remapClamped(density, erosion, 1.0, 0.0, 1.0);
