@@ -295,7 +295,7 @@ void main() {
     vec3 sunDir;
 
     vec3 backgroundCol = getAtmosphereColorPhysical(rayDirection, sunDir);
-    float dotToSun = dot(sunDir, rayDirection);
+    float dotToSun = max(0.0, dot(sunDir, rayDirection));
     float sunDisk = smoothstep(SUN_ANGULAR_COS, SUN_ANGULAR_COS + 0.00003, dotToSun);
     // IT'S TIME
     dotToSun *= dotToSun * dotToSun * dotToSun;
