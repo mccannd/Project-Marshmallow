@@ -936,7 +936,7 @@ void VulkanApplication::createCommandBuffers() {
      renderPassInfo.framebuffer = offscreenPass.framebuffers[0].framebuffer;
      renderPassInfo.renderArea.offset = { 0, 0 };
      renderPassInfo.renderArea.extent = swapChainExtent;
-     VkClearValue clearColor = { 0.0f, 0.0f, 0.0f, 1.0f };
+     VkClearValue clearColor = { 0.0f, 0.0f, 0.0f, 0.0f };
      renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
      renderPassInfo.pClearValues = clearValues.data();
 
@@ -957,9 +957,9 @@ void VulkanApplication::createCommandBuffers() {
      godRayShader->bindShader(offscreenPass.commandBuffer);
      backgroundGeometry->enqueueDrawCommands(offscreenPass.commandBuffer);
 
-     vkCmdEndRenderPass(offscreenPass.commandBuffer);
-          
-     vkCmdBeginRenderPass(offscreenPass.commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+     //vkCmdEndRenderPass(offscreenPass.commandBuffer);
+     // why does doing this clear the previous framebuffer
+     //vkCmdBeginRenderPass(offscreenPass.commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
      // Draw Scene
      meshShader->bindShader(offscreenPass.commandBuffer);

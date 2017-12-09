@@ -70,5 +70,5 @@ void main() {
         illuminationDecay *= DECAY;
     }
 
-    outColor = vec4(sun.color.xyz * sun.intensity * accumSampleAmt * EXPOSURE + 0.5 * currentFragment.xyz, 1.0);
+    outColor = vec4(sun.color.xyz * sun.intensity * accumSampleAmt * EXPOSURE + 0.5 * currentFragment.xyz, 0.0);
 }
