@@ -241,6 +241,8 @@ void VulkanApplication::initializeTextures() {
     meshTexture->initFromFile("Textures/tilesColor.png");
     meshPBRInfo = new Texture(device, physicalDevice, commandPool, graphicsQueue);
     meshPBRInfo->initFromFile("Textures/tilesPBRinfo.png");
+    meshNormals = new Texture(device, physicalDevice, commandPool, graphicsQueue);
+    meshNormals->initFromFile("Textures/tilesNormal.png");
     backgroundTexture = new Texture(device, physicalDevice, commandPool, graphicsQueue, VK_FORMAT_R32G32B32A32_SFLOAT); // compute queue?
     backgroundTexture->initForStorage(swapChainExtent);
     depthTexture = new Texture(device, physicalDevice, commandPool, graphicsQueue);
@@ -257,6 +259,7 @@ void VulkanApplication::initializeTextures() {
 void VulkanApplication::cleanupTextures() {
     delete meshTexture;
     delete meshPBRInfo;
+    delete meshNormals;
     delete backgroundTexture;
     delete depthTexture;
     delete cloudPlacementTexture;
@@ -279,7 +282,7 @@ void VulkanApplication::cleanupGeometry() {
 
 void VulkanApplication::initializeShaders() {
     meshShader = new MeshShader(device, physicalDevice, commandPool, graphicsQueue, swapChainExtent, 
-        &offscreenPass.renderPass, std::string("Shaders/model.vert.spv"), std::string("Shaders/model.frag.spv"), meshTexture, meshPBRInfo);
+        &offscreenPass.renderPass, std::string("Shaders/model.vert.spv"), std::string("Shaders/model.frag.spv"), meshTexture, meshPBRInfo, meshNormals);
     
     backgroundShader = new BackgroundShader(device, physicalDevice, commandPool, graphicsQueue, swapChainExtent, 
         &offscreenPass.renderPass, std::string("Shaders/background.vert.spv"), std::string("Shaders/background.frag.spv"), backgroundTexture);

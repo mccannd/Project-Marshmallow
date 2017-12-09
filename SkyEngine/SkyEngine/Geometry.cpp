@@ -66,7 +66,7 @@ void Geometry::setupAsQuad() {
     if (initialized) cleanup();
 
     vertices = {
-        { { -0.5f, -0.5f, 0.0f },{ 1.0f, 0.0f, 0.0f },{ 1.0f, 0.0f }, {0.0f, 0.0f, -1.0f } },
+        { { -0.5f, -0.5f, 0.0f },{ 1.0f, 0.0f, 0.0f },{ 1.0f, 0.0f }, {0.0f, 0.0f, -1.0f} },
         { { 0.5f, -0.5f, 0.0f },{ 0.0f, 1.0f, 0.0f },{ 0.0f, 0.0f },{ 0.0f, 0.0f, -1.0f } },
         { { 0.5f,  0.5f, 0.0f },{ 0.0f, 0.0f, 1.0f },{ 0.0f, 1.0f },{ 0.0f, 0.0f, -1.0f } },
         { { -0.5f,  0.5f, 0.0f },{ 1.0f, 1.0f, 1.0f },{ 1.0f, 1.0f },{ 0.0f, 0.0f, -1.0f } },
@@ -111,11 +111,32 @@ void Geometry::setupAsBackgroundQuad() {
 
 void Geometry::initializeTBN() {
     // for each triangle
+    /*
     for (int i = 0; i < indices.size(); i += 3) {
         Vertex a = vertices[indices[i]];
-        Vertex b = vertices[indices[i] + 1];
-        Vertex c = vertices[indices[i] + 2];
+        Vertex b = vertices[indices[i + 1]];
+        Vertex c = vertices[indices[i + 2]];
+
+        glm::vec3 dp1 = b.pos - a.pos;
+        glm::vec3 dp2 = c.pos - a.pos;
+
+        glm::vec2 duv1 = b.uv - a.uv;
+        glm::vec2 duv2 = c.uv - a.uv;
+
+        float r = 1.f / (duv1.x * duv2.y - duv2.x * duv1.y);
+        glm::vec3 tangent = r * (dp1 * duv2.y - dp2 * duv1.y);
+        glm::vec3 bitangent = r * (dp2 * duv1.x - dp1 * duv2.x);
+
+        // normalized in shader
+        vertices[indices[i]].tan += tangent;
+        vertices[indices[i + 1]].tan += tangent;
+        vertices[indices[i + 2]].tan += tangent;
+
+        vertices[indices[i]].bit += bitangent;
+        vertices[indices[i + 1]].bit += bitangent;
+        vertices[indices[i + 2]].bit += bitangent;
     }
+    */
 }
 
 void Geometry::setupFromMesh(std::string path) {
@@ -156,6 +177,9 @@ void Geometry::setupFromMesh(std::string path) {
                 attrib.normals[3 * index.normal_index + 2]
             };
 
+            //vertex.tan = { 0.f, 0.f, 0.f }; // going to handle in shader for now
+            //vertex.bit = { 0.f, 0.f, 0.f };
+
             if (uniqueVertices.count(vertex) == 0) {
                 uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
                 vertices.push_back(vertex);
@@ -167,6 +191,7 @@ void Geometry::setupFromMesh(std::string path) {
 
     createVertexBuffer();
     createIndexBuffer();
+    initializeTBN();
 
     initialized = true;
 }

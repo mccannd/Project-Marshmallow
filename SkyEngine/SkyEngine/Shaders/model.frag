@@ -16,16 +16,24 @@ layout(binding = 1) uniform UniformModelObject {
 
 layout(binding = 2) uniform sampler2D texColor;
 layout(binding = 3) uniform sampler2D pbrInfo; 
+layout(binding = 4) uniform sampler2D normalMap;
 // rough metal AO height
 
 layout(location = 0) in vec3 fragColor;
 layout(location = 1) in vec2 fragUV;
 layout(location = 2) in vec3 fragPosition;
 layout(location = 3) in vec3 fragNormal;
-layout(location = 4) in vec3 fragView;
+layout(location = 4) in vec3 fragTangent;
+layout(location = 5) in vec3 fragBitangent;
 
 layout(location = 0) out vec4 outColor;
 
+
+vec3 getNormal() {
+    vec3 nm = texture(normalMap, fragUV).xyz;
+    nm.xyz = 2.0 * nm.xyz - 1.0;
+    return nm.r * normalize(fragTangent) - nm.g * normalize(fragBitangent) + nm.b * normalize(fragNormal);
+}
 
 // call this separately from the BRDF
 vec3 fresnelSchlick(in vec3 specular, in vec3 N, in vec3 V) {
@@ -75,7 +83,7 @@ vec3 pbrMaterialColor(in vec3 fresnel, in vec3 N, in vec3 L, in vec3 V, in float
 void main() {
     vec4 albedo = texture(texColor, fragUV);
     vec4 pbrParams = texture(pbrInfo, fragUV);
-    vec3 N = normalize(fragNormal);
+    vec3 N = normalize(getNormal());
     vec3 V = -normalize(fragPosition);
     vec3 L = normalize((camera.view * vec4(normalize(vec3(1, 1, 1)), 0)).xyz); // arbitrary for now
 
@@ -89,12 +97,13 @@ void main() {
 
     vec3 F = fresnelSchlick(specular, N, V);
     vec3 color = pbrMaterialColor(F, N, L, V, roughness, diffuse, specular);
-    color *= 100.0 * vec3(1.0, 0.8, 0.6); // hard code light color for now
+    color *= 20.0 * vec3(1.0, 0.8, 0.6); // hard code light color for now
 
     color += diffuse * mix(vec3(0), 2.0 * vec3(0.6, 0.7, 1.0), 0.5 + 0.5 * dot(N, normalize((camera.view * vec4(normalize(vec3(0, 1, 0)), 0)).xyz)));
     vec3 aoColor = mix(vec3(0.1, 0.1, 0.3), vec3(1), pbrParams.b);
     color.rgb *= aoColor;
     outColor = vec4(color, 1.0);
 
+    //outColor = vec4(0.5 + 0.5 * normalize(N), 1.0);
     //outColor = vec4(pbrParams.rgb, 1.0);
 }

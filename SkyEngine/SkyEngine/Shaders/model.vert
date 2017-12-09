@@ -25,18 +25,21 @@ layout(location = 0) out vec3 fragColor;
 layout(location = 1) out vec2 fragUV;
 layout(location = 2) out vec3 fragPosition;
 layout(location = 3) out vec3 fragNormal;
-layout(location = 4) out vec3 fragView;
+layout(location = 4) out vec3 fragTangent;
+layout(location = 5) out vec3 fragBitangent;
 
 void main() {
-    
-	//gl_Position = vec4(inPosition, 0.0, 1.0);
     gl_Position = camera.proj * camera.view * model.model * vec4(inPosition, 1.0);
     fragUV = inUV;
 	fragColor = inColor;
-    fragView = normalize(camera.cameraPosition.xyz - (model.model * vec4(inPosition, 1.0)).xyz);
 
     fragPosition = (camera.view * model.model * vec4(inPosition, 1.0)).xyz;
     //(model.model * vec4(inPosition, 1.0)).xyz;//
     
     fragNormal = normalize((camera.view * vec4(normalize((model.invTranspose * vec4(inNormal, 0.0)).xyz), 0.0)).xyz);
+    vec3 up = normalize(vec3(0.001, 1, -0.004));
+    fragTangent = normalize(cross(fragNormal, up));
+    fragBitangent =cross(fragNormal, fragTangent);
+
+
 }

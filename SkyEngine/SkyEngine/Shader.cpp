@@ -35,8 +35,9 @@ void MeshShader::createDescriptorSetLayout() {
     VkDescriptorSetLayoutBinding modelLayoutBinding = UniformModelObject::getLayoutBinding(1);
     VkDescriptorSetLayoutBinding samplerLayoutBinding = Texture::getLayoutBinding(2);
     VkDescriptorSetLayoutBinding samplerLayoutBinding2 = Texture::getLayoutBinding(3);
+    VkDescriptorSetLayoutBinding samplerLayoutBinding3 = Texture::getLayoutBinding(4);
 
-    std::array<VkDescriptorSetLayoutBinding, 4> bindings = { camLayoutBinding, modelLayoutBinding, samplerLayoutBinding, samplerLayoutBinding2 };
+    std::array<VkDescriptorSetLayoutBinding, 5> bindings = { camLayoutBinding, modelLayoutBinding, samplerLayoutBinding, samplerLayoutBinding2, samplerLayoutBinding3 };
     VkDescriptorSetLayoutCreateInfo layoutInfo = {};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
@@ -48,7 +49,7 @@ void MeshShader::createDescriptorSetLayout() {
 }
 
 void MeshShader::createDescriptorPool() {
-    std::array<VkDescriptorPoolSize, 4> poolSizes = {};
+    std::array<VkDescriptorPoolSize, 5> poolSizes = {};
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[0].descriptorCount = 1;
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -57,6 +58,8 @@ void MeshShader::createDescriptorPool() {
     poolSizes[2].descriptorCount = 1;
     poolSizes[3].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     poolSizes[3].descriptorCount = 1;
+    poolSizes[4].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    poolSizes[4].descriptorCount = 1;
 
     VkDescriptorPoolCreateInfo poolInfo = {};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -101,9 +104,14 @@ void MeshShader::createDescriptorSet() {
     imageInfoPBR.imageView = textures[ROUGH_METAL_AO_HEIGHT]->textureImageView;
     imageInfoPBR.sampler = textures[ROUGH_METAL_AO_HEIGHT]->textureSampler;
 
+    VkDescriptorImageInfo imageInfoNormal = {};
+    imageInfoNormal.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    imageInfoNormal.imageView = textures[NORMAL]->textureImageView;
+    imageInfoNormal.sampler = textures[NORMAL]->textureSampler;
+
     // TODO: other relevant textures
 
-    std::array<VkWriteDescriptorSet, 4> descriptorWrites = {};
+    std::array<VkWriteDescriptorSet, 5> descriptorWrites = {};
 
     descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     descriptorWrites[0].dstSet = descriptorSet;
@@ -136,6 +144,14 @@ void MeshShader::createDescriptorSet() {
     descriptorWrites[3].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     descriptorWrites[3].descriptorCount = 1;
     descriptorWrites[3].pImageInfo = &imageInfoPBR;
+
+    descriptorWrites[4].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrites[4].dstSet = descriptorSet;
+    descriptorWrites[4].dstBinding = 4;
+    descriptorWrites[4].dstArrayElement = 0;
+    descriptorWrites[4].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    descriptorWrites[4].descriptorCount = 1;
+    descriptorWrites[4].pImageInfo = &imageInfoNormal;
 
     vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 }
