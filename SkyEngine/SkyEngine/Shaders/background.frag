@@ -9,7 +9,7 @@ layout(location = 1) in vec2 fragUV;
 layout(location = 0) out vec4 outColor;
 
 void main() {
-    vec3 col = texture(texColor, fragUV).xyz;
-    col *= fragColor;
-    outColor = vec4(col, 1.0);
+    vec4 col = texture(texColor, fragUV);
+    col.xyz *= fragColor.xyz;
+    outColor = col;
 }

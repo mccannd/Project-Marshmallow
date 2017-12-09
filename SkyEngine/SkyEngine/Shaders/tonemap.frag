@@ -24,7 +24,7 @@ vec3 tonemap(vec3 x, float exposure, float invGamma, float whiteBalance) {
 void main() {
     vec3 col = texture(texColor, fragUV).xyz;
     
-    float whitepoint = 11.2;
+    float whitepoint = 50.2;
     col = tonemap(col, 0.7, 1.0 / 2.2, whitepoint);
 
     outColor = vec4(col, 1.0);
