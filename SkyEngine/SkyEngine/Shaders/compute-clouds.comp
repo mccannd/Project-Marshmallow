@@ -206,11 +206,11 @@ float erodeBlend(float x, float newMin) {
 float cloudHiRes(in vec3 pos, in float curlStrength, in float origDensity, in float relativeHeight) {
     // TODO: curlNoise
     
-    float c = 0.00008; //?
+    float c = 0.0001; //?
     vec3 curl = texture(curlNoise, c * pos.xz).xyz;
 
     curl = 2.0 * curl - 1.0;
-    pos += 1.0 * curlStrength * curl;
+    pos += 0.5 * curlStrength * curl;
 
     //curl = texture(curlNoise, c * pos.xz).xyz;
     //curl = vec3(texture(curlNoise, c * pos.zy).x, texture(curlNoise, c * pos.xz).y, texture(curlNoise, c * pos.xy).z);
@@ -372,7 +372,7 @@ void main() {
         float coverage;
         vec3 currentProj = getProjectedShellPoint(currentPos, earthCenter);
         float rHeight = getRelativeHeight(currentPos, currentProj, atmosphereThickness);
-        vec3 windOffset = WIND_STRENGTH * (sky.wind.xyz + vec3(0, 0.2 * rHeight, 0)) * (timeOffset + rHeight * 200.0);
+        vec3 windOffset = WIND_STRENGTH * (sky.wind.xyz + vec3(0.1, 0.2 * rHeight, 0)) * (timeOffset + rHeight * 200.0);
 
         vec3 curl = texture(curlNoise, 0.0003 * currentProj.xz).xyz;
 
@@ -403,7 +403,7 @@ void main() {
                 vec3 lsPos = currentPos + 2.0 * stepSize * samples[i];
                 vec3 lsProj = getProjectedShellPoint(lsPos, earthCenter);
                 float lsHeight = getRelativeHeight(lsPos, lsProj, atmosphereThickness);
-                windOffset = WIND_STRENGTH * (sky.wind.xyz + vec3(0, 0.2 * lsHeight, 0)) * (timeOffset + lsHeight * 200.0);
+                windOffset = WIND_STRENGTH * (sky.wind.xyz + vec3(0.1, 0.2 * lsHeight, 0)) * (timeOffset + lsHeight * 200.0);
 
                 float lsDensity = cloudTest(lsPos + windOffset, lsHeight, earthCenter, coverage);
 
