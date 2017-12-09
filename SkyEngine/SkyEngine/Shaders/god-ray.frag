@@ -33,9 +33,9 @@ layout(set = 0, binding = 2) uniform UniformSunObject {
 #define NUM_SAMPLES_F float(NUM_SAMPLES)
 
 // Parameters, TODO: should move to a uniform buffer
-#define DENSITY 0.5
+#define DENSITY 0.75
 #define DECAY 0.99 // this generally makes the god rays more or less intense
-#define EXPOSURE 1.0
+#define EXPOSURE 0.9
 #define SAMPLE_WEIGHT 1.0 / NUM_SAMPLES_F
 
 void main() {
@@ -47,8 +47,12 @@ void main() {
     deltaLightVec *= SAMPLE_WEIGHT * DENSITY;
 
     vec4 currentFragment = texture(texColor, fragUV);
-    vec3 accumSampleColor = currentFragment.xyz * currentFragment.a * 0.5;
+    float accumSampleAmt = currentFragment.a * 0.5;
     float illuminationDecay = 1.0;
+
+    /*vec3 testColor = vec3(texture(texColor, fragUV).a);
+    outColor = vec4(testColor, 1.0);
+    return;*/
 
     for(int i = 0; i < NUM_SAMPLES; ++i)
     {
@@ -56,15 +60,15 @@ void main() {
         currentSamplePoint -= deltaLightVec;
         
         // Sample the scene
-        vec4 currentSampleColor = texture(texColor, currentSamplePoint * 0.5 + 0.5) * 0.5;
-        currentSampleColor.xyz *= SAMPLE_WEIGHT * illuminationDecay * currentSampleColor.a;
+        float currentSampleAmt = texture(texColor, currentSamplePoint * 0.5 + 0.5).a * 0.5;
+        currentSampleAmt *= SAMPLE_WEIGHT * illuminationDecay;
         
         // Accumulate color
-        accumSampleColor += currentSampleColor.xyz;
+        accumSampleAmt += currentSampleAmt;
         
         // Factor in decay
         illuminationDecay *= DECAY;
     }
 
-    outColor = vec4(currentFragment.xyz, 1.0);
+    outColor = vec4(sun.color.xyz * sun.intensity * accumSampleAmt * EXPOSURE + 0.5 * currentFragment.xyz, 0.0);
 }

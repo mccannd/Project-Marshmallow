@@ -293,8 +293,9 @@ void VulkanApplication::initializeShaders() {
     toneMapShader = new PostProcessShader(device, physicalDevice, commandPool, graphicsQueue, swapChainExtent,
         &renderPass, std::string("Shaders/post-pass.vert.spv"), std::string("Shaders/tonemap.frag.spv"), &offscreenPass.framebuffers[1].descriptor);
 
+    // This is still offscreen, so the render pass is the offscreen render pass
     godRayShader = new PostProcessShader(device, physicalDevice, commandPool, graphicsQueue, swapChainExtent,
-        &renderPass, std::string("Shaders/post-pass.vert.spv"), std::string("Shaders/god-ray.frag.spv"), &offscreenPass.framebuffers[0].descriptor);
+        &offscreenPass.renderPass, std::string("Shaders/post-pass.vert.spv"), std::string("Shaders/god-ray.frag.spv"), &offscreenPass.framebuffers[0].descriptor);
 }
 
 void VulkanApplication::cleanupShaders() {
@@ -938,7 +939,7 @@ void VulkanApplication::createCommandBuffers() {
      renderPassInfo.framebuffer = offscreenPass.framebuffers[0].framebuffer;
      renderPassInfo.renderArea.offset = { 0, 0 };
      renderPassInfo.renderArea.extent = swapChainExtent;
-     VkClearValue clearColor = { 0.0f, 0.0f, 0.0f, 1.0f };
+     VkClearValue clearColor = { 0.0f, 0.0f, 0.0f, 0.0f };
      renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
      renderPassInfo.pClearValues = clearValues.data();
 
@@ -948,20 +949,24 @@ void VulkanApplication::createCommandBuffers() {
      // Draw Background
      backgroundShader->bindShader(offscreenPass.commandBuffer);
      backgroundGeometry->enqueueDrawCommands(offscreenPass.commandBuffer);
-     
-     // Draw Scene
-     meshShader->bindShader(offscreenPass.commandBuffer);
-     sceneGeometry->enqueueDrawCommands(offscreenPass.commandBuffer);
 
      vkCmdEndRenderPass(offscreenPass.commandBuffer);
 
      // Use the next framebuffer in the offscreen pass
      renderPassInfo.framebuffer = offscreenPass.framebuffers[1].framebuffer;
-     
+
      vkCmdBeginRenderPass(offscreenPass.commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
      godRayShader->bindShader(offscreenPass.commandBuffer);
      backgroundGeometry->enqueueDrawCommands(offscreenPass.commandBuffer);
+
+     //vkCmdEndRenderPass(offscreenPass.commandBuffer);
+     // why does doing this clear the previous framebuffer
+     //vkCmdBeginRenderPass(offscreenPass.commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+     // Draw Scene
+     meshShader->bindShader(offscreenPass.commandBuffer);
+     sceneGeometry->enqueueDrawCommands(offscreenPass.commandBuffer);
 
      vkCmdEndRenderPass(offscreenPass.commandBuffer);
 

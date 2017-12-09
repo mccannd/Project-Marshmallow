@@ -227,9 +227,9 @@ void MeshShader::createPipeline() {
                                                // TODO: reexamine for transparency, blending
     VkPipelineColorBlendAttachmentState colorBlendAttachment = {};
     colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-    colorBlendAttachment.blendEnable = VK_FALSE;
-    colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE; // Optional
-    colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO; // Optional
+    colorBlendAttachment.blendEnable = VK_TRUE;
+    colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA; // Optional
+    colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA; // Optional
     colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD; // Optional
     colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE; // Optional
     colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO; // Optional
@@ -241,10 +241,10 @@ void MeshShader::createPipeline() {
     colorBlending.logicOp = VK_LOGIC_OP_COPY; // Optional
     colorBlending.attachmentCount = 1;
     colorBlending.pAttachments = &colorBlendAttachment;
-    colorBlending.blendConstants[0] = 0.0f; // Optional
-    colorBlending.blendConstants[1] = 0.0f; // Optional
-    colorBlending.blendConstants[2] = 0.0f; // Optional
-    colorBlending.blendConstants[3] = 0.0f; // Optional
+    colorBlending.blendConstants[0] = 1.0f; // Optional
+    colorBlending.blendConstants[1] = 1.0f; // Optional
+    colorBlending.blendConstants[2] = 1.0f; // Optional
+    colorBlending.blendConstants[3] = 1.0f; // Optional
 
     VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -535,8 +535,8 @@ void BackgroundShader::createUniformBuffer() {
 /// Compute Shader
 
 void ComputeShader::cleanupUniforms() {
-    vkDestroyBuffer(device, uniformStorageImageBuffer, nullptr);
-    vkFreeMemory(device, uniformStorageImageBufferMemory, nullptr);
+    //vkDestroyBuffer(device, uniformStorageImageBuffer, nullptr);
+    //vkFreeMemory(device, uniformStorageImageBufferMemory, nullptr);
     vkDestroyBuffer(device, uniformCameraBuffer, nullptr);
     vkFreeMemory(device, uniformCameraBufferMemory, nullptr);
 
@@ -755,10 +755,10 @@ void ComputeShader::createPipeline() {
 }
 
 void ComputeShader::createUniformBuffer() {
-    VkDeviceSize bufferSize = sizeof(UniformStorageImageObject); // TODO: this is probably bad
-    VulkanObject::createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformStorageImageBuffer, uniformStorageImageBufferMemory);
+    /*VkDeviceSize bufferSize = sizeof(UniformStorageImageObject);
+    VulkanObject::createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformStorageImageBuffer, uniformStorageImageBufferMemory);*/
     VkDeviceSize bufferSize2 = sizeof(UniformCameraObject);
-    VulkanObject::createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformCameraBuffer, uniformCameraBufferMemory);
+    VulkanObject::createBuffer(bufferSize2, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformCameraBuffer, uniformCameraBufferMemory);
     
     VkDeviceSize sunBufferSize = sizeof(UniformSunObject);
     VulkanObject::createBuffer(sunBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformSunBuffer, uniformSunBufferMemory);

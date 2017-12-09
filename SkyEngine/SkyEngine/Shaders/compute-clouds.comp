@@ -3,7 +3,7 @@
 
 #define WORKGROUP_SIZE 32
 layout (local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE) in;
-layout (binding = 0, rgba32f) uniform writeonly image2D resultImage; // TODO: HDR
+layout (binding = 0, rgba32f) uniform writeonly image2D resultImage;
 
 layout(binding = 1) uniform UniformCameraObject {
 
@@ -111,6 +111,7 @@ vec3 getAtmosphereColorPhysical(in vec3 dir, inout vec3 sunDir) {
     vec3 L0 = 0.1 * fex;
 
     float sunDisk = smoothstep(SUN_ANGULAR_COS, SUN_ANGULAR_COS + 0.00002, cosTheta);
+    sunDisk = 0;
     L0 += (sunE * 15000.0 * fex) * sunDisk;
 
     color = (Lin + L0) * 0.04 + vec3(0.0, 0.0003, 0.00075);
@@ -210,7 +211,6 @@ float cloudHiRes(in vec3 pos, in float curlStrength, in float origDensity) {
         texture(curlNoise, c * vec2(pos.xz)).y,
         texture(curlNoise, c * vec2(pos.xy)).z,
     );
-
     */
 
     vec3 curl = texture(lowResCloudShape, 0.000007 * pos).yzw;
@@ -295,11 +295,26 @@ void main() {
     vec3 sunDir;
 
     vec3 backgroundCol = getAtmosphereColorPhysical(rayDirection, sunDir);
+    float dotToSun = max(0.0, dot(sunDir, rayDirection));
+    float sunDisk = smoothstep(SUN_ANGULAR_COS, SUN_ANGULAR_COS + 0.00003, dotToSun);
+    // IT'S TIME
+    dotToSun *= dotToSun * dotToSun * dotToSun;
+    dotToSun *= dotToSun * dotToSun * dotToSun;
+    dotToSun *= dotToSun * dotToSun * dotToSun;
+    dotToSun *= dotToSun * dotToSun * dotToSun;
+    dotToSun *= dotToSun * dotToSun;
+    sunDisk = max(sunDisk, dotToSun);
+    sunDisk = max(0.0, sunDisk);
+
+
+    vec4 finalColor;
+    finalColor.xyz = backgroundCol;
+    finalColor.a = sunDisk;
 
     // It is likely we will never have an entirely unobstructed view of the horizon, so kill rays that would otherwise be executing.
     // TODO: low-res stencil check first
     if(dot(rayDirection, vec3(0, 1, 0)) < 0.0) {
-        imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), vec4(backgroundCol, 1));
+        imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), finalColor);
         return;
     }
 
@@ -388,11 +403,17 @@ void main() {
         }
     }
 
-    vec4 finalColor;
+    
 
     // For the god rays, write to the alpha channel according the density of the image
     // we want this before the haze thing is taken into account
-    finalColor.a = 1.0 - step(accumDensity, 0.1);
+    
+    //finalColor.a = max(1.0 - 7.0 * accumDensity, 0.0); // only areas with density of 0.1 or less with be permitted to contribute to the god rays
+    
+    
+    // the idea of this is that there should only be high light values in the image if the light is not well occluded, and high densities would occlude
+    // the light. So scale the sample in the god ray shader by this value.
+    // This is a cheaty way to avoid having to set aside a whole framebuffer for light values.
 
     // opacity fades to prevent hard cutoff at horizon
     // TODO: find a good way to make atmospheric haze
@@ -401,6 +422,8 @@ void main() {
     vec3 cloudColor = sun.color.xyz * (sun.intensity * vec3(max(0.0, transmittance)) + 0.08 * backgroundCol * exp(-transmittance));
 
     finalColor.rgb = mix(backgroundCol, cloudColor, accumDensity);
+    finalColor.a *= max(1.0 - accumDensity, 0.0);
+    //finalColor.a *= 1.0 - exp(-transmittance);
 
     imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), finalColor);
 }
