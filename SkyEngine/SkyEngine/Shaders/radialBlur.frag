@@ -30,14 +30,14 @@ layout(set = 0, binding = 2) uniform UniformSunObject {
 // https://forum.unity.com/threads/radial-blur.31970/
 // https://stackoverflow.com/questions/4579020/how-do-i-use-a-glsl-shader-to-apply-a-radial-blur-to-an-entire-scene
 
-#define NUM_SAMPLES 12
+#define NUM_SAMPLES 10
 #define BLUR_STRENGTH 10.0
 
 void main() {
     vec2 scrPt = fragUV * 2.0 - 1.0;
 
     const vec4 currentFragment = texture(texColor, fragUV);
-    const float samples[NUM_SAMPLES] = { -0.1, -0.08, -0.05, -0.03, -0.02, -0.01, 0.01, 0.02, 0.03, 0.05, 0.08, 0.1 };
+    const float samples[NUM_SAMPLES] = { -0.08, -0.05, -0.03, -0.02, -0.01, 0.01, 0.02, 0.03, 0.05, 0.08 };
 
     // Let's just take some samples towards the sun position
     vec4 sunPos = camera.proj * camera.view * sun.location;
@@ -50,7 +50,7 @@ void main() {
 
     // Sample the image along the light vector
     for(int i = 0; i < NUM_SAMPLES; ++i) {
-        accumSampleAmt += texture(texColor, (scrPt + samples[i] * lightVec * 0.6) * 0.5 + 0.5).a;
+        accumSampleAmt += texture(texColor, (scrPt + samples[i] * lightVec * 0.5) * 0.5 + 0.5).a;
     }
 
     accumSampleAmt *= 1.0 / float(NUM_SAMPLES); // optimize later
