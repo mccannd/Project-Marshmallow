@@ -8,7 +8,7 @@ out gl_PerVertex {
 layout(binding = 0) uniform UniformCameraObject {
     mat4 view;
     mat4 proj;
-    vec3 cameraPosition;
+    vec4 cameraPosition;
 } camera;
 
 layout(binding = 1) uniform UniformModelObject {
@@ -25,6 +25,7 @@ layout(location = 0) out vec3 fragColor;
 layout(location = 1) out vec2 fragUV;
 layout(location = 2) out vec3 fragPosition;
 layout(location = 3) out vec3 fragNormal;
+layout(location = 4) out vec3 fragView;
 
 void main() {
     
@@ -32,7 +33,10 @@ void main() {
     gl_Position = camera.proj * camera.view * model.model * vec4(inPosition, 1.0);
     fragUV = inUV;
 	fragColor = inColor;
-    fragPosition = (camera.view * vec4(inPosition, 1.0)).xyz;
+    fragView = normalize(camera.cameraPosition.xyz - (model.model * vec4(inPosition, 1.0)).xyz);
+
+    fragPosition = (camera.view * model.model * vec4(inPosition, 1.0)).xyz;
+    //(model.model * vec4(inPosition, 1.0)).xyz;//
     
     fragNormal = normalize((camera.view * vec4(normalize((model.invTranspose * vec4(inNormal, 0.0)).xyz), 0.0)).xyz);
 }

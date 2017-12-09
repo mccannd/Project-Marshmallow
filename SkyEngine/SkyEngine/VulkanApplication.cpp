@@ -266,7 +266,7 @@ void VulkanApplication::cleanupTextures() {
 void VulkanApplication::initializeGeometry() {
     sceneGeometry = new Geometry(device, physicalDevice, commandPool, graphicsQueue);
     //sceneGeometry->setupAsQuad();
-    sceneGeometry->setupFromMesh("Models/DisplayCube.obj");
+    sceneGeometry->setupFromMesh("Models/lopolyLessCheek2.obj");
     backgroundGeometry = new Geometry(device, physicalDevice, commandPool, graphicsQueue);
     backgroundGeometry->setupAsBackgroundQuad();
 }
@@ -328,13 +328,13 @@ void VulkanApplication::updateUniformBuffer() {
     uco.proj = mainCamera.getProj();
     uco.proj[1][1] *= -1; // :(
     uco.view = mainCamera.getView();
-    uco.cameraPosition = mainCamera.getPosition();
+    uco.cameraPosition = glm::vec4(mainCamera.getPosition(), 1.0f);
 
     UniformModelObject umo = {};
     umo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.f), glm::vec3(0.f, 0.f, 1.f));
     umo.model = glm::mat4(1.0f);
-    umo.model[0][0] = 8.0f;
-    umo.model[2][2] = 8.0f;
+    //umo.model[0][0] = 8.0f;
+    //umo.model[2][2] = 8.0f;
     umo.invTranspose = glm::inverse(glm::transpose(umo.model));
     float interp = sin(time * 0.2f) * 0.5f + 0.5f;
 

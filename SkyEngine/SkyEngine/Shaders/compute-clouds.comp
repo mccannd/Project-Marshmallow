@@ -8,7 +8,7 @@ layout (binding = 0, rgba32f) uniform writeonly image2D resultImage; // TODO: HD
 layout(binding = 1) uniform UniformCameraObject {
     mat4 view;
     mat4 proj;
-    vec3 cameraPosition;
+    vec4 cameraPosition;
 } camera;
 
 // all of these components are calculated in SkyManager.h/.cpp
@@ -282,7 +282,7 @@ void main() {
     vec3 camUp = vec3(camera.view[0][1], camera.view[1][1], camera.view[2][1]);
 
     // Compute ray direction
-    vec3 cameraPos = camera.cameraPosition;
+    vec3 cameraPos = camera.cameraPosition.xyz;
     vec3 refPoint = cameraPos - camLook;
 
     const float tanFovy = 0.4142135; // TODO link camera uniform

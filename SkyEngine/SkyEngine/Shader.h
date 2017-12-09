@@ -24,7 +24,7 @@ static std::vector<char> readFile(const std::string& filename) {
 struct UniformCameraObject {
     glm::mat4 view;
     glm::mat4 proj;
-    glm::vec3 cameraPosition;
+    glm::vec4 cameraPosition;
 
     static VkDescriptorSetLayoutBinding getLayoutBinding(uint32_t bind)
     {
