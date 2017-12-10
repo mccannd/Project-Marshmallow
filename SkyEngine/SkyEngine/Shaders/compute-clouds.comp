@@ -187,21 +187,6 @@ float getRelativeHeight(in vec3 pt, in vec3 projectedPt, in float thickness) {
     return clamp(length(pt - projectedPt) / thickness, 0.0, 1.0);
 }
 
-
-#define CUMULUS_LB_START 0.0
-#define CUMULUS_LB_END 0.2
-#define STRATOCUMULUS_LB_START 0.0
-#define STRATOCUMULUS_LB_END 0.2
-#define STRATUS_LB_START 0.0
-#define STRATUS_LB_END 0.1
-
-#define CUMULUS_UB_START 0.6
-#define CUMULUS_UB_END 1.0
-#define STRATOCUMULUS_UB_START 0.3
-#define STRATOCUMULUS_UB_END 0.7
-#define STRATUS_UB_START 0.2
-#define STRATUS_UB_END 0.3
-
 // Get the blended density gradient for 3 different cloud types
 // relativeHeight is normalized distance from inner to outer atmosphere shell
 // cloudType is read from cloud placement blue channel
@@ -239,8 +224,6 @@ float cloudHiRes(in vec3 pos, in float curlStrength, in float origDensity, in fl
     float erosion = 0.625 * densityNoise.r + 0.25 * densityNoise.g + 0.125 * densityNoise.b;
 
     erosion = mix(erosion, 1.0 - erosion, clamp(relativeHeight * 10.0, 0.0, 1.0));
-    //return erosion;
-    //return origDensity;
     return remapClamped(origDensity, 1.0 * erosion, 1.0, 0.0, 1.0);
 }
 
@@ -274,18 +257,21 @@ float cloudTest(in vec3 pos, in float relativeHeight, in vec3 earthCenter, inout
 
 #define WIND_STRENGTH 20.0
 
+// temp
+#define WIDTH 1280
+#define HEIGHT 720
+
 void main() {
     
     // Only update every 16th pixel
-    int px = int(sun.color.a);
-    int px_x = px % 4;
-    int px_y = px / 4;
+    int pxOffset = int(sun.color.a);
+    int pxO_x = pxOffset % 4;
+    int pxO_y = pxOffset / 4;
 
-    if(!((gl_GlobalInvocationID.x % 4) == px_x && (gl_GlobalInvocationID.y % 4) == px_y)) {
-        // Read from the previous frame
-        //imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), imageLoad(resultImagePrev, ivec2(gl_GlobalInvocationID.xy)));
-        return;
-    }
+    uint pxTargetX = gl_GlobalInvocationID.x * 4 + pxO_x;
+    uint pxTargetY = gl_GlobalInvocationID.y * 4 + pxO_y;
+
+    if (pxTargetX >= WIDTH || pxTargetY >= HEIGHT) return;
 
     /// Extract the UV
     ivec2 dim = imageSize(resultImage); // prob better as uniform
@@ -293,17 +279,8 @@ void main() {
     // TODO: ? quarter resolution reprojection ?
     // TODO: ???????
     // TODO: Profit
-	vec2 uv = vec2(gl_GlobalInvocationID.xy) / dim;
-    
-    // sample the tex
-    /*
-    float cld = cloudLayerDensity(1.0 - uv.y, uv.x);
-    vec4 finalColor2 = vec4(cld, cld, cld, 0.0);
-
-    imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), finalColor2);
-    return;
-    */
-    
+	vec2 uv = vec2(pxTargetX, pxTargetY) / vec2(WIDTH, HEIGHT);
+     
 
     /// Cast a ray
     // Compute screen space point from UVs
@@ -348,7 +325,7 @@ void main() {
     // It is likely we will never have an entirely unobstructed view of the horizon, so kill rays that would otherwise be executing.
     // TODO: low-res stencil check first
     if(dot(rayDirection, vec3(0, 1, 0)) < 0.0) {
-        imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), finalColor);
+        imageStore(resultImage, ivec2(pxTargetX, pxTargetY), finalColor);
         return;
     }
 
@@ -479,5 +456,5 @@ void main() {
     finalColor.a *= max(1.0 - accumDensity, 0.0);
 
 
-    imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), finalColor);
+    imageStore(resultImage, ivec2(pxTargetX, pxTargetY), finalColor);
 }

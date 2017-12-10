@@ -1043,7 +1043,7 @@ void VulkanApplication::createComputeCommandBuffer() {
     // TODO: dispatch according to the number of pixels, do in a 2d manner? see the raytracing example
     // first TODO: launch this compute shader for the triangle being rendered
     //const int IMAGE_SIZE = 32;
-    const glm::ivec2 texDims(swapChainExtent.width, swapChainExtent.height);
+    const glm::ivec2 texDims(swapChainExtent.width / 4, swapChainExtent.height / 4);
     vkCmdDispatch(computeCommandBuffer, static_cast<uint32_t>((texDims.x + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE), static_cast<uint32_t>((texDims.y + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE), 1);
 
     // End recording
