@@ -302,7 +302,7 @@ void main() {
 
     const float tanFovy = 0.4142135; // TODO link camera uniform
 
-    vec3 p = refPoint + ASPECT_RATIO * screenPoint.x * tanFovy * camRight - screenPoint.y * tanFovy * camUp; // TODO: aspect ratio as uniform
+    vec3 p = refPoint + 1.777778 * screenPoint.x * tanFovy * camRight - screenPoint.y * tanFovy * camUp; // TODO: aspect ratio as uniform
 
     vec3 rayDirection = normalize(p - cameraPos);
 
@@ -387,9 +387,9 @@ void main() {
         if (density > 0.0) {
             misses = 0;
             if (noHits) {
-                // start high-resolution march
-                stepSize *= 0.5;
+                //start high-resolution march
                 t -= stepSize;
+                stepSize *= 0.5;
                 noHits = false;
                 continue; // go back half a step
             }
@@ -421,7 +421,7 @@ void main() {
             beersLaw = mix(beersLaw, beersModulated, -cosTheta * 0.5 + 0.5);
             float inScatter = 0.05 + pow(loDensity, clamp(remap(rHeight, 0.3, 0.85, 0.6, 2.0), 0.6, 2.0));
             inScatter *= pow(clamp(remap(rHeight, 0.07, 0.24, 0.1, 1.0), 0.1, 1.0), 0.8);
-            transmittance = mix(transmittance, inScatter * henyeyGreenstein * beersLaw , (1.0 - accumDensity));
+            transmittance = mix(transmittance, inScatter * henyeyGreenstein * beersLaw , (1.0 - accumDensity) * (1.0 - accumDensity));
 
             accumDensity += density;
 
