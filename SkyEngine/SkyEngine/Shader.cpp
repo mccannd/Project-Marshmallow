@@ -560,29 +560,44 @@ void ComputeShader::cleanupUniforms() {
     vkFreeMemory(device, uniformSkyBufferMemory, nullptr);
     vkDestroyBuffer(device, uniformSunBuffer, nullptr);
     vkFreeMemory(device, uniformSunBufferMemory, nullptr);
+
+    vkDestroyDescriptorSetLayout(device, storageSetLayout, nullptr);
+}
+
+void ComputeShader::createStorageSetLayout() {
+    VkDescriptorSetLayoutBinding storageImageLayoutBinding = UniformStorageImageObject::getLayoutBinding(0);
+
+    std::array<VkDescriptorSetLayoutBinding, 1> bindings = { storageImageLayoutBinding };
+
+    VkDescriptorSetLayoutCreateInfo layoutInfo = {};
+    layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
+    layoutInfo.pBindings = bindings.data();
+
+    if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &storageSetLayout) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create descriptor set layout!");
+    }
 }
 
 void ComputeShader::createDescriptorSetLayout() {
-    VkDescriptorSetLayoutBinding storageImageLayoutBinding = UniformStorageImageObject::getLayoutBinding(0);
-    VkDescriptorSetLayoutBinding storageImageLayoutBindingPrev = UniformStorageImageObject::getLayoutBinding(1);
-    VkDescriptorSetLayoutBinding camLayoutBinding = UniformCameraObject::getLayoutBinding(2);
-    VkDescriptorSetLayoutBinding camLayoutBindingPrev = UniformCameraObject::getLayoutBinding(3);
-    VkDescriptorSetLayoutBinding sunLayoutBinding = UniformSunObject::getLayoutBinding(4);
-    VkDescriptorSetLayoutBinding skyLayoutBinding = UniformSkyObject::getLayoutBinding(5);
+    VkDescriptorSetLayoutBinding camLayoutBinding = UniformCameraObject::getLayoutBinding(0);
+    VkDescriptorSetLayoutBinding camLayoutBindingPrev = UniformCameraObject::getLayoutBinding(1);
+    VkDescriptorSetLayoutBinding sunLayoutBinding = UniformSunObject::getLayoutBinding(2);
+    VkDescriptorSetLayoutBinding skyLayoutBinding = UniformSkyObject::getLayoutBinding(3);
 
     // Cloud placement texture
-    VkDescriptorSetLayoutBinding samplerLayoutBinding = Texture::getLayoutBinding(6);
+    VkDescriptorSetLayoutBinding samplerLayoutBinding = Texture::getLayoutBinding(4);
     samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
     // Low Res cloud shape
-    VkDescriptorSetLayoutBinding samplerLayoutBinding2 = Texture3D::getLayoutBinding(7);
+    VkDescriptorSetLayoutBinding samplerLayoutBinding2 = Texture3D::getLayoutBinding(5);
     // Hi res cloud shape
-    VkDescriptorSetLayoutBinding samplerLayoutBinding3 = Texture3D::getLayoutBinding(8);
+    VkDescriptorSetLayoutBinding samplerLayoutBinding3 = Texture3D::getLayoutBinding(6);
     // Curl
-    VkDescriptorSetLayoutBinding samplerLayoutBindingCurl = Texture::getLayoutBinding(9);
+    VkDescriptorSetLayoutBinding samplerLayoutBindingCurl = Texture3D::getLayoutBinding(7);
 
 
-    std::array<VkDescriptorSetLayoutBinding, 10> bindings = { storageImageLayoutBinding, storageImageLayoutBindingPrev, camLayoutBinding, camLayoutBindingPrev, sunLayoutBinding, skyLayoutBinding, samplerLayoutBinding, samplerLayoutBinding2, samplerLayoutBinding3, samplerLayoutBindingCurl };
+    std::array<VkDescriptorSetLayoutBinding, 8> bindings = { camLayoutBinding, camLayoutBindingPrev, sunLayoutBinding, skyLayoutBinding, samplerLayoutBinding, samplerLayoutBinding2, samplerLayoutBinding3, samplerLayoutBindingCurl };
 
     VkDescriptorSetLayoutCreateInfo layoutInfo = {};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -595,11 +610,11 @@ void ComputeShader::createDescriptorSetLayout() {
 }
 
 void ComputeShader::createDescriptorPool() {
-    std::array<VkDescriptorPoolSize, 10> poolSizes = {};
+    std::array<VkDescriptorPoolSize, 9> poolSizes = {};
 
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-    poolSizes[0].descriptorCount = 1;
-    poolSizes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    poolSizes[0].descriptorCount = 2;
+    poolSizes[1].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[1].descriptorCount = 1;
     poolSizes[2].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[2].descriptorCount = 1;
@@ -607,7 +622,7 @@ void ComputeShader::createDescriptorPool() {
     poolSizes[3].descriptorCount = 1;
     poolSizes[4].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[4].descriptorCount = 1;
-    poolSizes[5].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    poolSizes[5].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     poolSizes[5].descriptorCount = 1;
     poolSizes[6].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     poolSizes[6].descriptorCount = 1;
@@ -615,18 +630,72 @@ void ComputeShader::createDescriptorPool() {
     poolSizes[7].descriptorCount = 1;
     poolSizes[8].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     poolSizes[8].descriptorCount = 1;
-    poolSizes[9].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    poolSizes[9].descriptorCount = 1;
 
     VkDescriptorPoolCreateInfo poolInfo = {};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
     poolInfo.pPoolSizes = poolSizes.data();
-    poolInfo.maxSets = 1;
+    poolInfo.maxSets = 3;
 
     if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
         throw std::runtime_error("failed to create descriptor pool!");
     }
+}
+
+void ComputeShader::createStorageDescriptorSets() {
+    VkDescriptorSetLayout layouts[] = { storageSetLayout };
+    VkDescriptorSetAllocateInfo allocInfo = {};
+    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocInfo.descriptorPool = descriptorPool;
+    allocInfo.descriptorSetCount = 1;
+    allocInfo.pSetLayouts = layouts;
+
+
+    // A
+    if (vkAllocateDescriptorSets(device, &allocInfo, &storageBufferSetA) != VK_SUCCESS) {
+        throw std::runtime_error("failed to allocate descriptor set!");
+    }
+
+
+    // Storage Image
+    VkDescriptorImageInfo imageInfo = {};
+    imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+    imageInfo.imageView = textures[0]->textureImageView;
+    imageInfo.sampler = textures[0]->textureSampler;
+
+    // Storage Image Prev
+    VkDescriptorImageInfo imageInfoPrev = {};
+    imageInfoPrev.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+    imageInfoPrev.imageView = textures[1]->textureImageView;
+    imageInfoPrev.sampler = textures[1]->textureSampler;
+
+    std::array<VkWriteDescriptorSet, 1> descriptorWrites = {};
+    
+    descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrites[0].dstSet = storageBufferSetA;
+    descriptorWrites[0].dstBinding = 0;
+    descriptorWrites[0].dstArrayElement = 0;
+    descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    descriptorWrites[0].descriptorCount = 1;
+    descriptorWrites[0].pImageInfo = &imageInfo;
+
+    vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+
+    // B
+    if (vkAllocateDescriptorSets(device, &allocInfo, &storageBufferSetB) != VK_SUCCESS) {
+        throw std::runtime_error("failed to allocate descriptor set!");
+    }
+
+    descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrites[0].dstSet = storageBufferSetB;
+    descriptorWrites[0].dstBinding = 0;
+    descriptorWrites[0].dstArrayElement = 0;
+    descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    descriptorWrites[0].descriptorCount = 1;
+    descriptorWrites[0].pImageInfo = &imageInfoPrev;
+
+    vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+
 }
 
 void ComputeShader::createDescriptorSet() {
@@ -640,18 +709,6 @@ void ComputeShader::createDescriptorSet() {
     if (vkAllocateDescriptorSets(device, &allocInfo, &descriptorSet) != VK_SUCCESS) {
         throw std::runtime_error("failed to allocate descriptor set!");
     }
-
-    // Storage Image
-    VkDescriptorImageInfo imageInfo = {};
-    imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-    imageInfo.imageView = textures[0]->textureImageView;
-    imageInfo.sampler = textures[0]->textureSampler;
-
-    // Storage Image Prev
-    VkDescriptorImageInfo imageInfoPrev = {};
-    imageInfoPrev.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-    imageInfoPrev.imageView = textures[1]->textureImageView;
-    imageInfoPrev.sampler = textures[1]->textureSampler;
 
     VkDescriptorBufferInfo cameraBufferInfo = {};
     cameraBufferInfo.buffer = uniformCameraBuffer;
@@ -698,23 +755,23 @@ void ComputeShader::createDescriptorSet() {
     imageInfoCurl.imageView = textures[3]->textureImageView;
     imageInfoCurl.sampler = textures[3]->textureSampler;
 
-    std::array<VkWriteDescriptorSet, 10> descriptorWrites = {};
+    std::array<VkWriteDescriptorSet, 8> descriptorWrites = {};
 
     descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     descriptorWrites[0].dstSet = descriptorSet;
     descriptorWrites[0].dstBinding = 0;
     descriptorWrites[0].dstArrayElement = 0;
-    descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     descriptorWrites[0].descriptorCount = 1;
-    descriptorWrites[0].pImageInfo = &imageInfo;
+    descriptorWrites[0].pBufferInfo = &cameraBufferInfo;
 
     descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     descriptorWrites[1].dstSet = descriptorSet;
     descriptorWrites[1].dstBinding = 1;
     descriptorWrites[1].dstArrayElement = 0;
-    descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     descriptorWrites[1].descriptorCount = 1;
-    descriptorWrites[1].pImageInfo = &imageInfoPrev;
+    descriptorWrites[1].pBufferInfo = &cameraBufferInfoPrev;
 
     descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     descriptorWrites[2].dstSet = descriptorSet;
@@ -722,7 +779,7 @@ void ComputeShader::createDescriptorSet() {
     descriptorWrites[2].dstArrayElement = 0;
     descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     descriptorWrites[2].descriptorCount = 1;
-    descriptorWrites[2].pBufferInfo = &cameraBufferInfo;
+    descriptorWrites[2].pBufferInfo = &sunBufferInfo;
 
     descriptorWrites[3].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     descriptorWrites[3].dstSet = descriptorSet;
@@ -730,23 +787,23 @@ void ComputeShader::createDescriptorSet() {
     descriptorWrites[3].dstArrayElement = 0;
     descriptorWrites[3].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     descriptorWrites[3].descriptorCount = 1;
-    descriptorWrites[3].pBufferInfo = &cameraBufferInfoPrev;
+    descriptorWrites[3].pBufferInfo = &skyBufferInfo;
 
     descriptorWrites[4].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     descriptorWrites[4].dstSet = descriptorSet;
     descriptorWrites[4].dstBinding = 4;
     descriptorWrites[4].dstArrayElement = 0;
-    descriptorWrites[4].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    descriptorWrites[4].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     descriptorWrites[4].descriptorCount = 1;
-    descriptorWrites[4].pBufferInfo = &sunBufferInfo;
+    descriptorWrites[4].pImageInfo = &imageInfo2;
 
     descriptorWrites[5].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     descriptorWrites[5].dstSet = descriptorSet;
     descriptorWrites[5].dstBinding = 5;
     descriptorWrites[5].dstArrayElement = 0;
-    descriptorWrites[5].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    descriptorWrites[5].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     descriptorWrites[5].descriptorCount = 1;
-    descriptorWrites[5].pBufferInfo = &skyBufferInfo;
+    descriptorWrites[5].pImageInfo = &imageInfo3;
 
     descriptorWrites[6].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     descriptorWrites[6].dstSet = descriptorSet;
@@ -754,7 +811,7 @@ void ComputeShader::createDescriptorSet() {
     descriptorWrites[6].dstArrayElement = 0;
     descriptorWrites[6].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     descriptorWrites[6].descriptorCount = 1;
-    descriptorWrites[6].pImageInfo = &imageInfo2;
+    descriptorWrites[6].pImageInfo = &imageInfo4;
 
     descriptorWrites[7].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     descriptorWrites[7].dstSet = descriptorSet;
@@ -762,26 +819,11 @@ void ComputeShader::createDescriptorSet() {
     descriptorWrites[7].dstArrayElement = 0;
     descriptorWrites[7].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     descriptorWrites[7].descriptorCount = 1;
-    descriptorWrites[7].pImageInfo = &imageInfo3;
-
-    descriptorWrites[8].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    descriptorWrites[8].dstSet = descriptorSet;
-    descriptorWrites[8].dstBinding = 8;
-    descriptorWrites[8].dstArrayElement = 0;
-    descriptorWrites[8].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    descriptorWrites[8].descriptorCount = 1;
-    descriptorWrites[8].pImageInfo = &imageInfo4;
-
-    descriptorWrites[9].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    descriptorWrites[9].dstSet = descriptorSet;
-    descriptorWrites[9].dstBinding = 9;
-    descriptorWrites[9].dstArrayElement = 0;
-    descriptorWrites[9].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    descriptorWrites[9].descriptorCount = 1;
-    descriptorWrites[9].pImageInfo = &imageInfoCurl;
+    descriptorWrites[7].pImageInfo = &imageInfoCurl;
 
     vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 }
+
 
 void ComputeShader::createPipeline() {
     // Set up programmable shader
@@ -794,7 +836,7 @@ void ComputeShader::createPipeline() {
     shaderStageInfo.module = computeShaderModule;
     shaderStageInfo.pName = "main";
 
-    std::vector<VkDescriptorSetLayout> descriptorSetLayouts = { descriptorSetLayout };
+    std::vector<VkDescriptorSetLayout> descriptorSetLayouts = { storageSetLayout, storageSetLayout, descriptorSetLayout };
 
     // Create pipeline layout
     VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};

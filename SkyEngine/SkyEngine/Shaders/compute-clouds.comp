@@ -3,17 +3,17 @@
 
 #define WORKGROUP_SIZE 32
 layout (local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE) in;
-layout (binding = 0, rgba32f) uniform writeonly image2D resultImage;
-layout (binding = 1, rgba32f) uniform readonly image2D resultImagePrev;
+layout (set = 0, binding = 0, rgba32f) uniform writeonly image2D resultImage;
+layout (set = 1, binding = 0, rgba32f) uniform readonly image2D resultImagePrev;
 
-layout(binding = 2) uniform UniformCameraObject {
+layout(set = 2, binding = 0) uniform UniformCameraObject {
 
     mat4 view;
     mat4 proj;
     vec4 cameraPosition;
 } camera;
 
-layout(binding = 3) uniform UniformCameraObjectPrev {
+layout(set = 2, binding = 1) uniform UniformCameraObjectPrev {
 
     mat4 view;
     mat4 proj;
@@ -21,7 +21,7 @@ layout(binding = 3) uniform UniformCameraObjectPrev {
 } cameraPrev;
 
 // all of these components are calculated in SkyManager.h/.cpp
-layout(set = 0, binding = 4) uniform UniformSunObject {
+layout(set = 2, binding = 2) uniform UniformSunObject {
     
     vec4 location;
     vec4 direction;
@@ -31,7 +31,7 @@ layout(set = 0, binding = 4) uniform UniformSunObject {
 } sun;
 
 // note: a lot of sky constants are stored/precalculated in SkyManager.h / .cpp
-layout(binding = 5) uniform UniformSkyObject {
+layout(set = 2, binding = 3) uniform UniformSkyObject {
     
     vec4 betaR;
     vec4 betaV;
@@ -39,10 +39,10 @@ layout(binding = 5) uniform UniformSkyObject {
     float mie_directional;
 } sky;
 
-layout(binding = 6) uniform sampler2D cloudPlacement;
-layout(binding = 7) uniform sampler3D lowResCloudShape;
-layout(binding = 8) uniform sampler3D hiResCloudShape;
-layout(binding = 9) uniform sampler2D curlNoise;
+layout(set = 2, binding = 4) uniform sampler2D cloudPlacement;
+layout(set = 2, binding = 5) uniform sampler3D lowResCloudShape;
+layout(set = 2, binding = 6) uniform sampler3D hiResCloudShape;
+layout(set = 2, binding = 7) uniform sampler2D curlNoise;
 
 struct Intersection {
     vec3 normal;
@@ -283,7 +283,7 @@ void main() {
 
     if(!((gl_GlobalInvocationID.x % 4) == px_x && (gl_GlobalInvocationID.y % 4) == px_y)) {
         // Read from the previous frame
-        imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), imageLoad(resultImagePrev, ivec2(gl_GlobalInvocationID.xy)));
+        //imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), imageLoad(resultImagePrev, ivec2(gl_GlobalInvocationID.xy)));
         return;
     }
 

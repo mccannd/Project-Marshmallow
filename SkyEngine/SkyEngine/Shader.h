@@ -281,15 +281,29 @@ protected:
     VkDeviceMemory uniformSunBufferMemory;
     VkBuffer uniformSkyBuffer;
     VkDeviceMemory uniformSkyBufferMemory;
+
+    // need sets to ping-pong image buffers
+    VkDescriptorSetLayout storageSetLayout;
+    VkDescriptorSet storageBufferSetA;
+    VkDescriptorSet storageBufferSetB;
+
+    void createStorageSetLayout();
+    void createStorageDescriptorSets();
+
+    // this could probably be abstracted...
+    void createSwappedBufferSet();
+    bool swappedBuffers = false;
 public:
     void setupShader(std::string path) {
         shaderFilePaths.push_back(path);
 
         createDescriptorSetLayout();
+        createStorageSetLayout();
         createPipeline();
         createUniformBuffer();
         createDescriptorPool();
         createDescriptorSet();
+        createStorageDescriptorSets();
     }
 
     ComputeShader(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue queue, VkExtent2D extent) : Shader(device, physicalDevice, commandPool, queue, extent) {}
@@ -306,14 +320,31 @@ public:
         addTexture3D(lowResCloudShapeTex);
         addTexture3D(hiResCloudShapeTex);
         setupShader(path);
+        swappedBuffers = false;
     }
 
     virtual ~ComputeShader() { cleanupUniforms(); }
 
     void updateUniformBuffers(UniformCameraObject& cam, UniformCameraObject& camPrev, UniformSkyObject& sky, UniformSunObject& sun);
     void bindShader(VkCommandBuffer& commandBuffer) override {
+
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
+        
+        if (swappedBuffers) {
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &storageBufferSetB, 0, nullptr);
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 1, 1, &storageBufferSetA, 0, nullptr);
+
+        }
+        else {
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &storageBufferSetA, 0, nullptr);
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 1, 1, &storageBufferSetB, 0, nullptr);
+
+        }
+
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 2, 1, &descriptorSet, 0, nullptr);
+
+        swappedBuffers = !swappedBuffers;
+        
     }
 };
 
