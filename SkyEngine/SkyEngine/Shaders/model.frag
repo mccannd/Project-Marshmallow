@@ -79,9 +79,9 @@ vec3 pbrMaterialColor(in vec3 fresnel, in vec3 N, in vec3 L, in vec3 V, in float
     return max(0.0, dot(N, L)) * (diffuse * lambertBRDF(fresnel) + specular * fresnel * specularBRDFwithoutFresnel(N, L, V, roughness));
 }
 
-
 void main() {
     vec4 albedo = texture(texColor, fragUV);
+
     albedo.xyz = pow(albedo.xyz, vec3(2.2));
     vec4 pbrParams = texture(pbrInfo, fragUV);
     vec3 N = normalize(getNormal());
@@ -104,13 +104,8 @@ void main() {
     vec3 color = pbrMaterialColor(F, N, L, V, roughness, diffuse, specular);
     color *= shadowHack * 100.0 * vec3(1.0, 0.8, 0.6); // hard code light color for now
 
-
-
     color += diffuse * mix(vec3(0), 2.0 * vec3(0.6, 0.7, 1.0), 0.5 + 0.5 * dot(N, normalize((camera.view * vec4(normalize(vec3(0, 1, 0)), 0)).xyz)));
     vec3 aoColor = mix(vec3(0.1, 0.1, 0.3), vec3(1), pbrParams.b);
     color.rgb *= aoColor;
     outColor = vec4(color, 1.0);
-
-    //outColor = vec4(0.5 + 0.5 * normalize(N), 1.0);
-    //outColor = vec4(pbrParams.rgb, 1.0);
 }
