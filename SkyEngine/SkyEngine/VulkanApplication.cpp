@@ -249,6 +249,8 @@ void VulkanApplication::initializeTextures() {
     depthTexture->initForDepthAttachment(swapChainExtent);
     cloudPlacementTexture = new Texture(device, physicalDevice, commandPool, graphicsQueue);
     cloudPlacementTexture->initFromFile("Textures/CloudPlacement.png");
+    nightSkyTexture = new Texture(device, physicalDevice, commandPool, graphicsQueue);
+    nightSkyTexture->initFromFile("Textures/NightSky/nightSky.png");
     lowResCloudShapeTexture3D = new Texture3D(device, physicalDevice, commandPool, graphicsQueue, 128, 128, 128); // 128, 128, 128
     lowResCloudShapeTexture3D->initFromFile("Textures/3DTextures/lowResCloudShape/lowResCloud"); // note: no .png
     hiResCloudShapeTexture3D = new Texture3D(device, physicalDevice, commandPool, graphicsQueue, 32, 32, 32); // 128, 128, 128
@@ -263,13 +265,13 @@ void VulkanApplication::cleanupTextures() {
     delete backgroundTexture;
     delete depthTexture;
     delete cloudPlacementTexture;
+    delete nightSkyTexture;
     delete lowResCloudShapeTexture3D;
     delete hiResCloudShapeTexture3D;
 }
 
 void VulkanApplication::initializeGeometry() {
     sceneGeometry = new Geometry(device, physicalDevice, commandPool, graphicsQueue);
-    //sceneGeometry->setupAsQuad();
     sceneGeometry->setupFromMesh("Models/lopolyLessCheek2.obj");
     backgroundGeometry = new Geometry(device, physicalDevice, commandPool, graphicsQueue);
     backgroundGeometry->setupAsBackgroundQuad();
@@ -289,7 +291,7 @@ void VulkanApplication::initializeShaders() {
 
     // Note: we pass the background shader's texture with the intention of writing to it with the compute shader
     computeShader = new ComputeShader(device, physicalDevice, commandPool, computeQueue, swapChainExtent, 
-        &offscreenPass.renderPass, std::string("Shaders/compute-clouds.comp.spv"), backgroundTexture, cloudPlacementTexture, 
+        &offscreenPass.renderPass, std::string("Shaders/compute-clouds.comp.spv"), backgroundTexture, cloudPlacementTexture, nightSkyTexture,
         lowResCloudShapeTexture3D, hiResCloudShapeTexture3D);
 
     // Post shaders: there will be many
@@ -349,7 +351,7 @@ void VulkanApplication::updateUniformBuffer() {
     //umo.model[0][0] = 8.0f;
     //umo.model[2][2] = 8.0f;
     umo.invTranspose = glm::inverse(glm::transpose(umo.model));
-    float interp = sin(time * 0.2f) * 0.5f + 0.5f;
+    float interp = -sin(time * 0.001f);
 
     skySystem.rebuildSkyFromNewSun(interp * 0.5f, 0.25f);
     skySystem.setTime(std::fmod(time * 2.f, 10000.f));

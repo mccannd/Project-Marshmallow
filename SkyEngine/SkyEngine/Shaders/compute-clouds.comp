@@ -32,8 +32,9 @@ layout(binding = 3) uniform UniformSkyObject {
 } sky;
 
 layout(binding = 4) uniform sampler2D cloudPlacement;
-layout(binding = 5) uniform sampler3D lowResCloudShape;
-layout(binding = 6) uniform sampler3D hiResCloudShape;
+layout(binding = 5) uniform sampler2D nightSkyMap;
+layout(binding = 6) uniform sampler3D lowResCloudShape;
+layout(binding = 7) uniform sampler3D hiResCloudShape;
 
 struct Intersection {
     vec3 normal;
@@ -53,7 +54,7 @@ struct Intersection {
 #define THREE_OVER_SIXTEENPI 0.05968310365946075
 #define ONE_OVER_FOURPI 0.07957747154594767
 
-#define ASPECT_RATIO dim.x / dim.y
+#define ASPECT_RATIO 1280.0 / 720.0 //dim.x / dim.y
 
 float remap(in float value, in float oldMin, in float oldMax, in float newMin, in float newMax) {
     return newMin + (((value - oldMin) / (oldMax - oldMin)) * (newMax - newMin));
@@ -78,10 +79,9 @@ float rayleighPhase(in float cosTheta) {
     return THREE_OVER_SIXTEENPI * (1.0 + cosTheta * cosTheta);
 }
 
-vec3 getAtmosphereColorPhysical(in vec3 dir, inout vec3 sunDir) {
+vec3 getAtmosphereColorPhysical(in vec3 dir, in vec3 sunDir) {
     vec3 color = vec3(0);
 
-    sunDir = normalize(sun.direction.xyz); 
     vec3 sunPos = sun.location.xyz; 
     float sunE = sun.intensity; 
     vec3 BetaR = sky.betaR.xyz;   
@@ -132,7 +132,9 @@ vec3 getAtmosphereColor(in vec3 dir) {
 
 /// ATMOSPHERE COLOR END: see credit at BEGIN
 
-
+vec3 NightSkyColor( in vec2 uv ) {
+    return texture(nightSkyMap, uv).xyz;
+}
 
 
 // Compute sphere intersection
@@ -238,7 +240,6 @@ float cloudTest(in vec3 pos, in float relativeHeight, in vec3 earthCenter, inout
 
     density = layerDensity * remapClamped(densityNoise.x, 0.3, 1.0, 0.0, 1.0);
 
-
     coverage = 0.0;
     // early check before more expensive math
     if (density < 0.0001) return 0.0;
@@ -254,10 +255,34 @@ float cloudTest(in vec3 pos, in float relativeHeight, in vec3 earthCenter, inout
     return density;
 }
 
+// Code taken from camera.cpp
+mat3 fromAngleAxis( in vec3 angle, in float angleRad ) {
+    float cost = cos(angleRad);
+    float sint = sin(angleRad);
+
+    mat3 rot;
+    rot[0] = vec3(
+        cost + angle.x * angle.x * (1.f - cost),
+        angle.y * angle.x * (1.f - cost) + angle.z * sint,
+        angle.z * angle.x * (1.f - cost) - angle.y * sint
+        );
+    rot[1] = vec3(
+        angle.x * angle.y * (1.f - cost) - angle.z * sint,
+        cost + angle.y * angle.y * (1.f - cost),
+        angle.z * angle.y * (1.f - cost) + angle.x * sint
+        );
+    rot[2] = vec3(
+        angle.x * angle.z * (1.f - cost) + angle.y * sint,
+        angle.y * angle.z * (1.f - cost) - angle.x * sint,
+        cost + angle.z * angle.z * (1.f - cost)
+        );
+    return rot;
+}
 
 #define WIND_STRENGTH 20.0
 
 void main() {
+    //imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), sun.color); return;
     /// Extract the UV
     ivec2 dim = imageSize(resultImage); // prob better as uniform
     // TODO: half resolution reprojection
@@ -273,7 +298,7 @@ void main() {
     imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), finalColor2);
     return;
     */
-
+    
     /// Cast a ray
     // Compute screen space point from UVs
     vec2 screenPoint = uv * 2.0 - 1.0;
@@ -293,9 +318,8 @@ void main() {
 
     vec3 rayDirection = normalize(p - cameraPos);
 
-    vec3 sunDir;
-
-    vec3 backgroundCol = getAtmosphereColorPhysical(rayDirection, sunDir);
+    vec3 sunDir = normalize(sun.directionBasis[1].xyz);
+    
     float dotToSun = max(0.0, dot(sunDir, rayDirection));
     float skyAmbient = dotToSun * 0.18;
     skyAmbient *= skyAmbient * skyAmbient;
@@ -309,20 +333,14 @@ void main() {
     sunDisk = max(sunDisk, dotToSun);
     sunDisk = max(0.0, sunDisk);
 
-
     vec4 finalColor;
-    finalColor.xyz = backgroundCol;
-    finalColor.a = max(skyAmbient, sunDisk);
-
-    // It is likely we will never have an entirely unobstructed view of the horizon, so kill rays that would otherwise be executing.
-    // TODO: low-res stencil check first
-    if(dot(rayDirection, vec3(0, 1, 0)) < 0.0) {
-        imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), finalColor);
-        return;
+    vec3 backgroundCol;
+    if(sun.direction.y >= 0.0) {
+        backgroundCol = getAtmosphereColorPhysical(rayDirection, sunDir);
+        finalColor.a = max(skyAmbient, sunDisk);
     }
 
     float timeOffset = sky.wind.w;
-
 
     /// Raytrace the scene (a sphere, to become the atmosphere)
     vec3 earthCenter = cameraPos;
@@ -332,6 +350,35 @@ void main() {
     vec4 atmosphereSphereOuter = vec4(earthCenter, ATMOSPHERE_RADIUS * 1.02);
     Intersection atmosphereIsectInner = raySphereIntersection(cameraPos, rayDirection, atmosphereSphereInner);
     Intersection atmosphereIsectOuter = raySphereIntersection(cameraPos, rayDirection, atmosphereSphereOuter);
+
+    if(sun.direction.y < 0.0) {
+        // The sky should appear to rotate as the earth rotates
+        // Create a rotation matrix from scratch
+        // For now, just rotate an amount based on sun.direction.y.
+        mat3 rot = fromAngleAxis(normalize(vec3(1.0, 0.0, 1.0)), sun.direction.y);
+        vec3 rotatedRayDir = rot * rayDirection;
+        vec3 rotatedRayOrigin = rot * cameraPos;
+        vec3 point = atmosphereIsectOuter.t * rotatedRayDir + rotatedRayOrigin;
+        vec3 projectedPoint = getProjectedShellPoint(point, earthCenter);
+        vec2 uv = 0.00002 * (projectedPoint.xz - cameraPos.xz) + 0.5; // magic numberz
+        backgroundCol = NightSkyColor(uv);
+        backgroundCol *= sqrt(backgroundCol) * 0.25;
+        backgroundCol = pow(backgroundCol, vec3(2.2));
+        backgroundCol *= 10.0;
+        float falloff = pow(rayDirection.y, 6.0);
+        backgroundCol *= falloff;
+        backgroundCol = mix(vec3(0.3, 0.6, 4.0) * 0.05, backgroundCol, pow(rayDirection.y, 0.03125));
+        finalColor.a = max(0.0, sunDisk);
+    }
+    
+    finalColor.xyz = backgroundCol;
+
+    // It is likely we will never have an entirely unobstructed view of the horizon, so kill rays that would otherwise be executing.
+    // TODO: low-res stencil check first
+    if(dot(rayDirection, vec3(0, 1, 0)) < 0.0) {
+        imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), finalColor);
+        return;
+    }
 
     float cosTheta = dot(rayDirection, sunDir);
     float t;
@@ -348,8 +395,6 @@ void main() {
         basis * vec3(-0.1, 1, -0.2),
         basis * vec3(0, 6, 0),
     };
-
-    
 
     float henyeyGreenstein = max(hgPhase(cosTheta, 0.6), 0.7 * hgPhase(cosTheta, 0.99 - 0.1));
     for(float t = atmosphereIsectInner.t; t < atmosphereIsectOuter.t; t += stepSize) {

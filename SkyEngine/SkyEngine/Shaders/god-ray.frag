@@ -47,6 +47,11 @@ void main() {
     deltaLightVec *= SAMPLE_WEIGHT * DENSITY;
 
     const vec4 currentFragment = texture(texColor, fragUV);
+
+    if(sun.direction.y < 0.0) {
+        outColor = vec4(currentFragment.xyz, 1.0); return;
+    }
+
     float accumSampleAmt = currentFragment.a * 0.5;
     float illuminationDecay = 1.0;
 
