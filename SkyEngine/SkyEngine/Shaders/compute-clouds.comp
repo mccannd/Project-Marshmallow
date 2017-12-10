@@ -228,12 +228,10 @@ float cloudHiRes(in vec3 pos, in float curlStrength, in float origDensity, in fl
     curl = 2.0 * curl - 1.0;
     pos += 0.9 * curlStrength * curl;
 
-    vec4 densityNoise = texture(hiResCloudShape, 0.0005 * pos);
+    vec4 densityNoise = texture(hiResCloudShape, 0.0004 * pos);
     float erosion = 0.625 * densityNoise.r + 0.25 * densityNoise.g + 0.125 * densityNoise.b;
 
     erosion = mix(erosion, 1.0 - erosion, clamp(relativeHeight * 10.0, 0.0, 1.0));
-    //return erosion;
-    //return origDensity;
     return remapClamped(origDensity, 1.0 * erosion, 1.0, 0.0, 1.0);
 }
 
@@ -246,7 +244,7 @@ float cloudTest(in vec3 pos, in float relativeHeight, in vec3 earthCenter, inout
     vec3 cloudInfo = texture(cloudPlacement, 0.000009 * (currentProj.xz - camera.cameraPosition.xz)).xyz;
     float layerDensity = cloudLayerDensity(relativeHeight, cloudInfo.b);
 
-    vec4 densityNoise = texture(lowResCloudShape, 0.00002 * vec3(pos));
+    vec4 densityNoise = texture(lowResCloudShape, 0.000025 * vec3(pos));
     //densityNoise.x = 1.0;
     density = layerDensity * remapClamped(densityNoise.x, 0.3, 1.0, 0.0, 1.0);
 
@@ -349,7 +347,7 @@ void main() {
     float t;
     float accumDensity = 0.0;
     float transmittance = 1.0;
-    float stepSize = 0.02 * atmosphereThickness;
+    float stepSize = 0.025 * atmosphereThickness;
 
     mat3 basis = mat3(sun.directionBasis);
     vec3 samples[6] = {
@@ -438,18 +436,6 @@ void main() {
             break;
         }
     }
-
-    
-
-    // For the god rays, write to the alpha channel according the density of the image
-    // we want this before the haze thing is taken into account
-    
-    //finalColor.a = max(1.0 - 7.0 * accumDensity, 0.0); // only areas with density of 0.1 or less with be permitted to contribute to the god rays
-    
-    
-    // the idea of this is that there should only be high light values in the image if the light is not well occluded, and high densities would occlude
-    // the light. So scale the sample in the god ray shader by this value.
-    // This is a cheaty way to avoid having to set aside a whole framebuffer for light values.
 
     // opacity fades to prevent hard cutoff at horizon
     accumDensity *= smoothstep(0, 1, min(1, remap(rayDirection.y, 0, 0.1, 0, 1)));
