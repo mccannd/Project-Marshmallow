@@ -160,6 +160,8 @@ private:
         app->recreateSwapChain();
     }
 
+    bool swapBackgroundImages = false;
+
     /// --- Vulkan Objects and Attributes
     VkInstance instance;
     VkDebugReportCallbackEXT callback;
@@ -184,7 +186,7 @@ private:
     VkCommandPool commandPool;
     std::vector<VkCommandBuffer> commandBuffers;
     // Compute
-    VkCommandBuffer computeCommandBuffer; // TODO: if we need multiple compute shaders for some reason,
+    std::vector<VkCommandBuffer> computeCommandBuffers; // TODO: if we need multiple compute shaders for some reason,
                                           // make this a vector like above
     VkCommandPool computeCommandPool;
 
@@ -214,6 +216,7 @@ private:
     MeshShader* meshShader;
     BackgroundShader* backgroundShader;
     ComputeShader* computeShader;
+    ReprojectShader* reprojectShader;
     PostProcessShader* toneMapShader;
     PostProcessShader* godRayShader;
     PostProcessShader* radialBlurShader;

@@ -169,7 +169,8 @@ void VulkanApplication::drawFrame() {
     computeSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
     computeSubmitInfo.commandBufferCount = 1;
-    computeSubmitInfo.pCommandBuffers = &computeCommandBuffer;
+    computeSubmitInfo.pCommandBuffers = &computeCommandBuffers[(swapBackgroundImages ? 1 : 0)];
+    swapBackgroundImages = !swapBackgroundImages;
 
     if (vkQueueSubmit(computeQueue, 1, &computeSubmitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
         throw std::runtime_error("Failed to submit compute command buffer");
@@ -293,13 +294,15 @@ void VulkanApplication::initializeShaders() {
         &offscreenPass.renderPass, std::string("Shaders/model.vert.spv"), std::string("Shaders/model.frag.spv"), meshTexture, meshPBRInfo, meshNormals);
     
     backgroundShader = new BackgroundShader(device, physicalDevice, commandPool, graphicsQueue, swapChainExtent, 
-        &offscreenPass.renderPass, std::string("Shaders/background.vert.spv"), std::string("Shaders/background.frag.spv"), backgroundTexture);
+        &offscreenPass.renderPass, std::string("Shaders/background.vert.spv"), std::string("Shaders/background.frag.spv"), backgroundTexture, backgroundTexturePrev);
 
     // Note: we pass the background shader's texture with the intention of writing to it with the compute shader
     computeShader = new ComputeShader(device, physicalDevice, commandPool, computeQueue, swapChainExtent, &offscreenPass.renderPass, 
         std::string("Shaders/compute-clouds.comp.spv"), backgroundTexture, backgroundTexturePrev, cloudPlacementTexture, 
     lowResCloudShapeTexture3D, hiResCloudShapeTexture3D, cloudCurlNoise);
 
+    reprojectShader = new ReprojectShader(device, physicalDevice, commandPool, computeQueue, swapChainExtent, &offscreenPass.renderPass,
+        std::string("Shaders/reproject.comp.spv"), backgroundTexture, backgroundTexturePrev);
 
     // Post shaders: there will be many
     // This is still offscreen, so the render pass is the offscreen render pass
@@ -317,6 +320,7 @@ void VulkanApplication::cleanupShaders() {
     delete meshShader;
     delete backgroundShader;
     delete computeShader;
+    delete reprojectShader;
     delete toneMapShader;
     delete godRayShader;
     delete radialBlurShader;
@@ -1017,14 +1021,16 @@ void VulkanApplication::createPostProcessCommandBuffer() {
 }
 
 void VulkanApplication::createComputeCommandBuffer() {
+    computeCommandBuffers.resize(2); // need to swap back and forth for background
+    
     // Specify the command pool and number of buffers to allocate
     VkCommandBufferAllocateInfo allocInfo = {};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     allocInfo.commandPool = computeCommandPool;
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandBufferCount = 1;
+    allocInfo.commandBufferCount = (uint32_t)computeCommandBuffers.size();
 
-    if (vkAllocateCommandBuffers(device, &allocInfo, &computeCommandBuffer) != VK_SUCCESS) {
+    if (vkAllocateCommandBuffers(device, &allocInfo, computeCommandBuffers.data()) != VK_SUCCESS) {
         throw std::runtime_error("Failed to allocate command buffers");
     }
 
@@ -1033,22 +1039,37 @@ void VulkanApplication::createComputeCommandBuffer() {
     beginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
     beginInfo.pInheritanceInfo = nullptr;
 
-    // Begin recording
-    if (vkBeginCommandBuffer(computeCommandBuffer, &beginInfo) != VK_SUCCESS) {
-        throw std::runtime_error("Failed to begin recording compute command buffer");
-    }
+    // need 2 buffers to ping-pong draw targets
+    for (int i = 0; i < 2; i++) {
+        // Begin recording
+        if (vkBeginCommandBuffer(computeCommandBuffers[i], &beginInfo) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to begin recording compute command buffer");
+        }
 
-    computeShader->bindShader(computeCommandBuffer);
+        reprojectShader->bindShader(computeCommandBuffers[i]);
 
-    // TODO: dispatch according to the number of pixels, do in a 2d manner? see the raytracing example
-    // first TODO: launch this compute shader for the triangle being rendered
-    //const int IMAGE_SIZE = 32;
-    const glm::ivec2 texDims(swapChainExtent.width / 4, swapChainExtent.height / 4);
-    vkCmdDispatch(computeCommandBuffer, static_cast<uint32_t>((texDims.x + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE), static_cast<uint32_t>((texDims.y + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE), 1);
+        const glm::ivec2 texDimsFull(swapChainExtent.width, swapChainExtent.height);
+        vkCmdDispatch(computeCommandBuffers[i],
+            static_cast<uint32_t>((texDimsFull.x + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
+            static_cast<uint32_t>((texDimsFull.y + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
+            1);
 
-    // End recording
-    if (vkEndCommandBuffer(computeCommandBuffer) != VK_SUCCESS) {
-        throw std::runtime_error("Failed to record compute command buffer");
+        // compute shader will switch descriptor set binding inside this function
+        computeShader->bindShader(computeCommandBuffers[i]);
+
+        // TODO: dispatch according to the number of pixels, do in a 2d manner? see the raytracing example
+        // first TODO: launch this compute shader for the triangle being rendered
+        //const int IMAGE_SIZE = 32;
+        const glm::ivec2 texDims(swapChainExtent.width / 4, swapChainExtent.height / 4);
+        vkCmdDispatch(computeCommandBuffers[i], 
+            static_cast<uint32_t>((texDims.x + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE), 
+            static_cast<uint32_t>((texDims.y + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE), 
+            1);
+
+        // End recording
+        if (vkEndCommandBuffer(computeCommandBuffers[i]) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to record compute command buffer");
+        }
     }
 }
 

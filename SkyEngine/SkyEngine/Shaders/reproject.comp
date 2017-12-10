@@ -1,0 +1,19 @@
+#version 450
+#extension GL_ARB_separate_shader_objects : enable
+
+#define WORKGROUP_SIZE 32
+
+layout (local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE) in;
+layout (set = 0, binding = 0, rgba32f) uniform writeonly image2D targetImage;
+layout (set = 1, binding = 0, rgba32f) uniform readonly image2D sourceImage;
+
+
+void main() {
+    // shader is dispatched at full resolution
+    //ivec2 dim = imageSize(sourceImage);
+    //vec2 uv = vec2(gl_GlobalInvocationID.xy) / dim;
+
+    vec4 sourceColor = imageLoad(sourceImage, ivec2(gl_GlobalInvocationID.xy));
+    if (dot(sourceColor, sourceColor) < 0.001) sourceColor = vec4(1, 0, 0, 0);
+    imageStore(targetImage, ivec2(gl_GlobalInvocationID.xy), sourceColor);
+}

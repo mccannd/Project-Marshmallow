@@ -345,13 +345,13 @@ void BackgroundShader::createDescriptorPool() {
     std::array<VkDescriptorPoolSize, 1> poolSizes = {};
 
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    poolSizes[0].descriptorCount = 1;
+    poolSizes[0].descriptorCount = 2;
 
     VkDescriptorPoolCreateInfo poolInfo = {};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
     poolInfo.pPoolSizes = poolSizes.data();
-    poolInfo.maxSets = 1;
+    poolInfo.maxSets = 2; // ping-pong between two images
 
     if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
         throw std::runtime_error("failed to create descriptor pool!");
@@ -366,14 +366,15 @@ void BackgroundShader::createDescriptorSet() {
     allocInfo.descriptorSetCount = 1;
     allocInfo.pSetLayouts = layouts;
 
+    // A
     if (vkAllocateDescriptorSets(device, &allocInfo, &descriptorSet) != VK_SUCCESS) {
         throw std::runtime_error("failed to allocate descriptor set!");
     }
 
     VkDescriptorImageInfo imageInfo = {};
     imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    imageInfo.imageView = textures[ALBEDO]->textureImageView;
-    imageInfo.sampler = textures[ALBEDO]->textureSampler;
+    imageInfo.imageView = textures[0]->textureImageView;
+    imageInfo.sampler = textures[0]->textureSampler;
 
     std::array<VkWriteDescriptorSet, 1> descriptorWrites = {};
 
@@ -386,6 +387,20 @@ void BackgroundShader::createDescriptorSet() {
     descriptorWrites[0].pImageInfo = &imageInfo;
 
     vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+
+    // B
+    if (vkAllocateDescriptorSets(device, &allocInfo, &descriptorSetB) != VK_SUCCESS) {
+        throw std::runtime_error("failed to allocate descriptor set!");
+    }
+
+    // Swapped background image
+    imageInfo.imageView = textures[1]->textureImageView;
+    imageInfo.sampler = textures[1]->textureSampler;
+
+    descriptorWrites[0].dstSet = descriptorSetB;
+
+    vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+
 }
 
 void BackgroundShader::createPipeline() {
@@ -610,26 +625,14 @@ void ComputeShader::createDescriptorSetLayout() {
 }
 
 void ComputeShader::createDescriptorPool() {
-    std::array<VkDescriptorPoolSize, 9> poolSizes = {};
-
+    std::array<VkDescriptorPoolSize, 3> poolSizes = {};
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
     poolSizes[0].descriptorCount = 2;
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    poolSizes[1].descriptorCount = 1;
-    poolSizes[2].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    poolSizes[2].descriptorCount = 1;
-    poolSizes[3].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    poolSizes[3].descriptorCount = 1;
-    poolSizes[4].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    poolSizes[4].descriptorCount = 1;
-    poolSizes[5].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    poolSizes[5].descriptorCount = 1;
-    poolSizes[6].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    poolSizes[6].descriptorCount = 1;
-    poolSizes[7].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    poolSizes[7].descriptorCount = 1;
-    poolSizes[8].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    poolSizes[8].descriptorCount = 1;
+    poolSizes[1].descriptorCount = 4;
+    poolSizes[2].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    poolSizes[2].descriptorCount = 4;
+
 
     VkDescriptorPoolCreateInfo poolInfo = {};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -1183,4 +1186,148 @@ void PostProcessShader::updateUniformBuffers(UniformCameraObject &cam, UniformSu
     vkMapMemory(device, uniformSunBufferMemory, 0, sizeof(b), 0, &data2);
     memcpy(data2, &b, sizeof(b));
     vkUnmapMemory(device, uniformSunBufferMemory);
+}
+
+
+/// Reproject shader
+
+
+void ReprojectShader::cleanupUniforms() {
+    // currently no uniforms, only a texture
+    vkDestroyBuffer(device, uniformSkyBuffer, nullptr);
+    vkFreeMemory(device, uniformSkyBufferMemory, nullptr);
+}
+
+void ReprojectShader::createDescriptorSetLayout() {
+    VkDescriptorSetLayoutBinding samplerLayoutBinding = UniformStorageImageObject::getLayoutBinding(0);
+
+    std::array<VkDescriptorSetLayoutBinding, 1> bindings = { samplerLayoutBinding };
+    VkDescriptorSetLayoutCreateInfo layoutInfo = {};
+    layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
+    layoutInfo.pBindings = bindings.data();
+
+    if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create descriptor set layout!");
+    }
+}
+
+void ReprojectShader::updateUniformBuffers(UniformCameraObject& cam, UniformCameraObject& camPrev, UniformSkyObject& sky, UniformSunObject& sun) {
+    // only the sky for the moment
+
+}
+
+void ReprojectShader::createDescriptorPool() {
+    std::array<VkDescriptorPoolSize, 1> poolSizes = {};
+
+    poolSizes[0].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    poolSizes[0].descriptorCount = 2;
+
+    VkDescriptorPoolCreateInfo poolInfo = {};
+    poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
+    poolInfo.pPoolSizes = poolSizes.data();
+    poolInfo.maxSets = 2; // ping-pong between two images
+
+    if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create descriptor pool!");
+    }
+}
+
+void ReprojectShader::createDescriptorSet() {
+    VkDescriptorSetLayout layouts[] = { descriptorSetLayout };
+    VkDescriptorSetAllocateInfo allocInfo = {};
+    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocInfo.descriptorPool = descriptorPool;
+    allocInfo.descriptorSetCount = 1;
+    allocInfo.pSetLayouts = layouts;
+
+    // A
+    if (vkAllocateDescriptorSets(device, &allocInfo, &descriptorSet) != VK_SUCCESS) {
+        throw std::runtime_error("failed to allocate descriptor set!");
+    }
+
+    VkDescriptorImageInfo imageInfo = {};
+    imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+    imageInfo.imageView = textures[0]->textureImageView;
+    imageInfo.sampler = textures[0]->textureSampler;
+
+    std::array<VkWriteDescriptorSet, 1> descriptorWrites = {};
+
+    descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrites[0].dstSet = descriptorSet;
+    descriptorWrites[0].dstBinding = 0;
+    descriptorWrites[0].dstArrayElement = 0;
+    descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    descriptorWrites[0].descriptorCount = 1;
+    descriptorWrites[0].pImageInfo = &imageInfo;
+
+    vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+
+    // B
+    if (vkAllocateDescriptorSets(device, &allocInfo, &descriptorSetB) != VK_SUCCESS) {
+        throw std::runtime_error("failed to allocate descriptor set!");
+    }
+
+    // Swapped background image
+    imageInfo.imageView = textures[1]->textureImageView;
+    imageInfo.sampler = textures[1]->textureSampler;
+
+    descriptorWrites[0].dstSet = descriptorSetB;
+
+    vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+
+}
+
+
+void ReprojectShader::createUniformBuffer() {
+
+    VkDeviceSize skyBufferSize = sizeof(UniformSkyObject);
+    VulkanObject::createBuffer(skyBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformSkyBuffer, uniformSkyBufferMemory);
+
+}
+
+void ReprojectShader::createPipeline() {
+    // Set up programmable shader
+    auto computeShaderCode = readFile(shaderFilePaths[0]);
+    VkShaderModule computeShaderModule = createShaderModule(computeShaderCode, device);
+
+    VkPipelineShaderStageCreateInfo shaderStageInfo = {};
+    shaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    shaderStageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+    shaderStageInfo.module = computeShaderModule;
+    shaderStageInfo.pName = "main";
+
+    std::vector<VkDescriptorSetLayout> descriptorSetLayouts = { descriptorSetLayout, descriptorSetLayout };
+
+    // Create pipeline layout
+    VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
+    pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(descriptorSetLayouts.size());
+    pipelineLayoutInfo.pSetLayouts = descriptorSetLayouts.data();
+    pipelineLayoutInfo.pushConstantRangeCount = 0;
+    pipelineLayoutInfo.pPushConstantRanges = 0;
+
+    // Create that layout
+    if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create pipeline layout");
+    }
+
+    // Create compute pipeline
+    VkComputePipelineCreateInfo pipelineInfo = {};
+    pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+    pipelineInfo.stage = shaderStageInfo;
+    pipelineInfo.layout = pipelineLayout;
+    pipelineInfo.pNext = nullptr;
+    pipelineInfo.flags = 0;
+    pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
+    pipelineInfo.basePipelineIndex = -1;
+
+    // Create that pipeline
+    if (vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create compute pipeline");
+    }
+
+    // No longer need shader module
+    vkDestroyShaderModule(device, computeShaderModule, nullptr);
 }

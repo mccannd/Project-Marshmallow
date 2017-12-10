@@ -218,7 +218,7 @@ float cloudHiRes(in vec3 pos, in float curlStrength, in float origDensity, in fl
     vec3 curl = texture(curlNoise, c * pos.xz).xyz;
 
     curl = 2.0 * curl - 1.0;
-    pos += 0.9 * curlStrength * curl;
+    pos += 1.9 * curlStrength * curl;
 
     vec4 densityNoise = texture(hiResCloudShape, 0.0005 * pos);
     float erosion = 0.625 * densityNoise.r + 0.25 * densityNoise.g + 0.125 * densityNoise.b;
@@ -237,7 +237,6 @@ float cloudTest(in vec3 pos, in float relativeHeight, in vec3 earthCenter, inout
     float layerDensity = cloudLayerDensity(relativeHeight, cloudInfo.b);
 
     vec4 densityNoise = texture(lowResCloudShape, 0.00002 * vec3(pos));
-    //densityNoise.x = 1.0;
     density = layerDensity * remapClamped(densityNoise.x, 0.3, 1.0, 0.0, 1.0);
 
     coverage = 0.0;
@@ -265,6 +264,10 @@ void main() {
     
     // Only update every 16th pixel
     int pxOffset = int(sun.color.a);
+    const int pixelHashing[16] = {
+        1, 14, 8, 11, 10, 12, 5, 3, 4, 7, 0, 9, 15, 2, 13, 6
+    };
+    pxOffset = pixelHashing[pxOffset];
     int pxO_x = pxOffset % 4;
     int pxO_y = pxOffset / 4;
 
@@ -414,7 +417,7 @@ void main() {
             float beersModulated = max(beersLaw, 0.7 * exp(-0.25 * densityAlongLight));
 
             beersLaw = mix(beersLaw, beersModulated, -cosTheta * 0.5 + 0.5);
-            float inScatter = 0.05 + pow(loDensity, remapClamped(rHeight, 0.3, 0.85, 0.5, 2.0));
+            float inScatter = 0.09 + pow(loDensity, remapClamped(rHeight, 0.3, 0.85, 0.5, 2.0));
             inScatter *= pow(remapClamped(rHeight, 0.07, 0.34, 0.1, 1.0), 0.8);
             //inScatter = loDensity * loDensity;
             transmittance = mix(transmittance, inScatter * henyeyGreenstein * beersLaw , (1.0 - accumDensity));
@@ -450,7 +453,7 @@ void main() {
     // opacity fades to prevent hard cutoff at horizon
     accumDensity *= smoothstep(0, 1, min(1, remap(rayDirection.y, 0, 0.1, 0, 1)));
     accumDensity = min(accumDensity, 0.999);
-    vec3 cloudColor = sun.color.xyz * (sun.intensity * vec3(max(0.0, transmittance)) + 0.08 * backgroundCol * exp(-transmittance));
+    vec3 cloudColor = sun.color.xyz * (sun.intensity * vec3(max(0.0, transmittance)) + 0.08 * backgroundCol * exp(-(transmittance)));
 
     finalColor.rgb = mix(backgroundCol, cloudColor, accumDensity);
     finalColor.a *= max(1.0 - accumDensity, 0.0);
