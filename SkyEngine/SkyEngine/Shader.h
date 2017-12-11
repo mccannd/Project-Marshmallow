@@ -25,6 +25,7 @@ struct UniformCameraObject {
     glm::mat4 view;
     glm::mat4 proj;
     glm::vec4 cameraPosition;
+    glm::vec4 cameraParams;
 
     static VkDescriptorSetLayoutBinding getLayoutBinding(uint32_t bind)
     {

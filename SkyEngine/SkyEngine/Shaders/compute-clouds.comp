@@ -13,6 +13,7 @@ layout(set = 2, binding = 0) uniform UniformCameraObject {
     mat4 view;
     mat4 proj;
     vec4 cameraPosition;
+    vec4 cameraParams;
 } camera;
 
 layout(set = 2, binding = 1) uniform UniformCameraObjectPrev {
@@ -60,8 +61,6 @@ struct Intersection {
 
 #define THREE_OVER_SIXTEENPI 0.05968310365946075
 #define ONE_OVER_FOURPI 0.07957747154594767
-
-#define ASPECT_RATIO 1280.0 / 720.0
 
 float remap(in float value, in float oldMin, in float oldMax, in float newMin, in float newMax) {
     return newMin + (((value - oldMin) / (oldMax - oldMin)) * (newMax - newMin));
@@ -316,9 +315,7 @@ void main() {
     const vec3 cameraPos = camera.cameraPosition.xyz;
     vec3 refPoint = cameraPos - camLook;
 
-    const float tanFovy = 0.4142135; // TODO link camera uniform
-
-    vec3 p = refPoint + 1.777778 * screenPoint.x * tanFovy * camRight - screenPoint.y * tanFovy * camUp; // TODO: aspect ratio as uniform
+    vec3 p = refPoint + camera.cameraParams.x * screenPoint.x * camera.cameraParams.y * camRight - screenPoint.y * camera.cameraParams.y * camUp;
 
     vec3 rayDirection = normalize(p - cameraPos);
 
