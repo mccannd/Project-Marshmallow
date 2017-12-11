@@ -279,7 +279,7 @@ void VulkanApplication::cleanupTextures() {
 
 void VulkanApplication::initializeGeometry() {
     sceneGeometry = new Geometry(device, physicalDevice, commandPool, graphicsQueue);
-    sceneGeometry->setupFromMesh("Models/lopolyLessCheek2.obj");
+    sceneGeometry->setupFromMesh("Models/DisplayCube.obj");
     backgroundGeometry = new Geometry(device, physicalDevice, commandPool, graphicsQueue);
     backgroundGeometry->setupAsBackgroundQuad();
 }
@@ -366,8 +366,8 @@ void VulkanApplication::updateUniformBuffer() {
     UniformModelObject umo = {};
     //umo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.f), glm::vec3(0.f, 0.f, 1.f));
     umo.model = glm::mat4(1.0f);
-    umo.model[0][0] = 8000.0f;
-    umo.model[2][2] = 8000.0f;
+    umo.model[0][0] = 80.0f;
+    umo.model[2][2] = 80.0f;
     umo.invTranspose = glm::inverse(glm::transpose(umo.model));
     float interp = sin(time * 0.05f);
 

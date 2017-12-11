@@ -300,7 +300,6 @@ void main() {
     int pxO_x = pxOffset % 4;
     int pxO_y = pxOffset / 4;
 
-
     uint pxTargetX = gl_GlobalInvocationID.x * 4 + pxO_x;
     uint pxTargetY = gl_GlobalInvocationID.y * 4 + pxO_y;
 

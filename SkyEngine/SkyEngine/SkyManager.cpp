@@ -15,7 +15,7 @@ float clamp(float t, float min, float max) {
 void SkyManager::calcSunColor() {
 
     if (sun.direction.y < 0.0f) {
-        sun.color = glm::vec4(0.8f, 0.9f, 1.0f, 0.f);
+        sun.color = glm::vec4(0.8f, 0.9f, 1.0f, sun.color.a);
     } else {
         glm::vec3 sunset = glm::vec3(2.f, 0.33922, 0.0431f);
         float t = (sun.direction.y) * 13.f;
