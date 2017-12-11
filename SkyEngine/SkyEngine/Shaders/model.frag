@@ -219,7 +219,8 @@ void main() {
     vec4 pbrParams = texture(pbrInfo, fragUV);
     vec3 N = normalize(getNormal());
     vec3 V = -normalize(fragPosition);
-    vec3 L = normalize(sun.direction.xyz); //normalize((camera.view * vec4(normalize(vec3(1, 1, 1)), 0)).xyz); // arbitrary for now
+    vec3 L = normalize((camera.view * vec4(sun.directionBasis[1].xyz, 0.0)).xyz); //normalize((camera.view * vec4(normalize(vec3(1, 1, 1)), 0)).xyz); // arbitrary for now
+    if (L.y < 0.05) L *= -1.0;
 
     float roughness = pbrParams.r;
     roughness *= roughness; // perceptual roughness
