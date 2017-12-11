@@ -58,7 +58,6 @@ void main() {
     for(int i = 0; i < NUM_SAMPLES; ++i) {
         accumSampleAmt += texture(texColor, (scrPt + samples[i] * lightVec * 1.5 * dist) * 0.5 + 0.5).a;
     }
-
     accumSampleAmt /= float(NUM_SAMPLES);
 
     outColor = vec4(sun.color.xyz * sun.intensity * accumSampleAmt + 0.5 * currentFragment.xyz, 1.0);
