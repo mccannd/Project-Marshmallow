@@ -363,7 +363,6 @@ void VulkanApplication::updateUniformBuffer() {
     uco.cameraPosition = glm::vec4(mainCamera.getPosition(), 1.0f);
 
     UniformModelObject umo = {};
-    //umo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.f), glm::vec3(0.f, 0.f, 1.f));
     umo.model = glm::mat4(1.0f);
     umo.model[0][0] = 80.0f;
     umo.model[2][2] = 80.0f;

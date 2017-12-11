@@ -32,6 +32,7 @@ layout(set = 0, binding = 2) uniform UniformSunObject {
 
 #define NUM_SAMPLES 10
 #define BLUR_STRENGTH 10.0
+#define ASPECT_RATIO 1280.0 / 720.0
 
 void main() {
     vec2 scrPt = fragUV * 2.0 - 1.0;
@@ -55,13 +56,10 @@ void main() {
 
     // Sample the image along the light vector
     for(int i = 0; i < NUM_SAMPLES; ++i) {
-        accumSampleAmt += texture(texColor, (scrPt + samples[i] * lightVec * 0.2) * 0.5 + 0.5).a;
+        accumSampleAmt += texture(texColor, (scrPt + samples[i] * lightVec * 1.1 * dist) * 0.5 + 0.5).a;
     }
 
-    accumSampleAmt *= 1.0 / float(NUM_SAMPLES); // optimize later
-
-    /*float w = dist * BLUR_STRENGTH * 0.75; // need aspect ratio?
-    float finalAlpha = mix(currentFragment.a, accumSampleAmt, w);*/
+    accumSampleAmt /= float(NUM_SAMPLES);
 
     outColor = vec4(sun.color.xyz * sun.intensity * accumSampleAmt + 0.5 * currentFragment.xyz, 1.0);
 }
