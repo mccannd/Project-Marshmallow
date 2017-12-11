@@ -38,6 +38,8 @@ layout(set = 2, binding = 3) uniform UniformSkyObject {
     float mie_directional;
 } sky;
 
+layout (set = 2, binding = 4, rgba8) uniform image2D motionBlurImage;
+
 struct Intersection {
     vec3 normal;
     vec3 point;
@@ -137,15 +139,18 @@ void main() {
     vec2 blurVec = oldUV - uv;
 
     // take n samples for motion blur
+    
     for (int s = 0; s < 10; ++s) {
         vec2 blurOffset = blurVec * (float(s) / 9.0 - 0.5);
-        vec2 imageUV = round((oldUV - blurVec) * dim);
+        vec2 imageUV = round((oldUV - blurOffset) * dim);
         
         sourceColor += imageLoad(sourceImage, clamp(ivec2(imageUV), ivec2(0, 0), ivec2(dim.x - 1,  dim.y - 1)));
     }
-    sourceColor *= 0.1;
+    sourceColor /= 10.0;
+
+
     vec2 imageUV = round((oldUV ) * dim);
     sourceColor.a = imageLoad(sourceImage, clamp(ivec2(imageUV), ivec2(0, 0), ivec2(dim.x - 1,  dim.y - 1))).a;
-
+    imageStore(motionBlurImage, ivec2(gl_GlobalInvocationID.xy), vec4(blurVec, oldUV));
     imageStore(targetImage, ivec2(gl_GlobalInvocationID.xy), sourceColor);
 }

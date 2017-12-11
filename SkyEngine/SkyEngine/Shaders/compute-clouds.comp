@@ -289,19 +289,13 @@ void main() {
 
     // Only update every 16th pixel
     int pxOffset = int(sun.color.a);
-    const int pixelHashing[16] = {
-        1, 14, 8, 11, 10, 12, 5, 3, 4, 7, 0, 9, 15, 2, 13, 6
-    };
-    //uint idOffset = pixelHashing[int(timeOffset) % 16];
-    //idOffset = pixelHashing[(gl_GlobalInvocationID.y % 16 + idOffset) % 16];
-    //idOffset = pixelHashing[(gl_GlobalInvocationID.x % 16 + idOffset) % 16];
-    //pxOffset = pixelHashing[(pxOffset + idOffset) % 16];
     
     int pxO_x = pxOffset % 4;
     int pxO_y = pxOffset / 4;
 
     uint pxTargetX = gl_GlobalInvocationID.x * 4 + pxO_x;
     uint pxTargetY = gl_GlobalInvocationID.y * 4 + pxO_y;
+
 
     if (pxTargetX >= WIDTH || pxTargetY >= HEIGHT) return;
 

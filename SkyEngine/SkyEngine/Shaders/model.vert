@@ -16,6 +16,7 @@ layout(binding = 1) uniform UniformModelObject {
     mat4 invTranspose;
 } model;
 
+
 layout(location = 0) in vec3 inPosition;
 layout(location = 1) in vec3 inColor;
 layout(location = 2) in vec2 inUV;
@@ -38,7 +39,7 @@ void main() {
     fragPositionWC = (model.model * vec4(inPosition, 1.0)).xyz;
     
     fragNormal = normalize((camera.view * vec4(normalize((model.invTranspose * vec4(inNormal, 0.0)).xyz), 0.0)).xyz);
-    vec3 up = normalize(vec3(0.001, 1, -0.004));
+    vec3 up = normalize((camera.view * vec4(0.001, 1, -0.004, 0.0)).xyz);
     fragTangent = normalize(cross(fragNormal, up));
     fragBitangent = cross(fragNormal, fragTangent);
 }
