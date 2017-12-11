@@ -14,6 +14,7 @@ layout(binding = 1) uniform UniformCameraObject {
     mat4 view;
     mat4 proj;
     vec3 cameraPosition;
+    vec3 cameraParams;
 } camera;
 
 // all of these components are calculated in SkyManager.h/.cpp
@@ -31,8 +32,6 @@ layout(set = 0, binding = 2) uniform UniformSunObject {
 // https://stackoverflow.com/questions/4579020/how-do-i-use-a-glsl-shader-to-apply-a-radial-blur-to-an-entire-scene
 
 #define NUM_SAMPLES 10
-#define BLUR_STRENGTH 10.0
-#define ASPECT_RATIO 1280.0 / 720.0
 
 void main() {
     vec2 scrPt = fragUV * 2.0 - 1.0;
@@ -56,7 +55,7 @@ void main() {
 
     // Sample the image along the light vector
     for(int i = 0; i < NUM_SAMPLES; ++i) {
-        accumSampleAmt += texture(texColor, (scrPt + samples[i] * lightVec * 1.5 * dist) * 0.5 + 0.5).a;
+        accumSampleAmt += texture(texColor, (scrPt + samples[i] * lightVec * 1.5 * dist) * 0.5 + 0.5).a * 1.1;
     }
     accumSampleAmt /= float(NUM_SAMPLES);
 
