@@ -13,6 +13,7 @@ layout(set = 2, binding = 0) uniform UniformCameraObject {
     mat4 view;
     mat4 proj;
     vec4 cameraPosition;
+    vec4 cameraParams;
 } camera;
 
 layout(set = 2, binding = 1) uniform UniformCameraObjectPrev {
@@ -107,7 +108,7 @@ void main() {
     vec3 refPoint = cameraPos - camLook;
 
     const float tanFovy = 0.4142135; // TODO link camera uniform
-    vec3 p = refPoint + (1280.0 / 720.0) * screenPoint.x * tanFovy * camRight - screenPoint.y * tanFovy * camUp; // TODO: aspect ratio as uniform
+    vec3 p = refPoint + camera.cameraParams.x * screenPoint.x * camera.cameraParams.y * camRight - screenPoint.y * camera.cameraParams.y * camUp;
     vec3 rayDirection = normalize(p - cameraPos);
 
     /// Raytrace the scene (a sphere, to become the atmosphere)
@@ -129,9 +130,9 @@ void main() {
 
     // de-normalize the ray: -> <u, v, 1> in R U F basis
     oldCamRayDir /= -oldCamRayDir.z;
-    float oldU = oldCamRayDir.x / tanFovy / (1280.0 / 720);
+    float oldU = oldCamRayDir.x / camera.cameraParams.y / camera.cameraParams.x;
     oldU = oldU * 0.5 + 0.5;
-    float oldV = -oldCamRayDir.y / tanFovy;
+    float oldV = -oldCamRayDir.y / camera.cameraParams.y;
     oldV = oldV * 0.5 + 0.5;
     vec2 oldUV = vec2(oldU, oldV);
     vec2 blurVec = oldUV - uv;

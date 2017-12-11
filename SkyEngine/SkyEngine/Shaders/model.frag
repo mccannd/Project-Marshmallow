@@ -59,7 +59,6 @@ struct Intersection {
 };
 
 #define ATMOSPHERE_RADIUS 1000000.0 //* 0.0625
-#define ASPECT_RATIO 1280.0 / 720.0
 #define NUM_SHADOW_STEPS 6
 #define WIND_STRENGTH 20.0
 
