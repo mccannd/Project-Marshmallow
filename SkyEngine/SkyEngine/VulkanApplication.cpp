@@ -383,6 +383,7 @@ void VulkanApplication::updateUniformBuffer() {
 
     meshShader->updateUniformBuffers(uco, umo);
     computeShader->updateUniformBuffers(uco, ucoPrev, sky, sun);
+    reprojectShader->updateUniformBuffers(uco, ucoPrev, sky, sun);
     godRayShader->updateUniformBuffers(uco, sun);
     radialBlurShader->updateUniformBuffers(uco, sun);
 }

@@ -7,22 +7,19 @@ layout (set = 0, binding = 0, rgba32f) uniform writeonly image2D resultImage;
 layout (set = 1, binding = 0, rgba32f) uniform readonly image2D resultImagePrev;
 
 layout(set = 2, binding = 0) uniform UniformCameraObject {
-
     mat4 view;
     mat4 proj;
     vec4 cameraPosition;
 } camera;
 
 layout(set = 2, binding = 1) uniform UniformCameraObjectPrev {
-
     mat4 view;
     mat4 proj;
     vec4 cameraPosition;
 } cameraPrev;
 
 // all of these components are calculated in SkyManager.h/.cpp
-layout(set = 2, binding = 2) uniform UniformSunObject {
-    
+layout(set = 2, binding = 2) uniform UniformSunObject { 
     vec4 location;
     vec4 direction;
     vec4 color;
@@ -52,8 +49,6 @@ struct Intersection {
 };
 
 #define ATMOSPHERE_RADIUS 2000000.0
-
-#define NUM_FBM_OCTAVES 8
 
 #define EPSILON 0.0001
 #define PI 3.14159265
@@ -277,14 +272,9 @@ void main() {
     if (pxTargetX >= WIDTH || pxTargetY >= HEIGHT) return;
 
     /// Extract the UV
-    ivec2 dim = imageSize(resultImage); // prob better as uniform
-    // TODO: half resolution reprojection
-    // TODO: ? quarter resolution reprojection ?
-    // TODO: ???????
-    // TODO: Profit
+    ivec2 dim = imageSize(resultImage); 
 	vec2 uv = vec2(pxTargetX, pxTargetY) / vec2(WIDTH, HEIGHT);
      
-
     /// Cast a ray
     // Compute screen space point from UVs
     vec2 screenPoint = uv * 2.0 - 1.0;
