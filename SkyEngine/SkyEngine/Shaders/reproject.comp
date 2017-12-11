@@ -1,6 +1,8 @@
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
 
+precision highp float;
+
 #define WORKGROUP_SIZE 32
 
 layout (local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE) in;
@@ -89,7 +91,7 @@ void main() {
     // shader is dispatched at full resolution
     ivec2 dim = imageSize(sourceImage);
     vec2 uv = vec2(gl_GlobalInvocationID.xy) / dim;
-    vec4 sourceColor;
+    vec4 sourceColor = vec4(0);
 
     /// Cast a ray
     // Compute screen space point from UVs
@@ -105,7 +107,7 @@ void main() {
     vec3 refPoint = cameraPos - camLook;
 
     const float tanFovy = 0.4142135; // TODO link camera uniform
-    vec3 p = refPoint + 1.777778 * screenPoint.x * tanFovy * camRight - screenPoint.y * tanFovy * camUp; // TODO: aspect ratio as uniform
+    vec3 p = refPoint + (1280.0 / 720.0) * screenPoint.x * tanFovy * camRight - screenPoint.y * tanFovy * camUp; // TODO: aspect ratio as uniform
     vec3 rayDirection = normalize(p - cameraPos);
 
     /// Raytrace the scene (a sphere, to become the atmosphere)
@@ -126,21 +128,37 @@ void main() {
     //sourceColor.rgb = rayDirection * 0.5 + 0.5;
 
     // de normalize the ray: -> <u, v, 1> in R U F basis
-    oldCamRayDir /= oldCamRayDir.z;
-    float oldU = oldCamRayDir.x / tanFovy / 1.777778;
+    oldCamRayDir /= -oldCamRayDir.z;
+    float oldU = oldCamRayDir.x / tanFovy / (1280.0 / 720);
     oldU = oldU * 0.5 + 0.5;
     float oldV = -oldCamRayDir.y / tanFovy;
     oldV = oldV * 0.5 + 0.5;
-
+    vec2 oldUV = vec2(oldU, oldV);
+    vec2 blurVec = oldUV - uv;
+    //oldUV = clamp(oldUV, vec2(0.0), vec2(1.0));
     //vec4 sourceColor = imageLoad(sourceImage, ivec2(gl_GlobalInvocationID.xy));
     //sourceColor.rgb = vec3(oldU, oldV, 0.0);
-    if (oldU < 0.0 || oldU > 1.0) sourceColor.rgba = vec4(0);
-    else if (oldV < 0.0 || oldV > 1.0) sourceColor.rgba = vec4(0);
-    else {
-        sourceColor = imageLoad(sourceImage, ivec2(uv * dim));
-        vec4 targetOldColor = imageLoad(targetImage, ivec2(gl_GlobalInvocationID.xy));
-        sourceColor = 0.875 *sourceColor + 0.125 * targetOldColor;
+
+        // take n samples for motion blur
+    for (int s = 0; s < 5; ++s) {
+        vec2 blurOffset = blurVec * (float(s) * 0.25 - 0.5);
+        vec2 imageUV = round((oldUV) * dim);
+        
+        sourceColor += imageLoad(sourceImage, clamp(ivec2(imageUV), ivec2(0, 0), ivec2(dim.x - 1,  dim.y - 1)));
     }
+    sourceColor *= 0.2;
+    //sourceColor = vec4(abs(blurVec), 0, 0);
+
+    /*for(int s = 0; s < 3; ++s) {
+
+    }*/
+
+    //vec2 imageUV = round(oldUV * dim);
+    //sourceColor = imageLoad(sourceImage, clamp(ivec2(imageUV), ivec2(0, 0), ivec2(dim.x - 1,  dim.y - 1)));
+        //sourceColor.rgba = vec4(uv, 0, 0);
+        //vec4 targetOldColor = imageLoad(targetImage, ivec2(gl_GlobalInvocationID.xy));
+        //sourceColor = 0.875 *sourceColor + 0.125 * targetOldColor;
+    
 
     imageStore(targetImage, ivec2(gl_GlobalInvocationID.xy), sourceColor);
 }

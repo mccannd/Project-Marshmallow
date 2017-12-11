@@ -1,6 +1,9 @@
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
 
+precision highp float;
+
+
 #define WORKGROUP_SIZE 32
 layout (local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE) in;
 layout (set = 0, binding = 0, rgba32f) uniform writeonly image2D resultImage;
@@ -256,14 +259,18 @@ float cloudTest(in vec3 pos, in float relativeHeight, in vec3 earthCenter, inout
 #define HEIGHT 720
 
 void main() {
-    
+    float timeOffset = sky.wind.w;
+
     // Only update every 16th pixel
     int pxOffset = int(sun.color.a);
     const int pixelHashing[16] = {
         1, 14, 8, 11, 10, 12, 5, 3, 4, 7, 0, 9, 15, 2, 13, 6
     };
-    uint idOffset = pixelHashing[gl_GlobalInvocationID.x % 16] + pixelHashing[gl_GlobalInvocationID.y % 16];
+    uint idOffset = pixelHashing[int(timeOffset) % 16];
+    idOffset = pixelHashing[(gl_GlobalInvocationID.y % 16 + idOffset) % 16];
+    idOffset = pixelHashing[(gl_GlobalInvocationID.x % 16 + idOffset) % 16];
     pxOffset = pixelHashing[(pxOffset + idOffset) % 16];
+    
     int pxO_x = pxOffset % 4;
     int pxO_y = pxOffset / 4;
 
@@ -322,9 +329,6 @@ void main() {
         imageStore(resultImage, ivec2(pxTargetX, pxTargetY), finalColor);
         return;
     }
-
-    float timeOffset = sky.wind.w;
-
 
     /// Raytrace the scene (a sphere, to become the atmosphere)
     vec3 earthCenter = cameraPos;

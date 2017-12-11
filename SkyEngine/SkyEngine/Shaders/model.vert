@@ -40,6 +40,4 @@ void main() {
     vec3 up = normalize(vec3(0.001, 1, -0.004));
     fragTangent = normalize(cross(fragNormal, up));
     fragBitangent =cross(fragNormal, fragTangent);
-
-
 }
