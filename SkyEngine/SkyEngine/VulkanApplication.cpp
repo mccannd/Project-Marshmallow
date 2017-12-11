@@ -73,7 +73,7 @@ void VulkanApplication::initVulkan() {
     createComputeCommandBuffer();
     createSemaphores();
 
-    mainCamera = Camera(glm::vec3(0.f, 1.f, 1.f), glm::vec3(0.f, 0.f, 0.f), 0.1f, 10000.0f, 45.0f);
+    mainCamera = Camera(glm::vec3(0.f, 1.f, 1.f), glm::vec3(0.f, 0.f, 0.f), 0.1f, 1000.0f, 45.0f);
     mainCamera.setAspect((float) swapChainExtent.width, (float)swapChainExtent.height);
     skySystem = SkyManager();
 }
@@ -367,10 +367,10 @@ void VulkanApplication::updateUniformBuffer() {
 
     UniformModelObject umo = {};
     umo.model = glm::mat4(1.0f);
-    umo.model[0][0] = 1.0f;
-    umo.model[2][2] = 1.0f;
+    umo.model[0][0] = 100.0f;
+    umo.model[2][2] = 100.0f;
     umo.invTranspose = glm::inverse(glm::transpose(umo.model));
-    float interp = sin(time * 0.05f);
+    float interp = sin(time * 0.025f);
 
     skySystem.rebuildSkyFromNewSun(interp * 0.5f, 0.25f);
     skySystem.setTime(time * 2.f);

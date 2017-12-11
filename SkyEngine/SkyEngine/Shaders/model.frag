@@ -275,12 +275,11 @@ void main() {
         t += stepSize;
     }
 
-    color *= (1.0 - accumDensity);
-
     color += diffuse * mix(vec3(0), 2.0 * vec3(0.6, 0.7, 1.0), 0.5 + 0.5 * dot(N, normalize((camera.view * vec4(normalize(vec3(0, 1, 0)), 0)).xyz)));
     vec3 aoColor = mix(vec3(0.1, 0.1, 0.3), vec3(1), pbrParams.b);
     color.rgb *= aoColor;
     float fogFactor = (1.0 - exp(-length(fragPosition) * 0.07));
     color.rgb = mix(color.rgb, pow(sun.intensity, 0.2) * vec3(0.6, 0.7, 1.0), fogFactor);
+    color *= (1.0 - accumDensity * 2.0);
     outColor = vec4(color, 1.0);
 }
