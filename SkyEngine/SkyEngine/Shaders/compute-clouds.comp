@@ -45,8 +45,6 @@ struct Intersection {
 
 #define ATMOSPHERE_RADIUS 1000000.0
 
-#define NUM_FBM_OCTAVES 8
-
 #define EPSILON 0.0001
 #define PI 3.14159265
 #define E 2.718281828459
@@ -54,7 +52,7 @@ struct Intersection {
 #define THREE_OVER_SIXTEENPI 0.05968310365946075
 #define ONE_OVER_FOURPI 0.07957747154594767
 
-#define ASPECT_RATIO 1280.0 / 720.0 //dim.x / dim.y
+#define ASPECT_RATIO 1280.0 / 720.0
 
 float remap(in float value, in float oldMin, in float oldMax, in float newMin, in float newMax) {
     return newMin + (((value - oldMin) / (oldMax - oldMin)) * (newMax - newMin));
@@ -135,7 +133,6 @@ vec3 getAtmosphereColor(in vec3 dir) {
 vec3 NightSkyColor( in vec2 uv ) {
     return texture(nightSkyMap, uv).xyz;
 }
-
 
 // Compute sphere intersection
 Intersection raySphereIntersection(in vec3 ro, in vec3 rd, in vec4 sphere) {
@@ -309,7 +306,7 @@ void main() {
     vec3 camUp = vec3(camera.view[0][1], camera.view[1][1], camera.view[2][1]);
 
     // Compute ray direction
-    vec3 cameraPos = camera.cameraPosition.xyz;
+    const vec3 cameraPos = camera.cameraPosition.xyz;
     vec3 refPoint = cameraPos - camLook;
 
     const float tanFovy = 0.4142135; // TODO link camera uniform
@@ -330,14 +327,24 @@ void main() {
     dotToSun *= dotToSun * dotToSun * dotToSun;
     dotToSun *= dotToSun * dotToSun * dotToSun;
     dotToSun *= dotToSun * dotToSun;
+    if(sun.direction.y < 0.0) {
+        dotToSun *= dotToSun * dotToSun * dotToSun * dotToSun * dotToSun * dotToSun;
+    }
     sunDisk = max(sunDisk, dotToSun);
     sunDisk = max(0.0, sunDisk);
 
-    vec4 finalColor;
+    vec4 finalColor = vec4(0, 0, 0, 0);
     vec3 backgroundCol;
     if(sun.direction.y >= 0.0) {
         backgroundCol = getAtmosphereColorPhysical(rayDirection, sunDir);
         finalColor.a = max(skyAmbient, sunDisk);
+        finalColor.xyz = backgroundCol;
+    }
+
+    // It is likely we will never have an entirely unobstructed view of the horizon, so kill rays that would otherwise be executing.
+    if(dot(rayDirection, vec3(0, 1, 0)) < 0.0) {
+        imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), finalColor);
+        return;
     }
 
     float timeOffset = sky.wind.w;
@@ -355,29 +362,21 @@ void main() {
         // The sky should appear to rotate as the earth rotates
         // Create a rotation matrix from scratch
         // For now, just rotate an amount based on sun.direction.y.
-        mat3 rot = fromAngleAxis(normalize(vec3(1.0, 0.0, 1.0)), sun.direction.y);
+        mat3 rot = fromAngleAxis(normalize(vec3(1.0, 0.0, 1.0)), sun.direction.y * 0.5);
         vec3 rotatedRayDir = rot * rayDirection;
         vec3 rotatedRayOrigin = rot * cameraPos;
         vec3 point = atmosphereIsectOuter.t * rotatedRayDir + rotatedRayOrigin;
         vec3 projectedPoint = getProjectedShellPoint(point, earthCenter);
-        vec2 uv = 0.00002 * (projectedPoint.xz - cameraPos.xz) + 0.5; // magic numberz
+        vec2 uv = 0.00002 * (projectedPoint.xz - cameraPos.xz) + 0.35; // magic numberz 
         backgroundCol = NightSkyColor(uv);
-        backgroundCol *= sqrt(backgroundCol) * 0.25;
+        backgroundCol *= sqrt(backgroundCol) * 0.75;
         backgroundCol = pow(backgroundCol, vec3(2.2));
         backgroundCol *= 10.0;
         float falloff = pow(rayDirection.y, 6.0);
         backgroundCol *= falloff;
         backgroundCol = mix(vec3(0.3, 0.6, 4.0) * 0.05, backgroundCol, pow(rayDirection.y, 0.03125));
-        finalColor.a = max(0.0, sunDisk);
-    }
-    
-    finalColor.xyz = backgroundCol;
-
-    // It is likely we will never have an entirely unobstructed view of the horizon, so kill rays that would otherwise be executing.
-    // TODO: low-res stencil check first
-    if(dot(rayDirection, vec3(0, 1, 0)) < 0.0) {
-        imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), finalColor);
-        return;
+        backgroundCol += sunDisk;
+        finalColor.a = sunDisk;
     }
 
     float cosTheta = dot(rayDirection, sunDir);
@@ -451,8 +450,6 @@ void main() {
         }
     }
 
-    
-
     // For the god rays, write to the alpha channel according the density of the image
     // we want this before the haze thing is taken into account
     
@@ -467,7 +464,13 @@ void main() {
     // TODO: find a good way to make atmospheric haze
     accumDensity *= smoothstep(0, 1, min(1, remap(rayDirection.y, 0, 0.1, 0, 1)));
     accumDensity = min(accumDensity, 0.999);
-    vec3 cloudColor = sun.color.xyz * (sun.intensity * vec3(max(0.0, transmittance)) + 0.08 * backgroundCol * exp(-transmittance));
+
+    vec3 cloudColor;
+    if(sun.direction.y >= 0.0) {
+        cloudColor = sun.color.xyz * (sun.intensity * vec3(max(0.0, transmittance)) + 0.08 * backgroundCol * exp(-transmittance));
+    } else {
+        cloudColor = sun.color.xyz * (sun.intensity * vec3(max(0.0, transmittance)) + 0.08 * (vec3(0.3, 0.6, 4.0) * 0.05 * pow(rayDirection.y, 0.03125)) * exp(-transmittance));
+    }
 
     finalColor.rgb = mix(backgroundCol, cloudColor, accumDensity);
     finalColor.a *= max(1.0 - accumDensity, 0.0);

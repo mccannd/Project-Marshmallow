@@ -28,16 +28,24 @@ void MeshShader::cleanupUniforms() {
     vkDestroyBuffer(device, uniformModelBuffer, nullptr);
     vkFreeMemory(device, uniformCameraBufferMemory, nullptr);
     vkFreeMemory(device, uniformModelBufferMemory, nullptr);
+    vkDestroyBuffer(device, uniformSunBuffer, nullptr);
+    vkFreeMemory(device, uniformSunBufferMemory, nullptr);
+    vkDestroyBuffer(device, uniformSkyBuffer, nullptr);
+    vkFreeMemory(device, uniformSkyBufferMemory, nullptr);
 }
 
 void MeshShader::createDescriptorSetLayout() {
     VkDescriptorSetLayoutBinding camLayoutBinding = UniformCameraObject::getLayoutBinding(0);
     VkDescriptorSetLayoutBinding modelLayoutBinding = UniformModelObject::getLayoutBinding(1);
-    VkDescriptorSetLayoutBinding samplerLayoutBinding = Texture::getLayoutBinding(2);
-    VkDescriptorSetLayoutBinding samplerLayoutBinding2 = Texture::getLayoutBinding(3);
-    VkDescriptorSetLayoutBinding samplerLayoutBinding3 = Texture::getLayoutBinding(4);
+    VkDescriptorSetLayoutBinding sunLayoutBinding = UniformSunObject::getLayoutBinding(2);
+    VkDescriptorSetLayoutBinding skyLayoutBinding = UniformSkyObject::getLayoutBinding(3);
+    VkDescriptorSetLayoutBinding samplerLayoutBinding = Texture::getLayoutBinding(4);
+    VkDescriptorSetLayoutBinding samplerLayoutBinding2 = Texture::getLayoutBinding(5);
+    VkDescriptorSetLayoutBinding samplerLayoutBinding3 = Texture::getLayoutBinding(6);
+    VkDescriptorSetLayoutBinding samplerLayoutBinding4 = Texture::getLayoutBinding(7);
+    VkDescriptorSetLayoutBinding samplerLayoutBinding5 = Texture3D::getLayoutBinding(8);
 
-    std::array<VkDescriptorSetLayoutBinding, 5> bindings = { camLayoutBinding, modelLayoutBinding, samplerLayoutBinding, samplerLayoutBinding2, samplerLayoutBinding3 };
+    std::array<VkDescriptorSetLayoutBinding, 9> bindings = { camLayoutBinding, modelLayoutBinding, sunLayoutBinding, skyLayoutBinding, samplerLayoutBinding, samplerLayoutBinding2, samplerLayoutBinding3, samplerLayoutBinding4, samplerLayoutBinding5 };
     VkDescriptorSetLayoutCreateInfo layoutInfo = {};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
@@ -49,10 +57,10 @@ void MeshShader::createDescriptorSetLayout() {
 }
 
 void MeshShader::createDescriptorPool() {
-    std::array<VkDescriptorPoolSize, 5> poolSizes = {};
+    std::array<VkDescriptorPoolSize, 6> poolSizes = {};
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    poolSizes[0].descriptorCount = 1;
-    poolSizes[1].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    poolSizes[0].descriptorCount = 4;
+    poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     poolSizes[1].descriptorCount = 1;
     poolSizes[2].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     poolSizes[2].descriptorCount = 1;
@@ -60,6 +68,8 @@ void MeshShader::createDescriptorPool() {
     poolSizes[3].descriptorCount = 1;
     poolSizes[4].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     poolSizes[4].descriptorCount = 1;
+    poolSizes[5].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    poolSizes[5].descriptorCount = 1;
 
     VkDescriptorPoolCreateInfo poolInfo = {};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -94,6 +104,16 @@ void MeshShader::createDescriptorSet() {
     modelBufferInfo.offset = 0;
     modelBufferInfo.range = sizeof(UniformModelObject);
 
+    VkDescriptorBufferInfo sunBufferInfo = {};
+    sunBufferInfo.buffer = uniformSunBuffer;
+    sunBufferInfo.offset = 0;
+    sunBufferInfo.range = sizeof(UniformSunObject);
+
+    VkDescriptorBufferInfo skyBufferInfo = {};
+    skyBufferInfo.buffer = uniformSkyBuffer;
+    skyBufferInfo.offset = 0;
+    skyBufferInfo.range = sizeof(UniformSkyObject);
+
     VkDescriptorImageInfo imageInfo = {};
     imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     imageInfo.imageView = textures[ALBEDO]->textureImageView;
@@ -109,9 +129,17 @@ void MeshShader::createDescriptorSet() {
     imageInfoNormal.imageView = textures[NORMAL]->textureImageView;
     imageInfoNormal.sampler = textures[NORMAL]->textureSampler;
 
-    // TODO: other relevant textures
+    VkDescriptorImageInfo imageInfoCloudPlacement = {};
+    imageInfoCloudPlacement.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    imageInfoCloudPlacement.imageView = textures[3]->textureImageView;
+    imageInfoCloudPlacement.sampler = textures[3]->textureSampler;
 
-    std::array<VkWriteDescriptorSet, 5> descriptorWrites = {};
+    VkDescriptorImageInfo imageInfoLoResShape = {};
+    imageInfoLoResShape.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    imageInfoLoResShape.imageView = textures3D[0]->textureImageView;
+    imageInfoLoResShape.sampler = textures3D[0]->textureSampler;
+
+    std::array<VkWriteDescriptorSet, 9> descriptorWrites = {};
 
     descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     descriptorWrites[0].dstSet = descriptorSet;
@@ -133,17 +161,17 @@ void MeshShader::createDescriptorSet() {
     descriptorWrites[2].dstSet = descriptorSet;
     descriptorWrites[2].dstBinding = 2;
     descriptorWrites[2].dstArrayElement = 0;
-    descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     descriptorWrites[2].descriptorCount = 1;
-    descriptorWrites[2].pImageInfo = &imageInfo;
+    descriptorWrites[2].pBufferInfo = &sunBufferInfo;
 
     descriptorWrites[3].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     descriptorWrites[3].dstSet = descriptorSet;
     descriptorWrites[3].dstBinding = 3;
     descriptorWrites[3].dstArrayElement = 0;
-    descriptorWrites[3].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    descriptorWrites[3].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     descriptorWrites[3].descriptorCount = 1;
-    descriptorWrites[3].pImageInfo = &imageInfoPBR;
+    descriptorWrites[3].pBufferInfo = &skyBufferInfo;
 
     descriptorWrites[4].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     descriptorWrites[4].dstSet = descriptorSet;
@@ -151,7 +179,39 @@ void MeshShader::createDescriptorSet() {
     descriptorWrites[4].dstArrayElement = 0;
     descriptorWrites[4].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     descriptorWrites[4].descriptorCount = 1;
-    descriptorWrites[4].pImageInfo = &imageInfoNormal;
+    descriptorWrites[4].pImageInfo = &imageInfo;
+
+    descriptorWrites[5].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrites[5].dstSet = descriptorSet;
+    descriptorWrites[5].dstBinding = 5;
+    descriptorWrites[5].dstArrayElement = 0;
+    descriptorWrites[5].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    descriptorWrites[5].descriptorCount = 1;
+    descriptorWrites[5].pImageInfo = &imageInfoPBR;
+
+    descriptorWrites[6].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrites[6].dstSet = descriptorSet;
+    descriptorWrites[6].dstBinding = 6;
+    descriptorWrites[6].dstArrayElement = 0;
+    descriptorWrites[6].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    descriptorWrites[6].descriptorCount = 1;
+    descriptorWrites[6].pImageInfo = &imageInfoNormal;
+
+    descriptorWrites[7].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrites[7].dstSet = descriptorSet;
+    descriptorWrites[7].dstBinding = 7;
+    descriptorWrites[7].dstArrayElement = 0;
+    descriptorWrites[7].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    descriptorWrites[7].descriptorCount = 1;
+    descriptorWrites[7].pImageInfo = &imageInfoCloudPlacement;
+
+    descriptorWrites[8].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrites[8].dstSet = descriptorSet;
+    descriptorWrites[8].dstBinding = 8;
+    descriptorWrites[8].dstArrayElement = 0;
+    descriptorWrites[8].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    descriptorWrites[8].descriptorCount = 1;
+    descriptorWrites[8].pImageInfo = &imageInfoLoResShape;
 
     vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 }
@@ -317,7 +377,10 @@ void MeshShader::createUniformBuffer() {
     VulkanObject::createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformCameraBuffer, uniformCameraBufferMemory);
     VkDeviceSize bufferSize2 = sizeof(UniformModelObject);
     VulkanObject::createBuffer(bufferSize2, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformModelBuffer, uniformModelBufferMemory);
-
+    VkDeviceSize bufferSize3 = sizeof(UniformSunObject);
+    VulkanObject::createBuffer(bufferSize3, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformSunBuffer, uniformSunBufferMemory);
+    VkDeviceSize bufferSize4 = sizeof(UniformSkyObject);
+    VulkanObject::createBuffer(bufferSize4, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformSkyBuffer, uniformSkyBufferMemory);
 }
 
 /// Background Shader

@@ -53,6 +53,9 @@ void SkyManager::calcSunPosition() {
     sun.direction = glm::vec4(dir, 0.0f);
     //sun.direction *= -1.f;
     sun.location = glm::vec4(SUN_DISTANCE * dir, 1.0f); // assume center is 0 0 0 for sky
+    if (sun.direction.y < 0.0f) {
+        sun.location *= -1.0f;
+    }
     sun.directionBasis = glm::mat4(1);
     glm::vec3 right = (abs(sun.direction.y) < 0.001f) ? ((sun.direction.z < 0) ? glm::vec3(0, 1, 0) : glm::vec3(0, -1, 0)) : glm::vec3(0, 0, 1);
     glm::vec3 dirN = glm::normalize(glm::cross(dir, right));
