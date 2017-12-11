@@ -253,7 +253,7 @@ void VulkanApplication::initializeTextures() {
     cloudPlacementTexture = new Texture(device, physicalDevice, commandPool, graphicsQueue);
     cloudPlacementTexture->initFromFile("Textures/CloudPlacement.png");
     nightSkyTexture = new Texture(device, physicalDevice, commandPool, graphicsQueue);
-    nightSkyTexture->initFromFile("Textures/NightSky/nightSky_betterStars.png");
+    nightSkyTexture->initFromFile("Textures/NightSky/nightSky_noOrange.png");
     cloudCurlNoise = new Texture(device, physicalDevice, commandPool, graphicsQueue);
     cloudCurlNoise->initFromFile("Textures/CurlNoiseFBM.png");
     lowResCloudShapeTexture3D = new Texture3D(device, physicalDevice, commandPool, graphicsQueue, 128, 128, 128); // 128, 128, 128
@@ -303,7 +303,6 @@ void VulkanApplication::initializeShaders() {
     computeShader = new ComputeShader(device, physicalDevice, commandPool, computeQueue, swapChainExtent, 
         &offscreenPass.renderPass, std::string("Shaders/compute-clouds.comp.spv"), backgroundTexture, backgroundTexturePrev, cloudPlacementTexture, nightSkyTexture, cloudCurlNoise,
         lowResCloudShapeTexture3D, hiResCloudShapeTexture3D);
-
 
     // Post shaders: there will be many
     // This is still offscreen, so the render pass is the offscreen render pass
