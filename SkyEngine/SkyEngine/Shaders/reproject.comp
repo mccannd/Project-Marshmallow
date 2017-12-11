@@ -4,7 +4,7 @@
 #define WORKGROUP_SIZE 32
 
 layout (local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE) in;
-layout (set = 0, binding = 0, rgba32f) uniform writeonly image2D targetImage;
+layout (set = 0, binding = 0, rgba32f) uniform image2D targetImage;
 layout (set = 1, binding = 0, rgba32f) uniform readonly image2D sourceImage;
 
 layout(set = 2, binding = 0) uniform UniformCameraObject {
@@ -138,6 +138,8 @@ void main() {
     else if (oldV < 0.0 || oldV > 1.0) sourceColor.rgba = vec4(0);
     else {
         sourceColor = imageLoad(sourceImage, ivec2(uv * dim));
+        vec4 targetOldColor = imageLoad(targetImage, ivec2(gl_GlobalInvocationID.xy));
+        sourceColor = 0.875 *sourceColor + 0.125 * targetOldColor;
     }
 
     imageStore(targetImage, ivec2(gl_GlobalInvocationID.xy), sourceColor);
