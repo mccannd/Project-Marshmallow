@@ -239,11 +239,11 @@ void VulkanApplication::drawFrame() {
 
 void VulkanApplication::initializeTextures() {
     meshTexture = new Texture(device, physicalDevice, commandPool, graphicsQueue);
-    meshTexture->initFromFile("Textures/tilesColor.png");
+    meshTexture->initFromFile("Textures/rockColor.png");
     meshPBRInfo = new Texture(device, physicalDevice, commandPool, graphicsQueue);
-    meshPBRInfo->initFromFile("Textures/tilesPBRinfo.png");
+    meshPBRInfo->initFromFile("Textures/rockPBRinfo.png");
     meshNormals = new Texture(device, physicalDevice, commandPool, graphicsQueue);
-    meshNormals->initFromFile("Textures/tilesNormal.png");
+    meshNormals->initFromFile("Textures/rockNormal.png");
     backgroundTexture = new Texture(device, physicalDevice, commandPool, graphicsQueue, VK_FORMAT_R32G32B32A32_SFLOAT);
     backgroundTexture->initForStorage(swapChainExtent);
     backgroundTexturePrev = new Texture(device, physicalDevice, commandPool, graphicsQueue, VK_FORMAT_R32G32B32A32_SFLOAT);
@@ -283,7 +283,7 @@ void VulkanApplication::cleanupTextures() {
 
 void VulkanApplication::initializeGeometry() {
     sceneGeometry = new Geometry(device, physicalDevice, commandPool, graphicsQueue);
-    sceneGeometry->setupFromMesh("Models/DisplayCube.obj");
+    sceneGeometry->setupFromMesh("Models/terrain.obj");
     backgroundGeometry = new Geometry(device, physicalDevice, commandPool, graphicsQueue);
     backgroundGeometry->setupAsBackgroundQuad();
 }
@@ -370,8 +370,8 @@ void VulkanApplication::updateUniformBuffer() {
     UniformModelObject umo = {};
     //umo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.f), glm::vec3(0.f, 0.f, 1.f));
     umo.model = glm::mat4(1.0f);
-    umo.model[0][0] = 8.0f;
-    umo.model[2][2] = 8.0f;
+    umo.model[0][0] = 1.0f;
+    umo.model[2][2] = 1.0f;
     umo.invTranspose = glm::inverse(glm::transpose(umo.model));
     float interp = sin(time * 0.05f);
 

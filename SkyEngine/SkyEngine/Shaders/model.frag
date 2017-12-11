@@ -220,7 +220,7 @@ void main() {
     vec3 N = normalize(getNormal());
     vec3 V = -normalize(fragPosition);
     vec3 L = normalize((camera.view * vec4(sun.directionBasis[1].xyz, 0.0)).xyz); //normalize((camera.view * vec4(normalize(vec3(1, 1, 1)), 0)).xyz); // arbitrary for now
-    if (L.y < 0.05) L *= -1.0;
+    if (L.y < -0.05) L *= -1.0;
 
     float roughness = pbrParams.r;
     roughness *= roughness; // perceptual roughness
@@ -236,7 +236,7 @@ void main() {
 
     vec3 F = fresnelSchlick(specular, N, V);
     vec3 color = pbrMaterialColor(F, N, L, V, roughness, diffuse, specular);
-    color *= sun.color.xyz * sun.intensity;
+    color *= sun.color.xyz * pow(sun.intensity, 0.9);
 
     /// Shadows - brief raymarch of low-res clouds
 
@@ -281,5 +281,7 @@ void main() {
     color += diffuse * mix(vec3(0), 2.0 * vec3(0.6, 0.7, 1.0), 0.5 + 0.5 * dot(N, normalize((camera.view * vec4(normalize(vec3(0, 1, 0)), 0)).xyz)));
     vec3 aoColor = mix(vec3(0.1, 0.1, 0.3), vec3(1), pbrParams.b);
     color.rgb *= aoColor;
+    float fogFactor = (1.0 - exp(-length(fragPosition) * 0.07));
+    color.rgb = mix(color.rgb, pow(sun.intensity, 0.2) * vec3(0.6, 0.7, 1.0), fogFactor);
     outColor = vec4(color, 1.0);
 }
