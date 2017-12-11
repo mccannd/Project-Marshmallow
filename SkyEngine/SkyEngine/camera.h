@@ -27,7 +27,7 @@ private:
 	float m_near = 0.1f;
 	float m_far = 100.0f;
 	float m_fov = 45.0f;
-	float m_aspect = 1280.0f / 720.0f;
+    float m_aspect = 1920.0f / 1080.0f; //1280.0f / 720.0f; // 
 
 	glm::mat4 m_proj;
 

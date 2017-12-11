@@ -280,8 +280,11 @@ mat3 fromAngleAxis( in vec3 angle, in float angleRad ) {
 #define WIND_STRENGTH 20.0
 
 // temp
-#define WIDTH 1280
-#define HEIGHT 720
+//#define WIDTH 1280
+#define WIDTH 1920
+//#define HEIGHT 720
+#define HEIGHT 1080
+#define MAX_STEPS 100
 
 void main() {
     float timeOffset = sky.wind.w;
@@ -385,7 +388,7 @@ void main() {
     float t;
     float accumDensity = 0.0;
     float transmittance = 1.0;
-    float stepSize = 0.025 * atmosphereThickness;
+    float stepSize = 0.05 * atmosphereThickness;
 
     mat3 basis = mat3(sun.directionBasis);
     vec3 samples[6] = {
@@ -393,12 +396,14 @@ void main() {
         basis * vec3(0, 0.5, 0.05),
         basis * vec3(0.1, 0.75, 0),
         basis * vec3(0.2, 2.5, 0.3),
-        basis * vec3(-0.1, 1, -0.2),
         basis * vec3(0, 6, 0),
+        basis * vec3(-0.1, 1, -0.2)
+        
     };
 
     bool noHits = true;
     int misses = 0;
+    int steps = 0;
 
     float henyeyGreenstein = max(hgPhase(cosTheta, 0.6), 0.7 * hgPhase(cosTheta, 0.99 - 0.1));
     for(float t = atmosphereIsectInner.t; t < atmosphereIsectOuter.t; t += stepSize) {
@@ -424,7 +429,7 @@ void main() {
             if (noHits) {
                 //start high-resolution march
                 t -= stepSize;
-                stepSize *= 0.5;
+                stepSize *= 0.3;
                 noHits = false;
                 continue; // go back half a step
             }
@@ -434,7 +439,7 @@ void main() {
             float densityAlongLight = 0.0;
 
             // Sample light propogation for Beer's law in a cone towards the light
-            for (int i = 0; i < 6; i++) {
+            for (int i = 0; i < 5; i++) {
                 vec3 lsPos = currentPos + 3.0 * stepSize * samples[i];
                 vec3 lsProj = getProjectedShellPoint(lsPos, earthCenter);
                 float lsHeight = getRelativeHeight(lsPos, lsProj, atmosphereThickness);
@@ -465,7 +470,7 @@ void main() {
             misses++;
             if (misses >= 10) {
                 noHits = true; // revert to low resolution marching
-                stepSize *= 2.0;
+                stepSize /= 0.3;
             }
         }
            
@@ -473,6 +478,8 @@ void main() {
             accumDensity = 1.0;
             break;
         }
+
+        if (++steps > MAX_STEPS) break;
     }
 
     // opacity fades to prevent hard cutoff at horizon
