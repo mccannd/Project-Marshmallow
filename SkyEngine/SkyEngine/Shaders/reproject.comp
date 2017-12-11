@@ -137,13 +137,16 @@ void main() {
     vec2 blurVec = oldUV - uv;
 
     // take n samples for motion blur
-    for (int s = 0; s < 5; ++s) {
-        vec2 blurOffset = blurVec * (float(s) * 0.25 - 0.5);
-        vec2 imageUV = round((oldUV) * dim);
+    for (int s = 0; s < 10; ++s) {
+        vec2 blurOffset = blurVec * (float(s) / 9.0 - 0.5);
+        vec2 imageUV = round((oldUV - blurVec) * dim);
         
         sourceColor += imageLoad(sourceImage, clamp(ivec2(imageUV), ivec2(0, 0), ivec2(dim.x - 1,  dim.y - 1)));
     }
-    sourceColor *= 0.2;
+    sourceColor *= 0.1;
+    vec2 imageUV = round((oldUV ) * dim);
+    sourceColor.a = imageLoad(sourceImage, clamp(ivec2(imageUV), ivec2(0, 0), ivec2(dim.x - 1,  dim.y - 1))).a;
+    
 
     
 
