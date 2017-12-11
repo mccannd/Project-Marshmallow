@@ -118,16 +118,16 @@ void main() {
     // intersection of sphere in world space
     vec3 intersectionPos = raySphereIntersection(cameraPos, rayDirection, atmosphereSphereInner).point;
     
-    /// Extract the old camera uniforms
     // position of intersection in old View space
     // now intersection can be expressed in terms of right, up, look
+    // (faster to just use direction but does not account for position)
     intersectionPos = (cameraPrev.view * vec4(intersectionPos, 1.0)).xyz;
 
     // view space direction
     vec3 oldCamRayDir = normalize(intersectionPos);
     //sourceColor.rgb = rayDirection * 0.5 + 0.5;
 
-    // de normalize the ray: -> <u, v, 1> in R U F basis
+    // de-normalize the ray: -> <u, v, 1> in R U F basis
     oldCamRayDir /= -oldCamRayDir.z;
     float oldU = oldCamRayDir.x / tanFovy / (1280.0 / 720);
     oldU = oldU * 0.5 + 0.5;
@@ -135,11 +135,8 @@ void main() {
     oldV = oldV * 0.5 + 0.5;
     vec2 oldUV = vec2(oldU, oldV);
     vec2 blurVec = oldUV - uv;
-    //oldUV = clamp(oldUV, vec2(0.0), vec2(1.0));
-    //vec4 sourceColor = imageLoad(sourceImage, ivec2(gl_GlobalInvocationID.xy));
-    //sourceColor.rgb = vec3(oldU, oldV, 0.0);
 
-        // take n samples for motion blur
+    // take n samples for motion blur
     for (int s = 0; s < 5; ++s) {
         vec2 blurOffset = blurVec * (float(s) * 0.25 - 0.5);
         vec2 imageUV = round((oldUV) * dim);
@@ -147,17 +144,7 @@ void main() {
         sourceColor += imageLoad(sourceImage, clamp(ivec2(imageUV), ivec2(0, 0), ivec2(dim.x - 1,  dim.y - 1)));
     }
     sourceColor *= 0.2;
-    //sourceColor = vec4(abs(blurVec), 0, 0);
 
-    /*for(int s = 0; s < 3; ++s) {
-
-    }*/
-
-    //vec2 imageUV = round(oldUV * dim);
-    //sourceColor = imageLoad(sourceImage, clamp(ivec2(imageUV), ivec2(0, 0), ivec2(dim.x - 1,  dim.y - 1)));
-        //sourceColor.rgba = vec4(uv, 0, 0);
-        //vec4 targetOldColor = imageLoad(targetImage, ivec2(gl_GlobalInvocationID.xy));
-        //sourceColor = 0.875 *sourceColor + 0.125 * targetOldColor;
     
 
     imageStore(targetImage, ivec2(gl_GlobalInvocationID.xy), sourceColor);
