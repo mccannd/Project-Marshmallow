@@ -205,6 +205,7 @@ private:
     Texture* depthTexture;
     Texture* cloudPlacementTexture;
     Texture* nightSkyTexture;
+    Texture* cloudCurlNoise;
     Texture3D* lowResCloudShapeTexture3D;
     Texture3D* hiResCloudShapeTexture3D;
 

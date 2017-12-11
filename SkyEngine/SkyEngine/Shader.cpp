@@ -636,12 +636,16 @@ void ComputeShader::createDescriptorSetLayout() {
     VkDescriptorSetLayoutBinding samplerLayoutBindingNightSky = Texture::getLayoutBinding(5);
     samplerLayoutBindingNightSky.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
-    // Low Res cloud shape
-    VkDescriptorSetLayoutBinding samplerLayoutBinding2 = Texture3D::getLayoutBinding(6);
-    // Hi res cloud shape
-    VkDescriptorSetLayoutBinding samplerLayoutBinding3 = Texture3D::getLayoutBinding(7);
+    VkDescriptorSetLayoutBinding samplerLayoutBindingCurl = Texture::getLayoutBinding(6);
+    samplerLayoutBindingCurl.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
-    std::array<VkDescriptorSetLayoutBinding, 8> bindings = { storageImageLayoutBinding, camLayoutBinding, sunLayoutBinding, skyLayoutBinding, samplerLayoutBinding, samplerLayoutBindingNightSky, samplerLayoutBinding2, samplerLayoutBinding3 };
+    // Low Res cloud shape
+    VkDescriptorSetLayoutBinding samplerLayoutBinding2 = Texture3D::getLayoutBinding(7);
+    // Hi res cloud shape
+    VkDescriptorSetLayoutBinding samplerLayoutBinding3 = Texture3D::getLayoutBinding(8);
+
+    std::array<VkDescriptorSetLayoutBinding, 9> bindings = { storageImageLayoutBinding, camLayoutBinding, sunLayoutBinding, skyLayoutBinding, samplerLayoutBinding, samplerLayoutBindingNightSky, samplerLayoutBindingCurl, samplerLayoutBinding2, samplerLayoutBinding3 };
+
     VkDescriptorSetLayoutCreateInfo layoutInfo = {};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
@@ -653,23 +657,13 @@ void ComputeShader::createDescriptorSetLayout() {
 }
 
 void ComputeShader::createDescriptorPool() {
-    std::array<VkDescriptorPoolSize, 8> poolSizes = {};
+    std::array<VkDescriptorPoolSize, 3> poolSizes = {};
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
     poolSizes[0].descriptorCount = 1;
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    poolSizes[1].descriptorCount = 1;
-    poolSizes[2].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    poolSizes[2].descriptorCount = 1;
-    poolSizes[3].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    poolSizes[3].descriptorCount = 1;
-    poolSizes[4].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    poolSizes[4].descriptorCount = 1;
-    poolSizes[5].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    poolSizes[5].descriptorCount = 1;
-    poolSizes[6].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    poolSizes[6].descriptorCount = 1;
-    poolSizes[7].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    poolSizes[7].descriptorCount = 1;
+    poolSizes[1].descriptorCount = 3;
+    poolSizes[2].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    poolSizes[2].descriptorCount = 5;
 
     VkDescriptorPoolCreateInfo poolInfo = {};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -725,6 +719,11 @@ void ComputeShader::createDescriptorSet() {
     imageInfoNightSky.imageView = textures[2]->textureImageView;
     imageInfoNightSky.sampler = textures[2]->textureSampler;
 
+    VkDescriptorImageInfo imageInfoCurl = {};
+    imageInfoCurl.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    imageInfoCurl.imageView = textures[3]->textureImageView;
+    imageInfoCurl.sampler = textures[3]->textureSampler;
+
     VkDescriptorImageInfo imageInfo3 = {};
     imageInfo3.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     imageInfo3.imageView = textures3D[0]->textureImageView;
@@ -735,7 +734,7 @@ void ComputeShader::createDescriptorSet() {
     imageInfo4.imageView = textures3D[1]->textureImageView;
     imageInfo4.sampler = textures3D[1]->textureSampler;
 
-    std::array<VkWriteDescriptorSet, 8> descriptorWrites = {};
+    std::array<VkWriteDescriptorSet, 9> descriptorWrites = {};
 
     descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     descriptorWrites[0].dstSet = descriptorSet;
@@ -791,7 +790,7 @@ void ComputeShader::createDescriptorSet() {
     descriptorWrites[6].dstArrayElement = 0;
     descriptorWrites[6].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     descriptorWrites[6].descriptorCount = 1;
-    descriptorWrites[6].pImageInfo = &imageInfo3;
+    descriptorWrites[6].pImageInfo = &imageInfoCurl;
 
     descriptorWrites[7].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     descriptorWrites[7].dstSet = descriptorSet;
@@ -799,8 +798,16 @@ void ComputeShader::createDescriptorSet() {
     descriptorWrites[7].dstArrayElement = 0;
     descriptorWrites[7].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     descriptorWrites[7].descriptorCount = 1;
-    descriptorWrites[7].pImageInfo = &imageInfo4;
+    descriptorWrites[7].pImageInfo = &imageInfo3;
 
+    descriptorWrites[8].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrites[8].dstSet = descriptorSet;
+    descriptorWrites[8].dstBinding = 8;
+    descriptorWrites[8].dstArrayElement = 0;
+    descriptorWrites[8].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    descriptorWrites[8].descriptorCount = 1;
+    descriptorWrites[8].pImageInfo = &imageInfo4;
+    
     vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 }
 

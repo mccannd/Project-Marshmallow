@@ -251,6 +251,8 @@ void VulkanApplication::initializeTextures() {
     cloudPlacementTexture->initFromFile("Textures/CloudPlacement.png");
     nightSkyTexture = new Texture(device, physicalDevice, commandPool, graphicsQueue);
     nightSkyTexture->initFromFile("Textures/NightSky/nightSky_betterStars.png");
+    cloudCurlNoise = new Texture(device, physicalDevice, commandPool, graphicsQueue);
+    cloudCurlNoise->initFromFile("Textures/CurlNoiseFBM.png");
     lowResCloudShapeTexture3D = new Texture3D(device, physicalDevice, commandPool, graphicsQueue, 128, 128, 128); // 128, 128, 128
     lowResCloudShapeTexture3D->initFromFile("Textures/3DTextures/lowResCloudShape/lowResCloud"); // note: no .png
     hiResCloudShapeTexture3D = new Texture3D(device, physicalDevice, commandPool, graphicsQueue, 32, 32, 32); // 128, 128, 128
@@ -266,6 +268,7 @@ void VulkanApplication::cleanupTextures() {
     delete depthTexture;
     delete cloudPlacementTexture;
     delete nightSkyTexture;
+    delete cloudCurlNoise;
     delete lowResCloudShapeTexture3D;
     delete hiResCloudShapeTexture3D;
 }
@@ -291,7 +294,7 @@ void VulkanApplication::initializeShaders() {
 
     // Note: we pass the background shader's texture with the intention of writing to it with the compute shader
     computeShader = new ComputeShader(device, physicalDevice, commandPool, computeQueue, swapChainExtent, 
-        &offscreenPass.renderPass, std::string("Shaders/compute-clouds.comp.spv"), backgroundTexture, cloudPlacementTexture, nightSkyTexture,
+        &offscreenPass.renderPass, std::string("Shaders/compute-clouds.comp.spv"), backgroundTexture, cloudPlacementTexture, nightSkyTexture, cloudCurlNoise,
         lowResCloudShapeTexture3D, hiResCloudShapeTexture3D);
 
     // Post shaders: there will be many
@@ -792,52 +795,6 @@ void VulkanApplication::createSemaphores() {
 
 
 }
-
-/*void VulkanApplication::createComputePipeline() {
-    // Set up programmable shader
-    auto computeShaderCode = readFile("Shaders/helloTriangle.comp.spv");
-    VkShaderModule computeShaderModule = createShaderModule(computeShaderCode, device);
-
-    VkPipelineShaderStageCreateInfo computeShaderStageInfo = {};
-    computeShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    computeShaderStageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-    computeShaderStageInfo.module = computeShaderModule;
-    computeShaderStageInfo.pName = "main";
-
-    // TODO: compute descriptor set layouts
-    std::vector<VkDescriptorSetLayout> descriptorSetLayouts = {computeSetLayout};
-
-    // Create pipeline layout
-    VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
-    pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(descriptorSetLayouts.size());
-    pipelineLayoutInfo.pSetLayouts = descriptorSetLayouts.data();
-    pipelineLayoutInfo.pushConstantRangeCount = 0;
-    pipelineLayoutInfo.pPushConstantRanges = 0;
-
-    // Create that layout
-    if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &computePipelineLayout) != VK_SUCCESS) {
-        throw std::runtime_error("Failed to create pipeline layout");
-    }
-
-    // Create compute pipeline
-    VkComputePipelineCreateInfo pipelineInfo = {};
-    pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-    pipelineInfo.stage = computeShaderStageInfo;
-    pipelineInfo.layout = computePipelineLayout;
-    pipelineInfo.pNext = nullptr;
-    pipelineInfo.flags = 0;
-    pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
-    pipelineInfo.basePipelineIndex = -1;
-
-    // Create that pipeline
-    if (vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &computePipeline) != VK_SUCCESS) {
-        throw std::runtime_error("Failed to create compute pipeline");
-    }
-
-    // No longer need shader module
-    vkDestroyShaderModule(device, computeShaderModule, nullptr);
-}*/
 
 void VulkanApplication::createCommandPool() {
     QueueFamilyIndices queueFamilyIndices = findQueueFamilies(physicalDevice);

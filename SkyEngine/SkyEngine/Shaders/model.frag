@@ -212,9 +212,9 @@ vec3 pbrMaterialColor(in vec3 fresnel, in vec3 N, in vec3 L, in vec3 V, in float
     return max(0.0, dot(N, L)) * (diffuse * lambertBRDF(fresnel) + specular * fresnel * specularBRDFwithoutFresnel(N, L, V, roughness));
 }
 
-
 void main() {
     vec4 albedo = texture(texColor, fragUV);
+
     albedo.xyz = pow(albedo.xyz, vec3(2.2));
     vec4 pbrParams = texture(pbrInfo, fragUV);
     vec3 N = normalize(getNormal());
@@ -254,7 +254,6 @@ void main() {
     float t = atmosphereIsectInner.t;
     float accumDensity = 0.0;
 
-    //const vec3 shadowDir = normalize(sun.direction.xyz);
     vec3 shadowRayOrigin = fragPositionWC * 4.0;
 
     for(int i = 0; i < NUM_SHADOW_STEPS; ++i) {
@@ -281,8 +280,5 @@ void main() {
     color += diffuse * mix(vec3(0), 2.0 * vec3(0.6, 0.7, 1.0), 0.5 + 0.5 * dot(N, normalize((camera.view * vec4(normalize(vec3(0, 1, 0)), 0)).xyz)));
     vec3 aoColor = mix(vec3(0.1, 0.1, 0.3), vec3(1), pbrParams.b);
     color.rgb *= aoColor;
-
-    //color = sun.directionBasis[1].xyz;
-    //color = abs(fragPositionWC);
     outColor = vec4(color, 1.0);
 }

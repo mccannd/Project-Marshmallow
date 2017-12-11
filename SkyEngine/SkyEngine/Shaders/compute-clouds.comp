@@ -33,8 +33,9 @@ layout(binding = 3) uniform UniformSkyObject {
 
 layout(binding = 4) uniform sampler2D cloudPlacement;
 layout(binding = 5) uniform sampler2D nightSkyMap;
-layout(binding = 6) uniform sampler3D lowResCloudShape;
-layout(binding = 7) uniform sampler3D hiResCloudShape;
+layout(binding = 6) uniform sampler2D curlNoise;
+layout(binding = 7) uniform sampler3D lowResCloudShape;
+layout(binding = 8) uniform sampler3D hiResCloudShape;
 
 struct Intersection {
     vec3 normal;
@@ -43,7 +44,7 @@ struct Intersection {
     float t;
 };
 
-#define ATMOSPHERE_RADIUS 1000000.0
+#define ATMOSPHERE_RADIUS 2000000.0
 
 #define EPSILON 0.0001
 #define PI 3.14159265
@@ -178,50 +179,61 @@ float getRelativeHeight(in vec3 pt, in vec3 projectedPt, in float thickness) {
     return clamp(length(pt - projectedPt) / thickness, 0.0, 1.0);
 }
 
+
+#define CUMULUS_LB_START 0.0
+#define CUMULUS_LB_END 0.2
+#define STRATOCUMULUS_LB_START 0.0
+#define STRATOCUMULUS_LB_END 0.2
+#define STRATUS_LB_START 0.0
+#define STRATUS_LB_END 0.1
+
+#define CUMULUS_UB_START 0.6
+#define CUMULUS_UB_END 1.0
+#define STRATOCUMULUS_UB_START 0.3
+#define STRATOCUMULUS_UB_END 0.7
+#define STRATUS_UB_START 0.2
+#define STRATUS_UB_END 0.3
+
 // Get the blended density gradient for 3 different cloud types
 // relativeHeight is normalized distance from inner to outer atmosphere shell
 // cloudType is read from cloud placement blue channel
 float cloudLayerDensity(float relativeHeight, float cloudType) {
     relativeHeight = clamp(relativeHeight, 0, 1);
-
-    float cumulus = max(0.0, remap(relativeHeight, 0.0, 0.2, 0.0, 1.0) * remap(relativeHeight, 0.7, 1.0, 1.0, 0.0));
+    
+    float cumulus = max(0.0, remap(relativeHeight, 0.0, 0.2, 0.0, 1.0) * remap(relativeHeight, 0.7, 0.9, 1.0, 0.0));
     float stratocumulus = max(0.0, remap(relativeHeight, 0.0, 0.2, 0.0, 1.0) * remap(relativeHeight, 0.2, 0.7, 1.0, 0.0)); 
     float stratus = max(0.0, remap(relativeHeight, 0.0, 0.1, 0.0, 1.0) * remap(relativeHeight, 0.2, 0.3, 1.0, 0.0)); 
 
     float d1 = mix(stratus, stratocumulus, clamp(cloudType * 2.0, 0.0, 1.0));
-    float d2 = mix(stratocumulus, stratus, clamp((cloudType - 0.5) * 2.0, 0.0, 1.0));
+    float d2 = mix(stratocumulus, cumulus, clamp((cloudType - 0.5) * 2.0, 0.0, 1.0));
     return mix(d1, d2, cloudType);
+    
 }
 
 float heightBiasCoverage(float coverage, float height) {
-    return pow(coverage, clamp(remap(height, 0.7, 0.8, 1.0, 0.6), 0.6, 1.0));
+    return pow(coverage, clamp(remap(height, 0.7, 0.8, 1.0, 0.8), 0.8, 1.0));
 }
 
 float erodeBlend(float x, float newMin) {
     return max(0.0, remap(x, newMin, 1.0, 0.0, 1.0));
 }
 
-float cloudHiRes(in vec3 pos, in float curlStrength, in float origDensity) {
+float cloudHiRes(in vec3 pos, in float curlStrength, in float origDensity, in float relativeHeight) {
     // TODO: curlNoise
-    /*
-    float c = 0.000025; //?
-    vec3 curl = vec3(
-        texture(curlNoise, c * vec2(pos.yz)).x,
-        texture(curlNoise, c * vec2(pos.xz)).y,
-        texture(curlNoise, c * vec2(pos.xy)).z,
-    );
-    */
+    
+    float c = 0.0001; //?
+    vec3 curl = texture(curlNoise, c * pos.xz).xyz;
 
-    vec3 curl = texture(hiResCloudShape, 0.0001 * pos).yzw;
     curl = 2.0 * curl - 1.0;
-    pos += curlStrength * curl;
+    pos += 0.9 * curlStrength * curl;
 
-    vec4 densityNoise = texture(hiResCloudShape, 0.00043 * pos);
-    float erosion = 0.625 * densityNoise.y + 0.25 * densityNoise.z + 0.125 * densityNoise.a;
+    vec4 densityNoise = texture(hiResCloudShape, 0.0005 * pos);
+    float erosion = 0.625 * densityNoise.r + 0.25 * densityNoise.g + 0.125 * densityNoise.b;
 
-    erosion = remapClamped(densityNoise.x, erosion, 1.0, 0.0, 1.0);
-
-    return remapClamped(origDensity, erosion, 1.0, 0.0, 1.0);
+    erosion = mix(erosion, 1.0 - erosion, clamp(relativeHeight * 10.0, 0.0, 1.0));
+    //return erosion;
+    //return origDensity;
+    return remapClamped(origDensity, 1.0 * erosion, 1.0, 0.0, 1.0);
 }
 
 // Checks if a cloud is at this point. If not, return 0 immediately. Otherwise get low-res density. (can still be 0 given cloud coverage)
@@ -230,11 +242,11 @@ float cloudTest(in vec3 pos, in float relativeHeight, in vec3 earthCenter, inout
     float density;
 
     vec3 currentProj = getProjectedShellPoint(pos, earthCenter);
-    vec3 cloudInfo = texture(cloudPlacement, 0.00001 * (currentProj.xz - camera.cameraPosition.xz)).xyz;
-    float layerDensity = cloudLayerDensity(relativeHeight, cloudInfo.z);
+    vec3 cloudInfo = texture(cloudPlacement, 0.000009 * (currentProj.xz - camera.cameraPosition.xz)).xyz;
+    float layerDensity = cloudLayerDensity(relativeHeight, cloudInfo.b);
 
-    vec4 densityNoise = texture(lowResCloudShape, 0.000057 * vec3(pos));
-
+    vec4 densityNoise = texture(lowResCloudShape, 0.00002 * vec3(pos));
+    //densityNoise.x = 1.0;
     density = layerDensity * remapClamped(densityNoise.x, 0.3, 1.0, 0.0, 1.0);
 
     coverage = 0.0;
@@ -244,7 +256,6 @@ float cloudTest(in vec3 pos, in float relativeHeight, in vec3 earthCenter, inout
     coverage = heightBiasCoverage(relativeHeight, min(0.85, cloudInfo.r));
 
     float erosion = 0.625 * densityNoise.y + 0.25 * densityNoise.z + 0.125 * densityNoise.w;
-
     erosion = remapClamped(erosion, coverage, 1.0, 0.0, 1.0);
     //density = remapClamped(density, 1.0 - coverage, 1.0, 0.0, 1.0);
     density = remapClamped(density, erosion, 1.0, 0.0, 1.0);
@@ -287,15 +298,7 @@ void main() {
     // TODO: ???????
     // TODO: Profit
 	vec2 uv = vec2(gl_GlobalInvocationID.xy) / dim;
-    
-    // sample the tex
-    /*
-    vec3 col = texture(lowResCloudShape, vec3(uv, 0.5 + 0.5 * sin(0.2 * sky.wind.w))).xyz;
-    vec4 finalColor2 = vec4(col.xxx, 1.0);
-    imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), finalColor2);
-    return;
-    */
-    
+
     /// Cast a ray
     // Compute screen space point from UVs
     vec2 screenPoint = uv * 2.0 - 1.0;
@@ -311,7 +314,7 @@ void main() {
 
     const float tanFovy = 0.4142135; // TODO link camera uniform
 
-    vec3 p = refPoint + ASPECT_RATIO * screenPoint.x * tanFovy * camRight - screenPoint.y * tanFovy * camUp; // TODO: aspect ratio as uniform
+    vec3 p = refPoint + 1.777778 * screenPoint.x * tanFovy * camRight - screenPoint.y * tanFovy * camUp; // TODO: aspect ratio as uniform
 
     vec3 rayDirection = normalize(p - cameraPos);
 
@@ -351,7 +354,7 @@ void main() {
 
     /// Raytrace the scene (a sphere, to become the atmosphere)
     vec3 earthCenter = cameraPos;
-    earthCenter.y = -ATMOSPHERE_RADIUS * 0.5 * 0.99;
+    earthCenter.y = -ATMOSPHERE_RADIUS * 0.5 * 0.995;
     vec4 atmosphereSphereInner = vec4(earthCenter, ATMOSPHERE_RADIUS);
     float atmosphereThickness = 0.5 * ATMOSPHERE_RADIUS * 0.02;
     vec4 atmosphereSphereOuter = vec4(earthCenter, ATMOSPHERE_RADIUS * 1.02);
@@ -383,7 +386,7 @@ void main() {
     float t;
     float accumDensity = 0.0;
     float transmittance = 1.0;
-    float stepSize = 0.01 * atmosphereThickness;
+    float stepSize = 0.02 * atmosphereThickness;
 
     mat3 basis = mat3(sun.directionBasis);
     vec3 samples[6] = {
@@ -395,6 +398,9 @@ void main() {
         basis * vec3(0, 6, 0),
     };
 
+    bool noHits = true;
+    int misses = 0;
+
     float henyeyGreenstein = max(hgPhase(cosTheta, 0.6), 0.7 * hgPhase(cosTheta, 0.99 - 0.1));
     for(float t = atmosphereIsectInner.t; t < atmosphereIsectOuter.t; t += stepSize) {
         vec3 currentPos = cameraPos + t * rayDirection;
@@ -402,7 +408,12 @@ void main() {
         float coverage;
         vec3 currentProj = getProjectedShellPoint(currentPos, earthCenter);
         float rHeight = getRelativeHeight(currentPos, currentProj, atmosphereThickness);
-        vec3 windOffset = WIND_STRENGTH * (sky.wind.xyz + vec3(0, 0.2 * rHeight, 0)) * (timeOffset + rHeight * 200.0);
+        vec3 windOffset = WIND_STRENGTH * (sky.wind.xyz + rHeight *vec3(0.1, 0.05, 0)) * (timeOffset + rHeight * 200.0);
+
+        //vec3 curl = texture(curlNoise, 0.0003 * currentProj.xz).xyz;
+
+        //curl = 2.0 * curl - 1.0;
+        //currentPos += 0.3 * stepSize * curl;
 
         float density = cloudTest(currentPos + windOffset, rHeight, earthCenter, coverage);
 
@@ -410,22 +421,30 @@ void main() {
             
 
         if (density > 0.0) {
-            
-            density = cloudHiRes(currentPos + windOffset, stepSize, density);
+            misses = 0;
+            if (noHits) {
+                //start high-resolution march
+                t -= stepSize;
+                stepSize *= 0.5;
+                noHits = false;
+                continue; // go back half a step
+            }
+
+            density = cloudHiRes(currentPos + windOffset, stepSize, density, rHeight);
             
             float densityAlongLight = 0.0;
 
             // Sample light propogation for Beer's law in a cone towards the light
             for (int i = 0; i < 6; i++) {
-                vec3 lsPos = currentPos + 2.0 * stepSize * samples[i];
+                vec3 lsPos = currentPos + 3.0 * stepSize * samples[i];
                 vec3 lsProj = getProjectedShellPoint(lsPos, earthCenter);
                 float lsHeight = getRelativeHeight(lsPos, lsProj, atmosphereThickness);
-                windOffset = WIND_STRENGTH * (sky.wind.xyz + vec3(0, 0.2 * lsHeight, 0)) * (timeOffset + lsHeight * 200.0);
+                windOffset = WIND_STRENGTH * (sky.wind.xyz + lsHeight * vec3(0.1, 0.05, 0)) * (timeOffset + lsHeight * 200.0);
 
                 float lsDensity = cloudTest(lsPos + windOffset, lsHeight, earthCenter, coverage);
 
                 if (lsDensity > 0.0) {
-                    lsDensity = cloudHiRes(lsPos + windOffset, stepSize, lsDensity);
+                    lsDensity = cloudHiRes(lsPos + windOffset, stepSize, lsDensity, lsHeight);
                     densityAlongLight += lsDensity;
                 }
             }
@@ -433,15 +452,22 @@ void main() {
             // Beer's Law with extra / artistic light penetration, blend with front-to-back opacity     
             float beersLaw = exp(-densityAlongLight);
             // HG makes far clouds too dark, clouds away from sun dir need extra scattering
-            float beersModulated = max(beersLaw, 0.7 * exp(-0.2 * densityAlongLight));
+            float beersModulated = max(beersLaw, 0.7 * exp(-0.25 * densityAlongLight));
 
             beersLaw = mix(beersLaw, beersModulated, -cosTheta * 0.5 + 0.5);
-            float inScatter = 0.05 + pow(loDensity, clamp(remap(rHeight, 0.3, 0.85, 0.6, 2.0), 0.6, 2.0));
-            inScatter *= pow(clamp(remap(rHeight, 0.07, 0.24, 0.1, 1.0), 0.1, 1.0), 0.8);
+            float inScatter = 0.05 + pow(loDensity, remapClamped(rHeight, 0.3, 0.85, 0.5, 2.0));
+            inScatter *= pow(remapClamped(rHeight, 0.07, 0.34, 0.1, 1.0), 0.8);
             //inScatter = loDensity * loDensity;
             transmittance = mix(transmittance, inScatter * henyeyGreenstein * beersLaw , (1.0 - accumDensity));
 
             accumDensity += density;
+
+        } else if (!noHits) {
+            misses++;
+            if (misses >= 10) {
+                noHits = true; // revert to low resolution marching
+                stepSize *= 2.0;
+            }
         }
            
         if(accumDensity > 0.99) {
@@ -461,7 +487,6 @@ void main() {
     // This is a cheaty way to avoid having to set aside a whole framebuffer for light values.
 
     // opacity fades to prevent hard cutoff at horizon
-    // TODO: find a good way to make atmospheric haze
     accumDensity *= smoothstep(0, 1, min(1, remap(rayDirection.y, 0, 0.1, 0, 1)));
     accumDensity = min(accumDensity, 0.999);
 
@@ -474,7 +499,7 @@ void main() {
 
     finalColor.rgb = mix(backgroundCol, cloudColor, accumDensity);
     finalColor.a *= max(1.0 - accumDensity, 0.0);
-    //finalColor.a *= 1.0 - exp(-transmittance);
+
 
     imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), finalColor);
 }
