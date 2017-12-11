@@ -146,9 +146,6 @@ void main() {
     sourceColor *= 0.1;
     vec2 imageUV = round((oldUV ) * dim);
     sourceColor.a = imageLoad(sourceImage, clamp(ivec2(imageUV), ivec2(0, 0), ivec2(dim.x - 1,  dim.y - 1))).a;
-    
-
-    
 
     imageStore(targetImage, ivec2(gl_GlobalInvocationID.xy), sourceColor);
 }

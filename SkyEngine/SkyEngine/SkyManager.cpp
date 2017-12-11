@@ -13,16 +13,24 @@ float clamp(float t, float min, float max) {
 }
 
 void SkyManager::calcSunColor() {
-    glm::vec3 sunset = glm::vec3(2.f, 0.33922, 0.0431f);
-    float t = (sun.direction.y) * 13.f;
-    t = clamp(t, 0.f, 1.f);
-    glm::vec3 color = (1.f - t) * sunset + (t) * glm::vec3(1.f);
-    sun.color = glm::vec4(color, sun.color.a);
+
+    if (sun.direction.y < 0.0f) {
+        sun.color = glm::vec4(0.8f, 0.9f, 1.0f, 0.f);
+    } else {
+        glm::vec3 sunset = glm::vec3(2.f, 0.33922, 0.0431f);
+        float t = (sun.direction.y) * 13.f;
+        t = clamp(t, 0.f, 1.f);
+        glm::vec3 color = (1.f - t) * sunset + (t)* glm::vec3(1.f);
+        sun.color = glm::vec4(color, sun.color.a);
+    }
 }
 
 void SkyManager::calcSunIntensity() {
     float zenithAngleCos = clamp(sun.direction.y, -1.f, 1.f);
     sun.intensity = EE * std::max(0.f, 1.f - powf(E, -((SHADOW_CUTOFF - acosf(zenithAngleCos)) / SHADOW_STEEPNESS)));
+    if (sun.direction.y < 0.0f) {
+        sun.intensity = 2.0f;
+    }
 }
 
 void SkyManager::calcSkyBetaR() {
@@ -36,7 +44,7 @@ void SkyManager::calcSkyBetaV() {
 }
 
 void SkyManager::calcSunPosition() {
-    float theta = PI * (elevation - 0.5);
+    float theta = 2.0 * PI * (elevation - 0.5);
     float phi = 2.0 * PI * (azimuth - 0.5);
     (cos(phi), sin(phi) * sin(theta), sin(phi) * cos(theta)); // double-check this
 
@@ -46,6 +54,9 @@ void SkyManager::calcSunPosition() {
     sun.direction = glm::vec4(dir, 0.0f);
     //sun.direction *= -1.f;
     sun.location = glm::vec4(SUN_DISTANCE * dir, 1.0f); // assume center is 0 0 0 for sky
+    if (sun.direction.y < 0.0f) {
+        sun.location *= -1.0f;
+    }
     sun.directionBasis = glm::mat4(1);
     glm::vec3 right = (abs(sun.direction.y) < 0.001f) ? ((sun.direction.z < 0) ? glm::vec3(0, 1, 0) : glm::vec3(0, -1, 0)) : glm::vec3(0, 0, 1);
     glm::vec3 dirN = glm::normalize(glm::cross(dir, right));
@@ -53,6 +64,9 @@ void SkyManager::calcSunPosition() {
     sun.directionBasis[1] = sun.direction;
     sun.directionBasis[0] = glm::vec4(dirN, 0.0f);
     sun.directionBasis[2] = glm::vec4(dirB, 0.0f);
+    if (sun.direction.y < 0.0f) {
+        sun.directionBasis *= -1.0f;
+    }
 }
 
 SkyManager::SkyManager()
@@ -76,8 +90,8 @@ SkyManager::SkyManager()
     };
     sun.color = glm::vec4(1, 1, 1, 0); // TODO. Note, alpha channel has to start at 0 as it serves a much different purpose
     calcSunPosition();
-    calcSunIntensity();
     calcSunColor();
+    calcSunIntensity();
     mie = 0.005f;
     sky.mie_directional = 0.8;
     rayleigh = 2.f;

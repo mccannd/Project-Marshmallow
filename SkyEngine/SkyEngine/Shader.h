@@ -155,11 +155,17 @@ protected:
 
     UniformCameraObject cameraUniforms;
     UniformModelObject modelUniforms;
+    UniformSunObject sunUniforms;
+    UniformSkyObject skyUniforms;
 
     VkBuffer uniformCameraBuffer;
     VkDeviceMemory uniformCameraBufferMemory;
     VkBuffer uniformModelBuffer;
     VkDeviceMemory uniformModelBufferMemory;
+    VkBuffer uniformSunBuffer;
+    VkDeviceMemory uniformSunBufferMemory;
+    VkBuffer uniformSkyBuffer;
+    VkDeviceMemory uniformSkyBufferMemory;
 
     virtual void cleanupUniforms();
 public:
@@ -175,18 +181,20 @@ public:
     }
     
     MeshShader(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue queue, VkExtent2D extent) : Shader(device, physicalDevice, commandPool, queue, extent) {}
-    MeshShader(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue queue, VkExtent2D extent, VkRenderPass *renderPass, std::string vertPath, std::string fragPath, Texture* tex, Texture* pbrTex, Texture* normalTex) :
+    MeshShader(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue queue, VkExtent2D extent, VkRenderPass *renderPass, std::string vertPath, std::string fragPath, Texture* tex, Texture* pbrTex, Texture* normalTex, Texture* coverageTex, Texture3D* loResCloudShape) :
         Shader(device, physicalDevice, commandPool, queue, extent) {
         this->renderPass = renderPass;
         addTexture(tex);
         addTexture(pbrTex);
         addTexture(normalTex);
+        addTexture(coverageTex);
+        addTexture3D(loResCloudShape);
         setupShader(vertPath, fragPath);
     }
 
     virtual ~MeshShader() { cleanupUniforms(); }
 
-    void updateUniformBuffers(UniformCameraObject cam, UniformModelObject model) {
+    void updateUniformBuffers(UniformCameraObject cam, UniformModelObject model, UniformSunObject sun, UniformSkyObject sky) {
         void* data;
         vkMapMemory(device, uniformCameraBufferMemory, 0, sizeof(cam), 0, &data);
         memcpy(data, &cam, sizeof(cam));
@@ -195,6 +203,14 @@ public:
         vkMapMemory(device, uniformModelBufferMemory, 0, sizeof(model), 0, &data);
         memcpy(data, &model, sizeof(model));
         vkUnmapMemory(device, uniformModelBufferMemory);
+
+        vkMapMemory(device, uniformSunBufferMemory, 0, sizeof(sun), 0, &data);
+        memcpy(data, &sun, sizeof(sun));
+        vkUnmapMemory(device, uniformSunBufferMemory);
+
+        vkMapMemory(device, uniformSkyBufferMemory, 0, sizeof(sky), 0, &data);
+        memcpy(data, &sky, sizeof(sky));
+        vkUnmapMemory(device, uniformSkyBufferMemory);
     }
 
     void bindShader(VkCommandBuffer& commandBuffer) override {
@@ -319,7 +335,7 @@ public:
 
     ComputeShader(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue queue, VkExtent2D extent) : Shader(device, physicalDevice, commandPool, queue, extent) {}
     ComputeShader(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue queue, VkExtent2D extent,
-        VkRenderPass *renderPass, std::string path, Texture* storageTex, Texture* storageTexPrev, Texture* placementTex, Texture3D* lowResCloudShapeTex, Texture3D* hiResCloudShapeTex, Texture* curlTexture) :
+                  VkRenderPass *renderPass, std::string path, Texture* storageTex, Texture* storageTexPrev, Texture* placementTex, Texture* nightSkyTex, Texture* curlTexture, Texture3D* lowResCloudShapeTex, Texture3D* hiResCloudShapeTex) :
 
         Shader(device, physicalDevice, commandPool, queue, extent) {
         this->renderPass = renderPass;
@@ -327,6 +343,7 @@ public:
         addTexture(storageTex);
         addTexture(storageTexPrev);
         addTexture(placementTex);
+        addTexture(nightSkyTex);
         addTexture(curlTexture);
         addTexture3D(lowResCloudShapeTex);
         addTexture3D(hiResCloudShapeTex);
@@ -485,7 +502,6 @@ public:
     PostProcessShader(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue queue, VkExtent2D extent, VkRenderPass *renderPass, std::string vertPath, std::string fragPath, VkDescriptorImageInfo* tex) :
         Shader(device, physicalDevice, commandPool, queue, extent), descriptorImageInfo(tex) {
         this->renderPass = renderPass;
-        //addTexture(tex);
         setupShader(vertPath, fragPath);
     }
 

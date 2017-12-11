@@ -37,6 +37,11 @@ void main() {
     vec2 scrPt = fragUV * 2.0 - 1.0;
 
     const vec4 currentFragment = texture(texColor, fragUV);
+
+    if(sun.direction.y < 0.0) {
+        outColor = vec4(currentFragment.xyz, 1.0); return;
+    }
+
     const float samples[NUM_SAMPLES] = { -0.08, -0.05, -0.03, -0.02, -0.01, 0.01, 0.02, 0.03, 0.05, 0.08 };
 
     // Let's just take some samples towards the sun position

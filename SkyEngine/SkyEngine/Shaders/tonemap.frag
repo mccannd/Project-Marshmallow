@@ -27,7 +27,6 @@ void main() {
     float whitepoint = 50.2;
     col = tonemap(col, 0.7, 1.0 / 2.2, whitepoint);
 
-
     float vignette = dot(fragUV - 0.5, fragUV - 0.5);
 
     col = mix(col, vec3(0.1, 0.05, 0.13), vignette);
