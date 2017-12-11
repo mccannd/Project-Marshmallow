@@ -1193,9 +1193,17 @@ void PostProcessShader::updateUniformBuffers(UniformCameraObject &cam, UniformSu
 
 
 void ReprojectShader::cleanupUniforms() {
-    // currently no uniforms, only a texture
+    
     vkDestroyBuffer(device, uniformSkyBuffer, nullptr);
     vkFreeMemory(device, uniformSkyBufferMemory, nullptr);
+    vkDestroyBuffer(device, uniformSunBuffer, nullptr);
+    vkFreeMemory(device, uniformSunBufferMemory, nullptr);
+    vkDestroyBuffer(device, uniformCameraBuffer, nullptr);
+    vkFreeMemory(device, uniformCameraBufferMemory, nullptr);
+    vkDestroyBuffer(device, uniformCameraBufferPrev, nullptr);
+    vkFreeMemory(device, uniformCameraBufferMemoryPrev, nullptr);
+
+    vkDestroyDescriptorSetLayout(device, uniformSetLayout, nullptr);
 }
 
 void ReprojectShader::createDescriptorSetLayout() {
@@ -1210,24 +1218,62 @@ void ReprojectShader::createDescriptorSetLayout() {
     if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS) {
         throw std::runtime_error("failed to create descriptor set layout!");
     }
+
+    VkDescriptorSetLayoutBinding camLayoutBinding = UniformCameraObject::getLayoutBinding(0);
+    VkDescriptorSetLayoutBinding camPrevLayoutBinding = UniformCameraObject::getLayoutBinding(1);
+    VkDescriptorSetLayoutBinding sunLayoutBinding = UniformSunObject::getLayoutBinding(2);
+    VkDescriptorSetLayoutBinding skyLayoutBinding = UniformSkyObject::getLayoutBinding(3);
+
+    std::array<VkDescriptorSetLayoutBinding, 4> bindingUBO = { camLayoutBinding, camPrevLayoutBinding, sunLayoutBinding, skyLayoutBinding };
+    layoutInfo = {};
+    layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    layoutInfo.bindingCount = static_cast<uint32_t>(bindingUBO.size());
+    layoutInfo.pBindings = bindingUBO.data();
+
+
+    if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &uniformSetLayout) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create descriptor set layout!");
+    }
+
 }
 
 void ReprojectShader::updateUniformBuffers(UniformCameraObject& cam, UniformCameraObject& camPrev, UniformSkyObject& sky, UniformSunObject& sun) {
-    // only the sky for the moment
+    
+    void* data;
+    vkMapMemory(device, uniformCameraBufferMemory, 0, sizeof(cam), 0, &data);
+    memcpy(data, &cam, sizeof(cam));
+    vkUnmapMemory(device, uniformCameraBufferMemory);
+
+    void* data2;
+    vkMapMemory(device, uniformSkyBufferMemory, 0, sizeof(sky), 0, &data2);
+    memcpy(data2, &sky, sizeof(sky));
+    vkUnmapMemory(device, uniformSkyBufferMemory);
+
+    void* data3;
+    vkMapMemory(device, uniformSunBufferMemory, 0, sizeof(sun), 0, &data3);
+    memcpy(data3, &sun, sizeof(sun));
+    vkUnmapMemory(device, uniformSunBufferMemory);
+
+    void* data4;
+    vkMapMemory(device, uniformCameraBufferMemoryPrev, 0, sizeof(camPrev), 0, &data4);
+    memcpy(data4, &camPrev, sizeof(camPrev));
+    vkUnmapMemory(device, uniformCameraBufferMemoryPrev);
 
 }
 
 void ReprojectShader::createDescriptorPool() {
-    std::array<VkDescriptorPoolSize, 1> poolSizes = {};
+    std::array<VkDescriptorPoolSize, 2> poolSizes = {};
 
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
     poolSizes[0].descriptorCount = 2;
+    poolSizes[1].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    poolSizes[1].descriptorCount = 4;
 
     VkDescriptorPoolCreateInfo poolInfo = {};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
     poolInfo.pPoolSizes = poolSizes.data();
-    poolInfo.maxSets = 2; // ping-pong between two images
+    poolInfo.maxSets = 3; // ping-pong between two images
 
     if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
         throw std::runtime_error("failed to create descriptor pool!");
@@ -1277,6 +1323,73 @@ void ReprojectShader::createDescriptorSet() {
 
     vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 
+    // other uniform writes
+    VkDescriptorSetLayout layoutsU[] = { uniformSetLayout };
+    VkDescriptorSetAllocateInfo allocInfoU = {};
+    allocInfoU.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocInfoU.descriptorPool = descriptorPool;
+    allocInfoU.descriptorSetCount = 1;
+    allocInfoU.pSetLayouts = layoutsU;
+
+    if (vkAllocateDescriptorSets(device, &allocInfoU, &uniformSet) != VK_SUCCESS) {
+        throw std::runtime_error("failed to allocate descriptor set!");
+    }
+
+    VkDescriptorBufferInfo cameraBufferInfo = {};
+    cameraBufferInfo.buffer = uniformCameraBuffer;
+    cameraBufferInfo.offset = 0;
+    cameraBufferInfo.range = sizeof(UniformCameraObject);
+
+    VkDescriptorBufferInfo cameraBufferInfoPrev = {};
+    cameraBufferInfoPrev.buffer = uniformCameraBufferPrev;
+    cameraBufferInfoPrev.offset = 0;
+    cameraBufferInfoPrev.range = sizeof(UniformCameraObject);
+
+    VkDescriptorBufferInfo sunBufferInfo = {};
+    sunBufferInfo.buffer = uniformSunBuffer;
+    sunBufferInfo.offset = 0;
+    sunBufferInfo.range = sizeof(UniformSunObject);
+
+    VkDescriptorBufferInfo skyBufferInfo = {};
+    skyBufferInfo.buffer = uniformSkyBuffer;
+    skyBufferInfo.offset = 0;
+    skyBufferInfo.range = sizeof(UniformSkyObject);
+
+    std::array<VkWriteDescriptorSet, 4> descriptorWritesU = {};
+
+    descriptorWritesU[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWritesU[0].dstSet = uniformSet;
+    descriptorWritesU[0].dstBinding = 0;
+    descriptorWritesU[0].dstArrayElement = 0;
+    descriptorWritesU[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    descriptorWritesU[0].descriptorCount = 1;
+    descriptorWritesU[0].pBufferInfo = &cameraBufferInfo;
+
+    descriptorWritesU[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWritesU[1].dstSet = uniformSet;
+    descriptorWritesU[1].dstBinding = 1;
+    descriptorWritesU[1].dstArrayElement = 0;
+    descriptorWritesU[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    descriptorWritesU[1].descriptorCount = 1;
+    descriptorWritesU[1].pBufferInfo = &cameraBufferInfoPrev;
+
+    descriptorWritesU[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWritesU[2].dstSet = uniformSet;
+    descriptorWritesU[2].dstBinding = 2;
+    descriptorWritesU[2].dstArrayElement = 0;
+    descriptorWritesU[2].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    descriptorWritesU[2].descriptorCount = 1;
+    descriptorWritesU[2].pBufferInfo = &sunBufferInfo;
+
+    descriptorWritesU[3].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWritesU[3].dstSet = uniformSet;
+    descriptorWritesU[3].dstBinding = 3;
+    descriptorWritesU[3].dstArrayElement = 0;
+    descriptorWritesU[3].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    descriptorWritesU[3].descriptorCount = 1;
+    descriptorWritesU[3].pBufferInfo = &skyBufferInfo;
+
+    vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWritesU.size()), descriptorWritesU.data(), 0, nullptr);
 }
 
 
@@ -1284,7 +1397,11 @@ void ReprojectShader::createUniformBuffer() {
 
     VkDeviceSize skyBufferSize = sizeof(UniformSkyObject);
     VulkanObject::createBuffer(skyBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformSkyBuffer, uniformSkyBufferMemory);
-
+    VkDeviceSize sunBufferSize = sizeof(UniformSunObject);
+    VulkanObject::createBuffer(sunBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformSunBuffer, uniformSunBufferMemory);
+    VkDeviceSize cameraBufferSize = sizeof(UniformCameraObject);
+    VulkanObject::createBuffer(cameraBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformCameraBuffer, uniformCameraBufferMemory);
+    VulkanObject::createBuffer(cameraBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformCameraBufferPrev, uniformCameraBufferMemoryPrev);
 }
 
 void ReprojectShader::createPipeline() {
@@ -1298,7 +1415,7 @@ void ReprojectShader::createPipeline() {
     shaderStageInfo.module = computeShaderModule;
     shaderStageInfo.pName = "main";
 
-    std::vector<VkDescriptorSetLayout> descriptorSetLayouts = { descriptorSetLayout, descriptorSetLayout };
+    std::vector<VkDescriptorSetLayout> descriptorSetLayouts = { descriptorSetLayout, descriptorSetLayout, uniformSetLayout };
 
     // Create pipeline layout
     VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};

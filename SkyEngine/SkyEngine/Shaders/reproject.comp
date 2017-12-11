@@ -14,6 +14,6 @@ void main() {
     //vec2 uv = vec2(gl_GlobalInvocationID.xy) / dim;
 
     vec4 sourceColor = imageLoad(sourceImage, ivec2(gl_GlobalInvocationID.xy));
-    if (dot(sourceColor, sourceColor) < 0.001) sourceColor = vec4(1, 0, 0, 0);
+
     imageStore(targetImage, ivec2(gl_GlobalInvocationID.xy), sourceColor);
 }

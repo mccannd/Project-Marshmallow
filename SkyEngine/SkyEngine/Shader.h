@@ -377,10 +377,19 @@ protected:
     VkDescriptorSet descriptorSetB; // draws to a different texture every other frame
     bool swappedBuffers = false;
 
+    VkDescriptorSetLayout uniformSetLayout;
+    VkDescriptorSet uniformSet;
 
+    VkBuffer uniformCameraBuffer;
+    VkDeviceMemory uniformCameraBufferMemory;
+    VkBuffer uniformCameraBufferPrev;
+    VkDeviceMemory uniformCameraBufferMemoryPrev;
 
     VkBuffer uniformSkyBuffer;
     VkDeviceMemory uniformSkyBufferMemory;
+
+    VkBuffer uniformSunBuffer;
+    VkDeviceMemory uniformSunBufferMemory;
 public:
     void setupShader(std::string path) {
         shaderFilePaths.push_back(path);
@@ -417,6 +426,8 @@ public:
             vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
             vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 1, 1, &descriptorSetB, 0, nullptr);
         }
+
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 2, 1, &uniformSet, 0, nullptr);
 
         swappedBuffers = !swappedBuffers;
     }
