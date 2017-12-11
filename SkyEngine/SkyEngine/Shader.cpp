@@ -408,13 +408,13 @@ void BackgroundShader::createDescriptorPool() {
     std::array<VkDescriptorPoolSize, 1> poolSizes = {};
 
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    poolSizes[0].descriptorCount = 2;
+    poolSizes[0].descriptorCount = 3;
 
     VkDescriptorPoolCreateInfo poolInfo = {};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
     poolInfo.pPoolSizes = poolSizes.data();
-    poolInfo.maxSets = 2; // ping-pong between two images
+    poolInfo.maxSets = 3; // ping-pong between two images, one constant
 
     if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
         throw std::runtime_error("failed to create descriptor pool!");
@@ -461,6 +461,19 @@ void BackgroundShader::createDescriptorSet() {
     imageInfo.sampler = textures[1]->textureSampler;
 
     descriptorWrites[0].dstSet = descriptorSetB;
+
+    vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+
+    // C
+    if (vkAllocateDescriptorSets(device, &allocInfo, &descriptorSetBlur) != VK_SUCCESS) {
+        throw std::runtime_error("failed to allocate descriptor set!");
+    }
+
+    // Swapped background image
+    imageInfo.imageView = textures[2]->textureImageView;
+    imageInfo.sampler = textures[2]->textureSampler;
+
+    descriptorWrites[0].dstSet = descriptorSetBlur;
 
     vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 
@@ -573,10 +586,12 @@ void BackgroundShader::createPipeline() {
     colorBlending.blendConstants[2] = 0.0f; // Optional
     colorBlending.blendConstants[3] = 0.0f; // Optional
 
+    std::vector<VkDescriptorSetLayout> descriptorSetLayouts = { descriptorSetLayout, descriptorSetLayout };
+
     VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipelineLayoutInfo.setLayoutCount = 1;
-    pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout;
+    pipelineLayoutInfo.setLayoutCount = descriptorSetLayouts.size();
+    pipelineLayoutInfo.pSetLayouts = descriptorSetLayouts.data();
     pipelineLayoutInfo.pushConstantRangeCount = 0; // Optional
     pipelineLayoutInfo.pPushConstantRanges = 0; // Optional
 
@@ -1301,8 +1316,9 @@ void ReprojectShader::createDescriptorSetLayout() {
     VkDescriptorSetLayoutBinding camPrevLayoutBinding = UniformCameraObject::getLayoutBinding(1);
     VkDescriptorSetLayoutBinding sunLayoutBinding = UniformSunObject::getLayoutBinding(2);
     VkDescriptorSetLayoutBinding skyLayoutBinding = UniformSkyObject::getLayoutBinding(3);
+    VkDescriptorSetLayoutBinding motionBlurBinding = UniformStorageImageObject::getLayoutBinding(4);
 
-    std::array<VkDescriptorSetLayoutBinding, 4> bindingUBO = { camLayoutBinding, camPrevLayoutBinding, sunLayoutBinding, skyLayoutBinding };
+    std::array<VkDescriptorSetLayoutBinding, 5> bindingUBO = { camLayoutBinding, camPrevLayoutBinding, sunLayoutBinding, skyLayoutBinding, motionBlurBinding };
     layoutInfo = {};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     layoutInfo.bindingCount = static_cast<uint32_t>(bindingUBO.size());
@@ -1343,7 +1359,7 @@ void ReprojectShader::createDescriptorPool() {
     std::array<VkDescriptorPoolSize, 2> poolSizes = {};
 
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-    poolSizes[0].descriptorCount = 2;
+    poolSizes[0].descriptorCount = 3;
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[1].descriptorCount = 4;
 
@@ -1433,7 +1449,12 @@ void ReprojectShader::createDescriptorSet() {
     skyBufferInfo.offset = 0;
     skyBufferInfo.range = sizeof(UniformSkyObject);
 
-    std::array<VkWriteDescriptorSet, 4> descriptorWritesU = {};
+    VkDescriptorImageInfo blurInfo = {};
+    blurInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+    blurInfo.imageView = textures[2]->textureImageView;
+    blurInfo.sampler = textures[2]->textureSampler;
+
+    std::array<VkWriteDescriptorSet, 5> descriptorWritesU = {};
 
     descriptorWritesU[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     descriptorWritesU[0].dstSet = uniformSet;
@@ -1466,6 +1487,14 @@ void ReprojectShader::createDescriptorSet() {
     descriptorWritesU[3].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     descriptorWritesU[3].descriptorCount = 1;
     descriptorWritesU[3].pBufferInfo = &skyBufferInfo;
+
+    descriptorWritesU[4].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWritesU[4].dstSet = uniformSet;
+    descriptorWritesU[4].dstBinding = 4;
+    descriptorWritesU[4].dstArrayElement = 0;
+    descriptorWritesU[4].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    descriptorWritesU[4].descriptorCount = 1;
+    descriptorWritesU[4].pImageInfo = &blurInfo;
 
     vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWritesU.size()), descriptorWritesU.data(), 0, nullptr);
 }

@@ -1,5 +1,5 @@
 #include "VulkanApplication.h"
-
+#include <sstream>
 /// --- callback proxy functions
 VkResult CreateDebugReportCallbackEXT(VkInstance instance, const VkDebugReportCallbackCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugReportCallbackEXT* pCallback) {
     auto func = (PFN_vkCreateDebugReportCallbackEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugReportCallbackEXT");
@@ -253,13 +253,16 @@ void VulkanApplication::initializeTextures() {
     cloudPlacementTexture = new Texture(device, physicalDevice, commandPool, graphicsQueue);
     cloudPlacementTexture->initFromFile("Textures/CloudPlacement.png");
     nightSkyTexture = new Texture(device, physicalDevice, commandPool, graphicsQueue);
-    nightSkyTexture->initFromFile("Textures/NightSky/nightSky_betterStars.png");
+    nightSkyTexture->initFromFile("Textures/NightSky/nightSky_noOrange.png");
     cloudCurlNoise = new Texture(device, physicalDevice, commandPool, graphicsQueue);
     cloudCurlNoise->initFromFile("Textures/CurlNoiseFBM.png");
     lowResCloudShapeTexture3D = new Texture3D(device, physicalDevice, commandPool, graphicsQueue, 128, 128, 128); // 128, 128, 128
     lowResCloudShapeTexture3D->initFromFile("Textures/3DTextures/lowResCloudShape/lowResCloud"); // note: no .png
     hiResCloudShapeTexture3D = new Texture3D(device, physicalDevice, commandPool, graphicsQueue, 32, 32, 32); // 128, 128, 128
     hiResCloudShapeTexture3D->initFromFile("Textures/3DTextures/hiResCloudShape/hiResClouds "); // note: no .png
+    motionBlurMaskTexture = new Texture(device, physicalDevice, commandPool, graphicsQueue);
+    motionBlurMaskTexture->initForStorage(swapChainExtent);
+
 }
 
 // TODO: management
@@ -275,6 +278,7 @@ void VulkanApplication::cleanupTextures() {
     delete cloudCurlNoise;
     delete lowResCloudShapeTexture3D;
     delete hiResCloudShapeTexture3D;
+    delete motionBlurMaskTexture;
 }
 
 void VulkanApplication::initializeGeometry() {
@@ -294,16 +298,15 @@ void VulkanApplication::initializeShaders() {
         &offscreenPass.renderPass, std::string("Shaders/model.vert.spv"), std::string("Shaders/model.frag.spv"), meshTexture, meshPBRInfo, meshNormals, cloudPlacementTexture, lowResCloudShapeTexture3D);
     
     backgroundShader = new BackgroundShader(device, physicalDevice, commandPool, graphicsQueue, swapChainExtent, 
-        &offscreenPass.renderPass, std::string("Shaders/background.vert.spv"), std::string("Shaders/background.frag.spv"), backgroundTexture, backgroundTexturePrev);
+        &offscreenPass.renderPass, std::string("Shaders/background.vert.spv"), std::string("Shaders/background.frag.spv"), backgroundTexture, backgroundTexturePrev, motionBlurMaskTexture);
 
     // Note: we pass the background shader's texture with the intention of writing to it with the compute shader
     reprojectShader = new ReprojectShader(device, physicalDevice, commandPool, computeQueue, swapChainExtent, &offscreenPass.renderPass,
-        std::string("Shaders/reproject.comp.spv"), backgroundTexture, backgroundTexturePrev);
+        std::string("Shaders/reproject.comp.spv"), backgroundTexture, backgroundTexturePrev, motionBlurMaskTexture);
 
     computeShader = new ComputeShader(device, physicalDevice, commandPool, computeQueue, swapChainExtent, 
         &offscreenPass.renderPass, std::string("Shaders/compute-clouds.comp.spv"), backgroundTexture, backgroundTexturePrev, cloudPlacementTexture, nightSkyTexture, cloudCurlNoise,
         lowResCloudShapeTexture3D, hiResCloudShapeTexture3D);
-
 
     // Post shaders: there will be many
     // This is still offscreen, so the render pass is the offscreen render pass
@@ -366,10 +369,9 @@ void VulkanApplication::updateUniformBuffer() {
     uco.cameraParams.y = mainCamera.getHTanFov();
 
     UniformModelObject umo = {};
-    //umo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.f), glm::vec3(0.f, 0.f, 1.f));
     umo.model = glm::mat4(1.0f);
-    umo.model[0][0] = 80.0f;
-    umo.model[2][2] = 80.0f;
+    umo.model[0][0] = 8.0f;
+    umo.model[2][2] = 8.0f;
     umo.invTranspose = glm::inverse(glm::transpose(umo.model));
     float interp = sin(time * 0.05f);
 
@@ -389,6 +391,10 @@ void VulkanApplication::updateUniformBuffer() {
     meshShader->updateUniformBuffers(uco, umo, sun, sky);
     godRayShader->updateUniformBuffers(uco, sun);
     radialBlurShader->updateUniformBuffers(uco, sun);
+
+    std::stringstream ss;
+    ss << 1.0 / deltaTime;
+    glfwSetWindowTitle(window, ss.str().c_str());
 }
 
 uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties, VkPhysicalDevice physicalDevice) {
