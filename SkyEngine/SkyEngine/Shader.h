@@ -237,6 +237,9 @@ protected:
     virtual void createPipeline();
 
     virtual void cleanupUniforms();
+
+    VkDescriptorSet descriptorSetB; // draws a different texture every other frame
+    bool swappedBuffers = false;
 public:
     void setupShader(std::string vertPath, std::string fragPath) {
         shaderFilePaths.push_back(vertPath);
@@ -250,18 +253,28 @@ public:
     }
 
     BackgroundShader(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue queue, VkExtent2D extent) : Shader(device, physicalDevice, commandPool, queue, extent) {}
-    BackgroundShader(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue queue, VkExtent2D extent, VkRenderPass *renderPass, std::string vertPath, std::string fragPath, Texture* tex) :
+    BackgroundShader(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue queue, VkExtent2D extent, VkRenderPass *renderPass, std::string vertPath, std::string fragPath, Texture* texA, Texture* texB) :
         Shader(device, physicalDevice, commandPool, queue, extent) {
         this->renderPass = renderPass;
-        addTexture(tex);
+        addTexture(texA);
+        addTexture(texB);
         setupShader(vertPath, fragPath);
+        swappedBuffers = false;
     }
 
     virtual ~BackgroundShader() { cleanupUniforms(); }
 
     void bindShader(VkCommandBuffer& commandBuffer) override {
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
+
+        if (swappedBuffers) {
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSetB, 0, nullptr);
+        }
+        else {
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
+        }
+        
+        swappedBuffers = !swappedBuffers;
     }
 };
 
@@ -285,17 +298,115 @@ protected:
     virtual void cleanupUniforms();
 
     UniformStorageImageObject storageImageUniform;
+    UniformStorageImageObject storageImageUniformPrev;
     UniformCameraObject cameraUniforms;
 
-    //VkBuffer uniformStorageImageBuffer;
-    //VkDeviceMemory uniformStorageImageBufferMemory;
     VkBuffer uniformCameraBuffer;
     VkDeviceMemory uniformCameraBufferMemory;
+    VkBuffer uniformCameraBufferPrev;
+    VkDeviceMemory uniformCameraBufferMemoryPrev;
 
     VkBuffer uniformSunBuffer;
-    VkBuffer uniformSkyBuffer;
     VkDeviceMemory uniformSunBufferMemory;
+    VkBuffer uniformSkyBuffer;
     VkDeviceMemory uniformSkyBufferMemory;
+
+    // need sets to ping-pong image buffers
+    VkDescriptorSetLayout storageSetLayout;
+    VkDescriptorSet storageBufferSetA;
+    VkDescriptorSet storageBufferSetB;
+
+    void createStorageSetLayout();
+    void createStorageDescriptorSets();
+
+    bool swappedBuffers = false;
+public:
+    void setupShader(std::string path) {
+        shaderFilePaths.push_back(path);
+
+        createDescriptorSetLayout();
+        createStorageSetLayout();
+        createPipeline();
+        createUniformBuffer();
+        createDescriptorPool();
+        createDescriptorSet();
+        createStorageDescriptorSets();
+    }
+
+    ComputeShader(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue queue, VkExtent2D extent) : Shader(device, physicalDevice, commandPool, queue, extent) {}
+    ComputeShader(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue queue, VkExtent2D extent,
+                  VkRenderPass *renderPass, std::string path, Texture* storageTex, Texture* storageTexPrev, Texture* placementTex, Texture* nightSkyTex, Texture* curlTexture, Texture3D* lowResCloudShapeTex, Texture3D* hiResCloudShapeTex) :
+
+        Shader(device, physicalDevice, commandPool, queue, extent) {
+        this->renderPass = renderPass;
+        // Note: This texture is intended to be written to. In this application, it is set to be the sampled texture of a separate BackgroundShader.
+        addTexture(storageTex);
+        addTexture(storageTexPrev);
+        addTexture(placementTex);
+        addTexture(nightSkyTex);
+        addTexture(curlTexture);
+        addTexture3D(lowResCloudShapeTex);
+        addTexture3D(hiResCloudShapeTex);
+        setupShader(path);
+        swappedBuffers = false;
+    }
+
+    virtual ~ComputeShader() { cleanupUniforms(); }
+
+    void updateUniformBuffers(UniformCameraObject& cam, UniformCameraObject& camPrev, UniformSkyObject& sky, UniformSunObject& sun);
+    void bindShader(VkCommandBuffer& commandBuffer) override {
+
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
+        
+        if (swappedBuffers) {
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &storageBufferSetB, 0, nullptr);
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 1, 1, &storageBufferSetA, 0, nullptr);
+
+        }
+        else {
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &storageBufferSetA, 0, nullptr);
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 1, 1, &storageBufferSetB, 0, nullptr);
+
+        }
+
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 2, 1, &descriptorSet, 0, nullptr);
+
+        swappedBuffers = !swappedBuffers;
+    }
+};
+
+// Another compute shader for transferring pixels from one background to another
+class ReprojectShader : public Shader
+{
+private:
+
+protected:
+    virtual void createDescriptorSetLayout();
+    virtual void createDescriptorPool();
+    virtual void createDescriptorSet();
+
+    virtual void createUniformBuffer();
+
+    virtual void createPipeline();
+
+    virtual void cleanupUniforms();
+
+    VkDescriptorSet descriptorSetB; // draws to a different texture every other frame
+    bool swappedBuffers = false;
+
+    VkDescriptorSetLayout uniformSetLayout;
+    VkDescriptorSet uniformSet;
+
+    VkBuffer uniformCameraBuffer;
+    VkDeviceMemory uniformCameraBufferMemory;
+    VkBuffer uniformCameraBufferPrev;
+    VkDeviceMemory uniformCameraBufferMemoryPrev;
+
+    VkBuffer uniformSkyBuffer;
+    VkDeviceMemory uniformSkyBufferMemory;
+
+    VkBuffer uniformSunBuffer;
+    VkDeviceMemory uniformSunBufferMemory;
 public:
     void setupShader(std::string path) {
         shaderFilePaths.push_back(path);
@@ -307,28 +418,35 @@ public:
         createDescriptorSet();
     }
 
-    ComputeShader(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue queue, VkExtent2D extent) : Shader(device, physicalDevice, commandPool, queue, extent) {}
-    ComputeShader(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue queue, VkExtent2D extent,
-
-                  VkRenderPass *renderPass, std::string path, Texture* storageTex, Texture* placementTex, Texture* nightSkyTex, Texture* curlTexture, Texture3D* lowResCloudShapeTex, Texture3D* hiResCloudShapeTex) :
+    ReprojectShader(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue queue, VkExtent2D extent) : Shader(device, physicalDevice, commandPool, queue, extent) {}
+    ReprojectShader(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue queue, VkExtent2D extent, VkRenderPass *renderPass, std::string shaderPath, Texture* texA, Texture* texB) :
         Shader(device, physicalDevice, commandPool, queue, extent) {
         this->renderPass = renderPass;
-        // Note: This texture is intended to be written to. In this application, it is set to be the sampled texture of a separate BackgroundShader.
-        addTexture(storageTex);
-        addTexture(placementTex);
-        addTexture(nightSkyTex);
-        addTexture(curlTexture);
-        addTexture3D(lowResCloudShapeTex);
-        addTexture3D(hiResCloudShapeTex);
-        setupShader(path);
+        addTexture(texA);
+        addTexture(texB);
+        setupShader(shaderPath);
+        swappedBuffers = false;
     }
 
-    virtual ~ComputeShader() { cleanupUniforms(); }
+    virtual ~ReprojectShader() { cleanupUniforms(); }
 
-    void updateUniformBuffers(UniformCameraObject& cam, UniformSkyObject& sky, UniformSunObject& sun);
+    void updateUniformBuffers(UniformCameraObject& cam, UniformCameraObject& camPrev, UniformSkyObject& sky, UniformSunObject& sun);
+
     void bindShader(VkCommandBuffer& commandBuffer) override {
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
+
+        if (swappedBuffers) {
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &descriptorSetB, 0, nullptr);
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 1, 1, &descriptorSet, 0, nullptr);
+        }
+        else {
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 1, 1, &descriptorSetB, 0, nullptr);
+        }
+
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 2, 1, &uniformSet, 0, nullptr);
+
+        swappedBuffers = !swappedBuffers;
     }
 };
 
@@ -384,7 +502,6 @@ public:
     PostProcessShader(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue queue, VkExtent2D extent, VkRenderPass *renderPass, std::string vertPath, std::string fragPath, VkDescriptorImageInfo* tex) :
         Shader(device, physicalDevice, commandPool, queue, extent), descriptorImageInfo(tex) {
         this->renderPass = renderPass;
-        //addTexture(tex);
         setupShader(vertPath, fragPath);
     }
 

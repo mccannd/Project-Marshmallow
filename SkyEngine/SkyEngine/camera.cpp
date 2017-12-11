@@ -34,12 +34,14 @@ glm::mat4 Camera::getView()
 	view[1] = glm::vec4(m_right.y, m_up.y, m_forward.y, 0.0);
 	view[2] = glm::vec4(m_right.z, m_up.z, m_forward.z, 0.0);
 
-    return view * trans;
+    prevView = view * trans; // overwrite old prev, get it first if needed
+    return prevView;
 }
 
 glm::mat4 Camera::getProj()
 {
-	return m_proj;
+    prevProj = m_proj; // overwrite old prev, get it first if needed
+    return m_proj;
 }
 
 glm::mat4 Camera::getViewProj()
@@ -49,7 +51,8 @@ glm::mat4 Camera::getViewProj()
 
 glm::vec3 Camera::getPosition()
 {
-	return m_position;
+    prevPos = m_position; // overwrite old prev, get it first if needed
+    return m_position;
 }
 
 void Camera::movePosition(Camera::directions direction, float delta)

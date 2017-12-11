@@ -72,7 +72,7 @@ public:
     void rebuildSky(float elevation, float azimuth, float turbidity, float mie, float mie_directional);
     void setWindDirection(const glm::vec3 dir) { sky.wind = glm::vec4(dir, sky.wind.w); }
     void setTime(float t) { sky.wind.w = t; }
-    UniformSunObject getSun() { return sun; }
+    UniformSunObject& getSun() { return sun; }
     UniformSkyObject getSky() { return sky; }
 };
 

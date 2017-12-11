@@ -169,7 +169,8 @@ void VulkanApplication::drawFrame() {
     computeSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
     computeSubmitInfo.commandBufferCount = 1;
-    computeSubmitInfo.pCommandBuffers = &computeCommandBuffer;
+    computeSubmitInfo.pCommandBuffers = &computeCommandBuffers[(swapBackgroundImages ? 1 : 0)];
+    swapBackgroundImages = !swapBackgroundImages;
 
     if (vkQueueSubmit(computeQueue, 1, &computeSubmitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
         throw std::runtime_error("Failed to submit compute command buffer");
@@ -202,7 +203,7 @@ void VulkanApplication::drawFrame() {
     submitInfo.pSignalSemaphores = { &offscreenPass.semaphore };
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &offscreenPass.commandBuffer;
+    submitInfo.pCommandBuffers = &offscreenPass.commandBuffers[(swapBackgroundImages ? 1 : 0)];
 
     if (vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
         throw std::runtime_error("failed to submit offscreen command buffer!");
@@ -243,8 +244,10 @@ void VulkanApplication::initializeTextures() {
     meshPBRInfo->initFromFile("Textures/tilesPBRinfo.png");
     meshNormals = new Texture(device, physicalDevice, commandPool, graphicsQueue);
     meshNormals->initFromFile("Textures/tilesNormal.png");
-    backgroundTexture = new Texture(device, physicalDevice, commandPool, graphicsQueue, VK_FORMAT_R32G32B32A32_SFLOAT); // compute queue?
+    backgroundTexture = new Texture(device, physicalDevice, commandPool, graphicsQueue, VK_FORMAT_R32G32B32A32_SFLOAT);
     backgroundTexture->initForStorage(swapChainExtent);
+    backgroundTexturePrev = new Texture(device, physicalDevice, commandPool, graphicsQueue, VK_FORMAT_R32G32B32A32_SFLOAT);
+    backgroundTexturePrev->initForStorage(swapChainExtent);
     depthTexture = new Texture(device, physicalDevice, commandPool, graphicsQueue);
     depthTexture->initForDepthAttachment(swapChainExtent);
     cloudPlacementTexture = new Texture(device, physicalDevice, commandPool, graphicsQueue);
@@ -265,6 +268,7 @@ void VulkanApplication::cleanupTextures() {
     delete meshPBRInfo;
     delete meshNormals;
     delete backgroundTexture;
+    delete backgroundTexturePrev;
     delete depthTexture;
     delete cloudPlacementTexture;
     delete nightSkyTexture;
@@ -275,7 +279,7 @@ void VulkanApplication::cleanupTextures() {
 
 void VulkanApplication::initializeGeometry() {
     sceneGeometry = new Geometry(device, physicalDevice, commandPool, graphicsQueue);
-    sceneGeometry->setupFromMesh("Models/lopolyLessCheek2.obj");
+    sceneGeometry->setupFromMesh("Models/DisplayCube.obj");
     backgroundGeometry = new Geometry(device, physicalDevice, commandPool, graphicsQueue);
     backgroundGeometry->setupAsBackgroundQuad();
 }
@@ -290,12 +294,16 @@ void VulkanApplication::initializeShaders() {
         &offscreenPass.renderPass, std::string("Shaders/model.vert.spv"), std::string("Shaders/model.frag.spv"), meshTexture, meshPBRInfo, meshNormals, cloudPlacementTexture, lowResCloudShapeTexture3D);
     
     backgroundShader = new BackgroundShader(device, physicalDevice, commandPool, graphicsQueue, swapChainExtent, 
-        &offscreenPass.renderPass, std::string("Shaders/background.vert.spv"), std::string("Shaders/background.frag.spv"), backgroundTexture);
+        &offscreenPass.renderPass, std::string("Shaders/background.vert.spv"), std::string("Shaders/background.frag.spv"), backgroundTexture, backgroundTexturePrev);
 
     // Note: we pass the background shader's texture with the intention of writing to it with the compute shader
+    reprojectShader = new ReprojectShader(device, physicalDevice, commandPool, computeQueue, swapChainExtent, &offscreenPass.renderPass,
+        std::string("Shaders/reproject.comp.spv"), backgroundTexture, backgroundTexturePrev);
+
     computeShader = new ComputeShader(device, physicalDevice, commandPool, computeQueue, swapChainExtent, 
-        &offscreenPass.renderPass, std::string("Shaders/compute-clouds.comp.spv"), backgroundTexture, cloudPlacementTexture, nightSkyTexture, cloudCurlNoise,
+        &offscreenPass.renderPass, std::string("Shaders/compute-clouds.comp.spv"), backgroundTexture, backgroundTexturePrev, cloudPlacementTexture, nightSkyTexture, cloudCurlNoise,
         lowResCloudShapeTexture3D, hiResCloudShapeTexture3D);
+
 
     // Post shaders: there will be many
     // This is still offscreen, so the render pass is the offscreen render pass
@@ -313,6 +321,7 @@ void VulkanApplication::cleanupShaders() {
     delete meshShader;
     delete backgroundShader;
     delete computeShader;
+    delete reprojectShader;
     delete toneMapShader;
     delete godRayShader;
     delete radialBlurShader;
@@ -335,12 +344,18 @@ void VulkanApplication::cleanupOffscreenPass() {
     }
 
     vkDestroyRenderPass(device, offscreenPass.renderPass, nullptr);
-    vkFreeCommandBuffers(device, commandPool, 1, &offscreenPass.commandBuffer);
+    vkFreeCommandBuffers(device, commandPool, offscreenPass.commandBuffers.size(), offscreenPass.commandBuffers.data());
     vkDestroySemaphore(device, offscreenPass.semaphore, nullptr);
 }
 
 void VulkanApplication::updateUniformBuffer() {
     float time = prevTime + deltaTime;
+
+    UniformCameraObject ucoPrev = {};
+    ucoPrev.proj = mainCamera.getProjPrev();
+    ucoPrev.proj[1][1] *= -1;
+    ucoPrev.view = mainCamera.getViewPrev();
+    ucoPrev.cameraPosition = glm::vec4(mainCamera.getPositionPrev(), 1.0f);
 
     UniformCameraObject uco = {};
     uco.proj = mainCamera.getProj();
@@ -351,8 +366,8 @@ void VulkanApplication::updateUniformBuffer() {
     UniformModelObject umo = {};
     //umo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.f), glm::vec3(0.f, 0.f, 1.f));
     umo.model = glm::mat4(1.0f);
-    umo.model[0][0] = 8000.0f;
-    umo.model[2][2] = 8000.0f;
+    umo.model[0][0] = 80.0f;
+    umo.model[2][2] = 80.0f;
     umo.invTranspose = glm::inverse(glm::transpose(umo.model));
     float interp = sin(time * 0.05f);
 
@@ -360,10 +375,16 @@ void VulkanApplication::updateUniformBuffer() {
     skySystem.setTime(std::fmod(time * 2.f, 10000.f));
 
     UniformSkyObject sky = skySystem.getSky();
-    UniformSunObject sun = skySystem.getSun();
+    UniformSunObject& sun = skySystem.getSun(); // by reference so we can update the pixel counter in sun.color.a below
+    
+    // Pass a uniform value in sun.color.a indicating which of the 16 pixels should be updated.
+    // Yes, this should have its own uniform but you would have to pad to sizeof(vec4) and we are not even using 
+    // this channel already. Will probably change later.
+    sun.color.a = ((int)sun.color.a + 1) % 16; // update every 16th pixel
 
+    computeShader->updateUniformBuffers(uco, ucoPrev, sky, sun);
+    reprojectShader->updateUniformBuffers(uco, ucoPrev, sky, sun);
     meshShader->updateUniformBuffers(uco, umo, sun, sky);
-    computeShader->updateUniformBuffers(uco, sky, sun);
     godRayShader->updateUniformBuffers(uco, sun);
     radialBlurShader->updateUniformBuffers(uco, sun);
 }
@@ -856,15 +877,19 @@ void VulkanApplication::endSingleTimeCommands(VkCommandBuffer commandBuffer) {
 // This function renders everything that is offscreen. The PostProcessCommandBuffer actually renders to the screen.
 void VulkanApplication::createCommandBuffers() {
 
-    if (offscreenPass.commandBuffer == VK_NULL_HANDLE)
+    if (offscreenPass.commandBuffers.size() == 0)
     {
+        offscreenPass.commandBuffers.resize(2);
         VkCommandBufferAllocateInfo commandBufferAllocateInfo{};
         commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
         commandBufferAllocateInfo.commandPool = commandPool;
         commandBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
         commandBufferAllocateInfo.commandBufferCount = 1;
 
-        if (vkAllocateCommandBuffers(device, &commandBufferAllocateInfo, &offscreenPass.commandBuffer) != VK_SUCCESS) {
+        if (vkAllocateCommandBuffers(device, &commandBufferAllocateInfo, &offscreenPass.commandBuffers[0]) != VK_SUCCESS) {
+            throw std::runtime_error("failed to allocate offscreen command buffer!");
+        }
+        if (vkAllocateCommandBuffers(device, &commandBufferAllocateInfo, &offscreenPass.commandBuffers[1]) != VK_SUCCESS) {
             throw std::runtime_error("failed to allocate offscreen command buffer!");
         }
     }
@@ -878,77 +903,70 @@ void VulkanApplication::createCommandBuffers() {
         }
     }
 
-    VkCommandBufferAllocateInfo allocInfo = {};
-    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocInfo.commandPool = commandPool;
-    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandBufferCount = 1;
-
-    if (vkAllocateCommandBuffers(device, &allocInfo, &offscreenPass.commandBuffer) != VK_SUCCESS) {
-        throw std::runtime_error("failed to allocate offscreen command buffer!");
-    }
- 
      VkCommandBufferBeginInfo beginInfo = {};
      beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
      beginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
      beginInfo.pInheritanceInfo = nullptr; // Optional
 
-     vkBeginCommandBuffer(offscreenPass.commandBuffer, &beginInfo);
+     for (int i = 0; i < offscreenPass.commandBuffers.size(); i++) {
+         vkBeginCommandBuffer(offscreenPass.commandBuffers[i], &beginInfo);
 
-     std::array<VkClearValue, 2> clearValues = {};
-     clearValues[0].color = { 0.0f, 0.0f, 0.0f, 1.0f };
-     clearValues[1].depthStencil = { 1.0f, 0 };
+         std::array<VkClearValue, 2> clearValues = {};
+         clearValues[0].color = { 0.0f, 0.0f, 0.0f, 1.0f };
+         clearValues[1].depthStencil = { 1.0f, 0 };
 
-     // Actual render pass creation
-     VkRenderPassBeginInfo renderPassInfo = {};
-     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-     renderPassInfo.renderPass = offscreenPass.renderPass;
-     renderPassInfo.framebuffer = offscreenPass.framebuffers[0].framebuffer;
-     renderPassInfo.renderArea.offset = { 0, 0 };
-     renderPassInfo.renderArea.extent = swapChainExtent;
-     VkClearValue clearColor = { 0.0f, 0.0f, 0.0f, 0.0f };
-     renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
-     renderPassInfo.pClearValues = clearValues.data();
+         // Actual render pass creation
+         VkRenderPassBeginInfo renderPassInfo = {};
+         renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+         renderPassInfo.renderPass = offscreenPass.renderPass;
+         renderPassInfo.framebuffer = offscreenPass.framebuffers[0].framebuffer;
+         renderPassInfo.renderArea.offset = { 0, 0 };
+         renderPassInfo.renderArea.extent = swapChainExtent;
+         VkClearValue clearColor = { 0.0f, 0.0f, 0.0f, 0.0f };
+         renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+         renderPassInfo.pClearValues = clearValues.data();
 
-     // Render pass recording
-     vkCmdBeginRenderPass(offscreenPass.commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+         // Render pass recording
+         vkCmdBeginRenderPass(offscreenPass.commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-     // Draw Background
-     backgroundShader->bindShader(offscreenPass.commandBuffer);
-     backgroundGeometry->enqueueDrawCommands(offscreenPass.commandBuffer);
+         // Draw Background
+         backgroundShader->bindShader(offscreenPass.commandBuffers[i]);
+         backgroundGeometry->enqueueDrawCommands(offscreenPass.commandBuffers[i]);
 
-     vkCmdEndRenderPass(offscreenPass.commandBuffer);
+         vkCmdEndRenderPass(offscreenPass.commandBuffers[i]);
 
-     // Use the next framebuffer in the offscreen pass
-     renderPassInfo.framebuffer = offscreenPass.framebuffers[1].framebuffer;
+         // Use the next framebuffer in the offscreen pass
+         renderPassInfo.framebuffer = offscreenPass.framebuffers[1].framebuffer;
 
-     // God rays and mesh drawing
+         // God rays and mesh drawing
 
-     vkCmdBeginRenderPass(offscreenPass.commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+         vkCmdBeginRenderPass(offscreenPass.commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-     godRayShader->bindShader(offscreenPass.commandBuffer);
-     backgroundGeometry->enqueueDrawCommands(offscreenPass.commandBuffer);
+         godRayShader->bindShader(offscreenPass.commandBuffers[i]);
+         backgroundGeometry->enqueueDrawCommands(offscreenPass.commandBuffers[i]);
 
-     vkCmdEndRenderPass(offscreenPass.commandBuffer);
+         vkCmdEndRenderPass(offscreenPass.commandBuffers[i]);
 
-     // Use the next framebuffer in the offscreen pass
-     renderPassInfo.framebuffer = offscreenPass.framebuffers[2].framebuffer;
+         // Use the next framebuffer in the offscreen pass
+         renderPassInfo.framebuffer = offscreenPass.framebuffers[2].framebuffer;
 
-     // Radial Blur
-     vkCmdBeginRenderPass(offscreenPass.commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+         // Radial Blur
+         vkCmdBeginRenderPass(offscreenPass.commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-     radialBlurShader->bindShader(offscreenPass.commandBuffer);
-     backgroundGeometry->enqueueDrawCommands(offscreenPass.commandBuffer);
+         radialBlurShader->bindShader(offscreenPass.commandBuffers[i]);
+         backgroundGeometry->enqueueDrawCommands(offscreenPass.commandBuffers[i]);
 
-     // Draw Scene
-     meshShader->bindShader(offscreenPass.commandBuffer);
-     sceneGeometry->enqueueDrawCommands(offscreenPass.commandBuffer);
+         // Draw Scene
+         meshShader->bindShader(offscreenPass.commandBuffers[i]);
+         sceneGeometry->enqueueDrawCommands(offscreenPass.commandBuffers[i]);
 
-     vkCmdEndRenderPass(offscreenPass.commandBuffer);
+         vkCmdEndRenderPass(offscreenPass.commandBuffers[i]);
 
-     if (vkEndCommandBuffer(offscreenPass.commandBuffer) != VK_SUCCESS) {
-         throw std::runtime_error("failed to record offscreen command buffer!");
+         if (vkEndCommandBuffer(offscreenPass.commandBuffers[i]) != VK_SUCCESS) {
+             throw std::runtime_error("failed to record offscreen command buffer!");
+         }
      }
+     
 }
 
 // Run the final post process that renders to the screen
@@ -1002,14 +1020,16 @@ void VulkanApplication::createPostProcessCommandBuffer() {
 }
 
 void VulkanApplication::createComputeCommandBuffer() {
+    computeCommandBuffers.resize(2); // need to swap back and forth for background
+    
     // Specify the command pool and number of buffers to allocate
     VkCommandBufferAllocateInfo allocInfo = {};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     allocInfo.commandPool = computeCommandPool;
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandBufferCount = 1;
+    allocInfo.commandBufferCount = (uint32_t)computeCommandBuffers.size();
 
-    if (vkAllocateCommandBuffers(device, &allocInfo, &computeCommandBuffer) != VK_SUCCESS) {
+    if (vkAllocateCommandBuffers(device, &allocInfo, computeCommandBuffers.data()) != VK_SUCCESS) {
         throw std::runtime_error("Failed to allocate command buffers");
     }
 
@@ -1018,22 +1038,37 @@ void VulkanApplication::createComputeCommandBuffer() {
     beginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
     beginInfo.pInheritanceInfo = nullptr;
 
-    // Begin recording
-    if (vkBeginCommandBuffer(computeCommandBuffer, &beginInfo) != VK_SUCCESS) {
-        throw std::runtime_error("Failed to begin recording compute command buffer");
-    }
+    // need 2 buffers to ping-pong draw targets
+    for (int i = 0; i < 2; i++) {
+        // Begin recording
+        if (vkBeginCommandBuffer(computeCommandBuffers[i], &beginInfo) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to begin recording compute command buffer");
+        }
 
-    computeShader->bindShader(computeCommandBuffer);
+        reprojectShader->bindShader(computeCommandBuffers[i]);
 
-    // TODO: dispatch according to the number of pixels, do in a 2d manner? see the raytracing example
-    // first TODO: launch this compute shader for the triangle being rendered
-    //const int IMAGE_SIZE = 32;
-    const glm::ivec2 texDims(swapChainExtent.width, swapChainExtent.height);
-    vkCmdDispatch(computeCommandBuffer, static_cast<uint32_t>((texDims.x + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE), static_cast<uint32_t>((texDims.y + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE), 1);
+        const glm::ivec2 texDimsFull(swapChainExtent.width, swapChainExtent.height);
+        vkCmdDispatch(computeCommandBuffers[i],
+            static_cast<uint32_t>((texDimsFull.x + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
+            static_cast<uint32_t>((texDimsFull.y + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE),
+            1);
 
-    // End recording
-    if (vkEndCommandBuffer(computeCommandBuffer) != VK_SUCCESS) {
-        throw std::runtime_error("Failed to record compute command buffer");
+        // compute shader will switch descriptor set binding inside this function
+        computeShader->bindShader(computeCommandBuffers[i]);
+
+        // TODO: dispatch according to the number of pixels, do in a 2d manner? see the raytracing example
+        // first TODO: launch this compute shader for the triangle being rendered
+        //const int IMAGE_SIZE = 32;
+        const glm::ivec2 texDims(swapChainExtent.width / 4, swapChainExtent.height / 4);
+        vkCmdDispatch(computeCommandBuffers[i], 
+            static_cast<uint32_t>((texDims.x + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE), 
+            static_cast<uint32_t>((texDims.y + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE), 
+            1);
+
+        // End recording
+        if (vkEndCommandBuffer(computeCommandBuffers[i]) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to record compute command buffer");
+        }
     }
 }
 

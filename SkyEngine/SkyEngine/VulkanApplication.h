@@ -67,7 +67,7 @@ struct OffscreenPass {
     int32_t width, height;
     VkRenderPass renderPass;
     VkSampler sampler;
-    VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
+    std::vector<VkCommandBuffer> commandBuffers;
     // Semaphore used to synchronize between offscreen and final scene rendering
     VkSemaphore semaphore = VK_NULL_HANDLE;
     std::array<FrameBuffer, 3> framebuffers; // the length of the array is equal to the total number of render passes - 1
@@ -160,6 +160,8 @@ private:
         app->recreateSwapChain();
     }
 
+    bool swapBackgroundImages = false;
+
     /// --- Vulkan Objects and Attributes
     VkInstance instance;
     VkDebugReportCallbackEXT callback;
@@ -184,7 +186,7 @@ private:
     VkCommandPool commandPool;
     std::vector<VkCommandBuffer> commandBuffers;
     // Compute
-    VkCommandBuffer computeCommandBuffer; // TODO: if we need multiple compute shaders for some reason,
+    std::vector<VkCommandBuffer> computeCommandBuffers; // TODO: if we need multiple compute shaders for some reason,
                                           // make this a vector like above
     VkCommandPool computeCommandPool;
 
@@ -202,6 +204,7 @@ private:
     Texture* meshPBRInfo;
     Texture* meshNormals;
     Texture* backgroundTexture;
+    Texture* backgroundTexturePrev;
     Texture* depthTexture;
     Texture* cloudPlacementTexture;
     Texture* nightSkyTexture;
@@ -214,6 +217,7 @@ private:
     MeshShader* meshShader;
     BackgroundShader* backgroundShader;
     ComputeShader* computeShader;
+    ReprojectShader* reprojectShader;
     PostProcessShader* toneMapShader;
     PostProcessShader* godRayShader;
     PostProcessShader* radialBlurShader;

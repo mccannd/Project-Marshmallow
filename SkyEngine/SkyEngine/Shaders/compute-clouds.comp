@@ -1,20 +1,28 @@
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
 
+precision highp float;
+
+
 #define WORKGROUP_SIZE 32
 layout (local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE) in;
-layout (binding = 0, rgba32f) uniform writeonly image2D resultImage;
+layout (set = 0, binding = 0, rgba32f) uniform writeonly image2D resultImage;
+layout (set = 1, binding = 0, rgba32f) uniform readonly image2D resultImagePrev;
 
-layout(binding = 1) uniform UniformCameraObject {
-
+layout(set = 2, binding = 0) uniform UniformCameraObject {
     mat4 view;
     mat4 proj;
     vec4 cameraPosition;
 } camera;
 
+layout(set = 2, binding = 1) uniform UniformCameraObjectPrev {
+    mat4 view;
+    mat4 proj;
+    vec4 cameraPosition;
+} cameraPrev;
+
 // all of these components are calculated in SkyManager.h/.cpp
-layout(set = 0, binding = 2) uniform UniformSunObject {
-    
+layout(set = 2, binding = 2) uniform UniformSunObject { 
     vec4 location;
     vec4 direction;
     vec4 color;
@@ -23,7 +31,7 @@ layout(set = 0, binding = 2) uniform UniformSunObject {
 } sun;
 
 // note: a lot of sky constants are stored/precalculated in SkyManager.h / .cpp
-layout(binding = 3) uniform UniformSkyObject {
+layout(set = 2, binding = 3) uniform UniformSkyObject {
     
     vec4 betaR;
     vec4 betaV;
@@ -31,11 +39,11 @@ layout(binding = 3) uniform UniformSkyObject {
     float mie_directional;
 } sky;
 
-layout(binding = 4) uniform sampler2D cloudPlacement;
-layout(binding = 5) uniform sampler2D nightSkyMap;
-layout(binding = 6) uniform sampler2D curlNoise;
-layout(binding = 7) uniform sampler3D lowResCloudShape;
-layout(binding = 8) uniform sampler3D hiResCloudShape;
+layout(set = 2, binding = 4) uniform sampler2D cloudPlacement;
+layout(set = 2, binding = 5) uniform sampler2D nightSkyMap;
+layout(set = 2, binding = 6) uniform sampler2D curlNoise;
+layout(set = 2, binding = 7) uniform sampler3D lowResCloudShape;
+layout(set = 2, binding = 8) uniform sampler3D hiResCloudShape;
 
 struct Intersection {
     vec3 normal;
@@ -135,6 +143,7 @@ vec3 NightSkyColor( in vec2 uv ) {
     return texture(nightSkyMap, uv).xyz;
 }
 
+
 // Compute sphere intersection
 Intersection raySphereIntersection(in vec3 ro, in vec3 rd, in vec4 sphere) {
 	Intersection isect;
@@ -179,21 +188,6 @@ float getRelativeHeight(in vec3 pt, in vec3 projectedPt, in float thickness) {
     return clamp(length(pt - projectedPt) / thickness, 0.0, 1.0);
 }
 
-
-#define CUMULUS_LB_START 0.0
-#define CUMULUS_LB_END 0.2
-#define STRATOCUMULUS_LB_START 0.0
-#define STRATOCUMULUS_LB_END 0.2
-#define STRATUS_LB_START 0.0
-#define STRATUS_LB_END 0.1
-
-#define CUMULUS_UB_START 0.6
-#define CUMULUS_UB_END 1.0
-#define STRATOCUMULUS_UB_START 0.3
-#define STRATOCUMULUS_UB_END 0.7
-#define STRATUS_UB_START 0.2
-#define STRATUS_UB_END 0.3
-
 // Get the blended density gradient for 3 different cloud types
 // relativeHeight is normalized distance from inner to outer atmosphere shell
 // cloudType is read from cloud placement blue channel
@@ -225,7 +219,7 @@ float cloudHiRes(in vec3 pos, in float curlStrength, in float origDensity, in fl
     vec3 curl = texture(curlNoise, c * pos.xz).xyz;
 
     curl = 2.0 * curl - 1.0;
-    pos += 0.9 * curlStrength * curl;
+    pos += 1.9 * curlStrength * curl;
 
     vec4 densityNoise = texture(hiResCloudShape, 0.0004 * pos);
     float erosion = 0.625 * densityNoise.r + 0.25 * densityNoise.g + 0.125 * densityNoise.b;
@@ -242,9 +236,8 @@ float cloudTest(in vec3 pos, in float relativeHeight, in vec3 earthCenter, inout
     vec3 currentProj = getProjectedShellPoint(pos, earthCenter);
     vec3 cloudInfo = texture(cloudPlacement, 0.000009 * (currentProj.xz - camera.cameraPosition.xz)).xyz;
     float layerDensity = cloudLayerDensity(relativeHeight, cloudInfo.b);
+    vec4 densityNoise = texture(lowResCloudShape, 0.00002 * vec3(pos));
 
-    vec4 densityNoise = texture(lowResCloudShape, 0.000025 * vec3(pos));
-    //densityNoise.x = 1.0;
     density = layerDensity * remapClamped(densityNoise.x, 0.3, 1.0, 0.0, 1.0);
 
     coverage = 0.0;
@@ -287,16 +280,35 @@ mat3 fromAngleAxis( in vec3 angle, in float angleRad ) {
 
 #define WIND_STRENGTH 20.0
 
-void main() {
-    //imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), sun.color); return;
-    /// Extract the UV
-    ivec2 dim = imageSize(resultImage); // prob better as uniform
-    // TODO: half resolution reprojection
-    // TODO: ? quarter resolution reprojection ?
-    // TODO: ???????
-    // TODO: Profit
-	vec2 uv = vec2(gl_GlobalInvocationID.xy) / dim;
+// temp
+#define WIDTH 1280
+#define HEIGHT 720
 
+void main() {
+    float timeOffset = sky.wind.w;
+
+    // Only update every 16th pixel
+    int pxOffset = int(sun.color.a);
+    const int pixelHashing[16] = {
+        1, 14, 8, 11, 10, 12, 5, 3, 4, 7, 0, 9, 15, 2, 13, 6
+    };
+    //uint idOffset = pixelHashing[int(timeOffset) % 16];
+    //idOffset = pixelHashing[(gl_GlobalInvocationID.y % 16 + idOffset) % 16];
+    //idOffset = pixelHashing[(gl_GlobalInvocationID.x % 16 + idOffset) % 16];
+    //pxOffset = pixelHashing[(pxOffset + idOffset) % 16];
+    
+    int pxO_x = pxOffset % 4;
+    int pxO_y = pxOffset / 4;
+
+    uint pxTargetX = gl_GlobalInvocationID.x * 4 + pxO_x;
+    uint pxTargetY = gl_GlobalInvocationID.y * 4 + pxO_y;
+
+    if (pxTargetX >= WIDTH || pxTargetY >= HEIGHT) return;
+
+    /// Extract the UV
+    ivec2 dim = imageSize(resultImage); 
+	vec2 uv = vec2(pxTargetX, pxTargetY) / vec2(WIDTH, HEIGHT);
+     
     /// Cast a ray
     // Compute screen space point from UVs
     vec2 screenPoint = uv * 2.0 - 1.0;
@@ -344,11 +356,9 @@ void main() {
 
     // It is likely we will never have an entirely unobstructed view of the horizon, so kill rays that would otherwise be executing.
     if(dot(rayDirection, vec3(0, 1, 0)) < 0.0) {
-        imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), finalColor);
+        imageStore(resultImage, ivec2(pxTargetX, pxTargetY), finalColor);
         return;
     }
-
-    float timeOffset = sky.wind.w;
 
     /// Raytrace the scene (a sphere, to become the atmosphere)
     vec3 earthCenter = cameraPos;
@@ -453,7 +463,7 @@ void main() {
             float beersModulated = max(beersLaw, 0.7 * exp(-0.25 * densityAlongLight));
 
             beersLaw = mix(beersLaw, beersModulated, -cosTheta * 0.5 + 0.5);
-            float inScatter = 0.05 + pow(loDensity, remapClamped(rHeight, 0.3, 0.85, 0.5, 2.0));
+            float inScatter = 0.09 + pow(loDensity, remapClamped(rHeight, 0.3, 0.85, 0.5, 2.0));
             inScatter *= pow(remapClamped(rHeight, 0.07, 0.34, 0.1, 1.0), 0.8);
             //inScatter = loDensity * loDensity;
             transmittance = mix(transmittance, inScatter * henyeyGreenstein * beersLaw , (1.0 - accumDensity));
@@ -489,5 +499,5 @@ void main() {
     finalColor.a *= max(1.0 - accumDensity, 0.0);
 
 
-    imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), finalColor);
+    imageStore(resultImage, ivec2(pxTargetX, pxTargetY), finalColor);
 }
