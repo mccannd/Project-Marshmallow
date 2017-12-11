@@ -67,7 +67,7 @@ struct OffscreenPass {
     int32_t width, height;
     VkRenderPass renderPass;
     VkSampler sampler;
-    VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
+    std::vector<VkCommandBuffer> commandBuffers;
     // Semaphore used to synchronize between offscreen and final scene rendering
     VkSemaphore semaphore = VK_NULL_HANDLE;
     std::array<FrameBuffer, 3> framebuffers; // the length of the array is equal to the total number of render passes - 1

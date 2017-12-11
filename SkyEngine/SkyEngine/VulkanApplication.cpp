@@ -203,7 +203,7 @@ void VulkanApplication::drawFrame() {
     submitInfo.pSignalSemaphores = { &offscreenPass.semaphore };
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &offscreenPass.commandBuffer;
+    submitInfo.pCommandBuffers = &offscreenPass.commandBuffers[(swapBackgroundImages ? 1 : 0)];
 
     if (vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
         throw std::runtime_error("failed to submit offscreen command buffer!");
@@ -343,7 +343,7 @@ void VulkanApplication::cleanupOffscreenPass() {
     }
 
     vkDestroyRenderPass(device, offscreenPass.renderPass, nullptr);
-    vkFreeCommandBuffers(device, commandPool, 1, &offscreenPass.commandBuffer);
+    vkFreeCommandBuffers(device, commandPool, offscreenPass.commandBuffers.size(), offscreenPass.commandBuffers.data());
     vkDestroySemaphore(device, offscreenPass.semaphore, nullptr);
 }
 
@@ -876,15 +876,19 @@ void VulkanApplication::endSingleTimeCommands(VkCommandBuffer commandBuffer) {
 // This function renders everything that is offscreen. The PostProcessCommandBuffer actually renders to the screen.
 void VulkanApplication::createCommandBuffers() {
 
-    if (offscreenPass.commandBuffer == VK_NULL_HANDLE)
+    if (offscreenPass.commandBuffers.size() == 0)
     {
+        offscreenPass.commandBuffers.resize(2);
         VkCommandBufferAllocateInfo commandBufferAllocateInfo{};
         commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
         commandBufferAllocateInfo.commandPool = commandPool;
         commandBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
         commandBufferAllocateInfo.commandBufferCount = 1;
 
-        if (vkAllocateCommandBuffers(device, &commandBufferAllocateInfo, &offscreenPass.commandBuffer) != VK_SUCCESS) {
+        if (vkAllocateCommandBuffers(device, &commandBufferAllocateInfo, &offscreenPass.commandBuffers[0]) != VK_SUCCESS) {
+            throw std::runtime_error("failed to allocate offscreen command buffer!");
+        }
+        if (vkAllocateCommandBuffers(device, &commandBufferAllocateInfo, &offscreenPass.commandBuffers[1]) != VK_SUCCESS) {
             throw std::runtime_error("failed to allocate offscreen command buffer!");
         }
     }
@@ -904,71 +908,76 @@ void VulkanApplication::createCommandBuffers() {
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     allocInfo.commandBufferCount = 1;
 
+    /*
     if (vkAllocateCommandBuffers(device, &allocInfo, &offscreenPass.commandBuffer) != VK_SUCCESS) {
         throw std::runtime_error("failed to allocate offscreen command buffer!");
     }
+    */
  
      VkCommandBufferBeginInfo beginInfo = {};
      beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
      beginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
      beginInfo.pInheritanceInfo = nullptr; // Optional
 
-     vkBeginCommandBuffer(offscreenPass.commandBuffer, &beginInfo);
+     for (int i = 0; i < 2; i++) {
+         vkBeginCommandBuffer(offscreenPass.commandBuffers[i], &beginInfo);
 
-     std::array<VkClearValue, 2> clearValues = {};
-     clearValues[0].color = { 0.0f, 0.0f, 0.0f, 1.0f };
-     clearValues[1].depthStencil = { 1.0f, 0 };
+         std::array<VkClearValue, 2> clearValues = {};
+         clearValues[0].color = { 0.0f, 0.0f, 0.0f, 1.0f };
+         clearValues[1].depthStencil = { 1.0f, 0 };
 
-     // Actual render pass creation
-     VkRenderPassBeginInfo renderPassInfo = {};
-     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-     renderPassInfo.renderPass = offscreenPass.renderPass;
-     renderPassInfo.framebuffer = offscreenPass.framebuffers[0].framebuffer;
-     renderPassInfo.renderArea.offset = { 0, 0 };
-     renderPassInfo.renderArea.extent = swapChainExtent;
-     VkClearValue clearColor = { 0.0f, 0.0f, 0.0f, 0.0f };
-     renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
-     renderPassInfo.pClearValues = clearValues.data();
+         // Actual render pass creation
+         VkRenderPassBeginInfo renderPassInfo = {};
+         renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+         renderPassInfo.renderPass = offscreenPass.renderPass;
+         renderPassInfo.framebuffer = offscreenPass.framebuffers[0].framebuffer;
+         renderPassInfo.renderArea.offset = { 0, 0 };
+         renderPassInfo.renderArea.extent = swapChainExtent;
+         VkClearValue clearColor = { 0.0f, 0.0f, 0.0f, 0.0f };
+         renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+         renderPassInfo.pClearValues = clearValues.data();
 
-     // Render pass recording
-     vkCmdBeginRenderPass(offscreenPass.commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+         // Render pass recording
+         vkCmdBeginRenderPass(offscreenPass.commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-     // Draw Background
-     backgroundShader->bindShader(offscreenPass.commandBuffer);
-     backgroundGeometry->enqueueDrawCommands(offscreenPass.commandBuffer);
+         // Draw Background
+         backgroundShader->bindShader(offscreenPass.commandBuffers[i]);
+         backgroundGeometry->enqueueDrawCommands(offscreenPass.commandBuffers[i]);
 
-     vkCmdEndRenderPass(offscreenPass.commandBuffer);
+         vkCmdEndRenderPass(offscreenPass.commandBuffers[i]);
 
-     // Use the next framebuffer in the offscreen pass
-     renderPassInfo.framebuffer = offscreenPass.framebuffers[1].framebuffer;
+         // Use the next framebuffer in the offscreen pass
+         renderPassInfo.framebuffer = offscreenPass.framebuffers[1].framebuffer;
 
-     // God rays and mesh drawing
+         // God rays and mesh drawing
 
-     vkCmdBeginRenderPass(offscreenPass.commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+         vkCmdBeginRenderPass(offscreenPass.commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-     godRayShader->bindShader(offscreenPass.commandBuffer);
-     backgroundGeometry->enqueueDrawCommands(offscreenPass.commandBuffer);
+         godRayShader->bindShader(offscreenPass.commandBuffers[i]);
+         backgroundGeometry->enqueueDrawCommands(offscreenPass.commandBuffers[i]);
 
-     vkCmdEndRenderPass(offscreenPass.commandBuffer);
+         vkCmdEndRenderPass(offscreenPass.commandBuffers[i]);
 
-     // Use the next framebuffer in the offscreen pass
-     renderPassInfo.framebuffer = offscreenPass.framebuffers[2].framebuffer;
+         // Use the next framebuffer in the offscreen pass
+         renderPassInfo.framebuffer = offscreenPass.framebuffers[2].framebuffer;
 
-     // Radial Blur
-     vkCmdBeginRenderPass(offscreenPass.commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+         // Radial Blur
+         vkCmdBeginRenderPass(offscreenPass.commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-     radialBlurShader->bindShader(offscreenPass.commandBuffer);
-     backgroundGeometry->enqueueDrawCommands(offscreenPass.commandBuffer);
+         radialBlurShader->bindShader(offscreenPass.commandBuffers[i]);
+         backgroundGeometry->enqueueDrawCommands(offscreenPass.commandBuffers[i]);
 
-     // Draw Scene
-     meshShader->bindShader(offscreenPass.commandBuffer);
-     sceneGeometry->enqueueDrawCommands(offscreenPass.commandBuffer);
+         // Draw Scene
+         meshShader->bindShader(offscreenPass.commandBuffers[i]);
+         sceneGeometry->enqueueDrawCommands(offscreenPass.commandBuffers[i]);
 
-     vkCmdEndRenderPass(offscreenPass.commandBuffer);
+         vkCmdEndRenderPass(offscreenPass.commandBuffers[i]);
 
-     if (vkEndCommandBuffer(offscreenPass.commandBuffer) != VK_SUCCESS) {
-         throw std::runtime_error("failed to record offscreen command buffer!");
+         if (vkEndCommandBuffer(offscreenPass.commandBuffers[i]) != VK_SUCCESS) {
+             throw std::runtime_error("failed to record offscreen command buffer!");
+         }
      }
+     
 }
 
 // Run the final post process that renders to the screen
