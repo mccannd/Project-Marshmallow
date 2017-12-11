@@ -39,8 +39,6 @@ layout(set = 2, binding = 3) uniform UniformSkyObject {
     float mie_directional;
 } sky;
 
-layout (set = 2, binding = 4, rgba8) uniform image2D motionBlurImage;
-
 struct Intersection {
     vec3 normal;
     vec3 point;
@@ -151,6 +149,5 @@ void main() {
 
     vec2 imageUV = round((oldUV ) * dim);
     sourceColor.a = imageLoad(sourceImage, clamp(ivec2(imageUV), ivec2(0, 0), ivec2(dim.x - 1,  dim.y - 1))).a;
-    imageStore(motionBlurImage, ivec2(gl_GlobalInvocationID.xy), vec4(blurVec, oldUV));
     imageStore(targetImage, ivec2(gl_GlobalInvocationID.xy), sourceColor);
 }

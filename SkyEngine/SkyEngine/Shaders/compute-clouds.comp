@@ -435,11 +435,11 @@ void main() {
             }
 
             density = cloudHiRes(currentPos + windOffset, stepSize, density, rHeight);
-            
+            if (density < 0.0001) continue;
             float densityAlongLight = 0.0;
 
             // Sample light propogation for Beer's law in a cone towards the light
-            for (int i = 0; i < 5; i++) {
+            for (int i = 0; i < 6; i++) {
                 vec3 lsPos = currentPos + 3.0 * stepSize * samples[i];
                 vec3 lsProj = getProjectedShellPoint(lsPos, earthCenter);
                 float lsHeight = getRelativeHeight(lsPos, lsProj, atmosphereThickness);

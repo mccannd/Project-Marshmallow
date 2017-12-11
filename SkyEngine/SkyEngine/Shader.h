@@ -240,7 +240,6 @@ protected:
     virtual void cleanupUniforms();
 
     VkDescriptorSet descriptorSetB; // draws a different texture every other frame
-    VkDescriptorSet descriptorSetBlur;
     bool swappedBuffers = false;
 public:
     void setupShader(std::string vertPath, std::string fragPath) {
@@ -255,12 +254,11 @@ public:
     }
 
     BackgroundShader(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue queue, VkExtent2D extent) : Shader(device, physicalDevice, commandPool, queue, extent) {}
-    BackgroundShader(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue queue, VkExtent2D extent, VkRenderPass *renderPass, std::string vertPath, std::string fragPath, Texture* texA, Texture* texB, Texture* texMotionBlur) :
+    BackgroundShader(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue queue, VkExtent2D extent, VkRenderPass *renderPass, std::string vertPath, std::string fragPath, Texture* texA, Texture* texB) :
         Shader(device, physicalDevice, commandPool, queue, extent) {
         this->renderPass = renderPass;
         addTexture(texA);
         addTexture(texB);
-        addTexture(texMotionBlur);
         setupShader(vertPath, fragPath);
         swappedBuffers = false;
     }
@@ -276,9 +274,6 @@ public:
         else {
             vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
         }
-
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &descriptorSetBlur, 0, nullptr);
-
         
         swappedBuffers = !swappedBuffers;
     }
@@ -425,12 +420,11 @@ public:
     }
 
     ReprojectShader(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue queue, VkExtent2D extent) : Shader(device, physicalDevice, commandPool, queue, extent) {}
-    ReprojectShader(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue queue, VkExtent2D extent, VkRenderPass *renderPass, std::string shaderPath, Texture* texA, Texture* texB, Texture* texMotionBlur) :
+    ReprojectShader(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue queue, VkExtent2D extent, VkRenderPass *renderPass, std::string shaderPath, Texture* texA, Texture* texB) :
         Shader(device, physicalDevice, commandPool, queue, extent) {
         this->renderPass = renderPass;
         addTexture(texA);
         addTexture(texB);
-        addTexture(texMotionBlur);
         setupShader(shaderPath);
         swappedBuffers = false;
     }

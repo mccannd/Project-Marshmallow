@@ -260,8 +260,6 @@ void VulkanApplication::initializeTextures() {
     lowResCloudShapeTexture3D->initFromFile("Textures/3DTextures/lowResCloudShape/lowResCloud"); // note: no .png
     hiResCloudShapeTexture3D = new Texture3D(device, physicalDevice, commandPool, graphicsQueue, 32, 32, 32); // 128, 128, 128
     hiResCloudShapeTexture3D->initFromFile("Textures/3DTextures/hiResCloudShape/hiResClouds "); // note: no .png
-    motionBlurMaskTexture = new Texture(device, physicalDevice, commandPool, graphicsQueue);
-    motionBlurMaskTexture->initForStorage(swapChainExtent);
 
 }
 
@@ -278,7 +276,6 @@ void VulkanApplication::cleanupTextures() {
     delete cloudCurlNoise;
     delete lowResCloudShapeTexture3D;
     delete hiResCloudShapeTexture3D;
-    delete motionBlurMaskTexture;
 }
 
 void VulkanApplication::initializeGeometry() {
@@ -298,11 +295,11 @@ void VulkanApplication::initializeShaders() {
         &offscreenPass.renderPass, std::string("Shaders/model.vert.spv"), std::string("Shaders/model.frag.spv"), meshTexture, meshPBRInfo, meshNormals, cloudPlacementTexture, lowResCloudShapeTexture3D);
     
     backgroundShader = new BackgroundShader(device, physicalDevice, commandPool, graphicsQueue, swapChainExtent, 
-        &offscreenPass.renderPass, std::string("Shaders/background.vert.spv"), std::string("Shaders/background.frag.spv"), backgroundTexture, backgroundTexturePrev, motionBlurMaskTexture);
+        &offscreenPass.renderPass, std::string("Shaders/background.vert.spv"), std::string("Shaders/background.frag.spv"), backgroundTexture, backgroundTexturePrev);
 
     // Note: we pass the background shader's texture with the intention of writing to it with the compute shader
     reprojectShader = new ReprojectShader(device, physicalDevice, commandPool, computeQueue, swapChainExtent, &offscreenPass.renderPass,
-        std::string("Shaders/reproject.comp.spv"), backgroundTexture, backgroundTexturePrev, motionBlurMaskTexture);
+        std::string("Shaders/reproject.comp.spv"), backgroundTexture, backgroundTexturePrev);
 
     computeShader = new ComputeShader(device, physicalDevice, commandPool, computeQueue, swapChainExtent, 
         &offscreenPass.renderPass, std::string("Shaders/compute-clouds.comp.spv"), backgroundTexture, backgroundTexturePrev, cloudPlacementTexture, nightSkyTexture, cloudCurlNoise,
@@ -376,7 +373,7 @@ void VulkanApplication::updateUniformBuffer() {
     float interp = sin(time * 0.05f);
 
     skySystem.rebuildSkyFromNewSun(interp * 0.5f, 0.25f);
-    skySystem.setTime(std::fmod(time * 2.f, 10000.f));
+    skySystem.setTime(time * 2.f);
 
     UniformSkyObject sky = skySystem.getSky();
     UniformSunObject& sun = skySystem.getSun(); // by reference so we can update the pixel counter in sun.color.a below
