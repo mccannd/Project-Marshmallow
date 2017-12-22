@@ -41,24 +41,24 @@ While x is between min and max a, get the relative position between min and max 
 
 Here is the main principle of using this with 1D graphs, plotted in [GraphToy](http://www.iquilezles.org/apps/graphtoy/):
 
-![](./SkyEngine/ScreenShots/remapstep1.png)
+![](./SkyEngine/ScreenShots/remapstep1.PNG)
 
 Suppose this orange curve is a representation of our low-resolution cloud density.
 
-![](./SkyEngine/ScreenShots/remapstep2.png)
+![](./SkyEngine/ScreenShots/remapstep2.PNG)
 
 Also suppose that this green curve is our high-resolution cloud density. When we remap the low-resolution density with the green curve as the minimum and 1 as the maximum, we get something interesting:
 
-![](./SkyEngine/ScreenShots/remapstep3.png)
+![](./SkyEngine/ScreenShots/remapstep3.PNG)
 
 The blue curve is the representation of the final cloud density. Here it is overlaid with the original: 
 
-![](./SkyEngine/ScreenShots/remapstep4.png)
+![](./SkyEngine/ScreenShots/remapstep4.PNG)
 
 There are a few big takeaways here. First: since the low and high resolution density functions are out of phase, we’ve created a series of unique shapes. Second: high-density areas are preserved. Multiplicative or subtractive blending would approach zero density too quickly. Third: the shapes are interesting! Even with these simple representations, there’s a lot of cool variance.
 
 Here are the functions used in this example, for reference: 
-![](./ScreenShots/remapEQNs.png)
+![](./ScreenShots/remapEQNs.PNG)
 
 Of course, the raymarching is with 3D density fields instead of 1D. The makers of Nubis graciously provided their 3D noise generator as a Houdini digital asset for anyone curious about their method. The noise consists of blends of Perlin and Worley noises.
 
@@ -140,10 +140,10 @@ One bottleneck we encountered was achieving realistic god rays while keeping the
 
 For anyone considering using this approach for their own projects:
 
-Color. The paper goes into energy models for lighting but does not explain methods for getting color. LUTs? Physical scattering measurements? We’re not certain.
-God-rays are only on top of the background and mesh is drawn over. In the paper, god-rays are drawn over distant mesh.
-In the paper, ray directions are culled using a low-resolution depth buffer. This is not yet implemented here.
-There are some artistic/demo-related changes in our low res cloud sample. The inverted worley noise in the 3D textures creates bulb/sphere shapes. To get that shape in remapping, you should flip it to get crevices between bulbs carving the density out. We did not flip it and instead stretched the baseline density with a remap, which creates some scenic and otherworldly but not necessarily accurate shapes. This also means coverage is applied differently.
+- Color. The paper goes into energy models for lighting but does not explain methods for getting color. LUTs? Physical scattering measurements? We’re not certain.
+- God-rays are only on top of the background and mesh is drawn over. In the paper, god-rays are drawn over distant mesh.
+- In the paper, ray directions are culled using a low-resolution depth buffer. This is not yet implemented here.
+- There are some artistic/demo-related changes in our low res cloud sample. The inverted worley noise in the 3D textures creates bulb/sphere shapes. To get that shape in remapping, you should flip it to get crevices between bulbs carving the density out. We did not flip it and instead stretched the baseline density with a remap, which creates some scenic and otherworldly but not necessarily accurate shapes. This also means coverage is applied differently.
 
 # Shortcomings and Future Considerations
 
