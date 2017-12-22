@@ -17,7 +17,7 @@ In 2015 and 2017, the Guerilla Games team released two papers on the real-time r
 
 ## Cloud Raymarching Process
 
-![](./ScreenShots/multiresMarch.png)
+![](./SkyEngine/Screenshots/multiresMarch.png)
 
 Above: showing the ‘low and high resolution clouds’ and step sizes.
 
@@ -41,24 +41,24 @@ While x is between min and max a, get the relative position between min and max 
 
 Here is the main principle of using this with 1D graphs, plotted in [GraphToy](http://www.iquilezles.org/apps/graphtoy/):
 
-![](./SkyEngine/ScreenShots/remapstep1.PNG)
+![](./SkyEngine/Screenshots/remapstep1.PNG)
 
 Suppose this orange curve is a representation of our low-resolution cloud density.
 
-![](./SkyEngine/ScreenShots/remapstep2.PNG)
+![](./SkyEngine/Screenshots/remapstep2.PNG)
 
 Also suppose that this green curve is our high-resolution cloud density. When we remap the low-resolution density with the green curve as the minimum and 1 as the maximum, we get something interesting:
 
-![](./SkyEngine/ScreenShots/remapstep3.PNG)
+![](./SkyEngine/Screenshots/remapstep3.PNG)
 
 The blue curve is the representation of the final cloud density. Here it is overlaid with the original: 
 
-![](./SkyEngine/ScreenShots/remapstep4.PNG)
+![](./SkyEngine/Screenshots/remapstep4.PNG)
 
 There are a few big takeaways here. First: since the low and high resolution density functions are out of phase, we’ve created a series of unique shapes. Second: high-density areas are preserved. Multiplicative or subtractive blending would approach zero density too quickly. Third: the shapes are interesting! Even with these simple representations, there’s a lot of cool variance.
 
 Here are the functions used in this example, for reference: 
-![](./ScreenShots/remapEQNs.PNG)
+![](./Screenshots/remapEQNs.PNG)
 
 Of course, the raymarching is with 3D density fields instead of 1D. The makers of Nubis graciously provided their 3D noise generator as a Houdini digital asset for anyone curious about their method. The noise consists of blends of Perlin and Worley noises.
 
@@ -79,7 +79,7 @@ Above: a curl noise we generated for this project.
 
 ## Cloud Lighting Process
 
-![](./SkyEngine/ScreenShots/marchingSunlight.png)
+![](./SkyEngine/Screenshots/marchingSunlight.png)
 
 Above: lighting samples are six points within a cone oriented toward the sun.
 
@@ -98,16 +98,16 @@ These methods cannot run in real-time without the most important optimization te
 
 Raymarching at 1 / 4 resolution (or 1 / 16 pixels) is necessary for our target performance. Reprojection handles the rest. Reprojection attempts to reuse information in the previous framebuffer. In order to decide where on the framebuffer to read, we compute where the current ray would have pointed using the previous frame’s camera state information. Through a quick and cheap sequence of transformations, we can create a ray, find where on the atmosphere it hits, find that point in the old camera space, then get the old direction, and from that the old texture coordinates.
 
-![](./ScreenShots/reprojectVisual.png)
+![](./Screenshots/reprojectVisual.png)
 The performance-related consequences of this feature are described in the Performance section of this README.
 
 Of course, there are literal “edge” cases involved with this technique - what do you do when a reprojected ray’s UV coordinate lies outside the bounds of the previous frame buffer? Currently, we simply clamp the UV values to [0, 1), which introduces certain “streaking” artifacts:
 
-![](./ScreenShots/streakingWithoutMotionBlur.png)
+![](./Screenshots/streakingWithoutMotionBlur.png)
 
 which we can make look a little more natural using motion blur:
 
-![](./ScreenShots/streakingWithMotionBlur.png)
+![](./Screenshots/streakingWithMotionBlur.png)
 
 which looks more reasonable. One potential additional solution to this problem is “overdrawing” the frame, or rendering the image to a framebuffer that is larger than the display window, to ensure that reprojected rays whose UVs would otherwise go beyond 0 or 1 will actually correspond to a correct UV instead of being clamped. We have yet to implement this, however.
 
@@ -130,7 +130,7 @@ The post processing framework consists of one class that wraps the necessary Vul
 
 # Rendering Pipeline
 
-![](./ScreenShots/renderPipeline.png)
+![](./Screenshots/renderPipeline.png)
 
 # Performance
 
