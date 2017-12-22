@@ -281,5 +281,6 @@ void main() {
     float fogFactor = (1.0 - exp(-length(fragPosition) * 0.07));
     color.rgb = mix(color.rgb, pow(sun.intensity, 0.2) * vec3(0.6, 0.7, 1.0), fogFactor);
     color *= (1.0 - accumDensity * 2.0);
+    color = max(color, vec3(0));
     outColor = vec4(color, 1.0);
 }
