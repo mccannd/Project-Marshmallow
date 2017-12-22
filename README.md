@@ -17,7 +17,7 @@ In 2015 and 2017, the Guerilla Games team released two papers on the real-time r
 
 ## Cloud Raymarching Process
 
-![](./SkyEngine/ScreenShots/multiresMarch.png)
+![](./ScreenShots/multiresMarch.png)
 
 Above: showing the ‘low and high resolution clouds’ and step sizes.
 
