@@ -238,7 +238,6 @@ float cloudTest(in vec3 pos, in float relativeHeight, in vec3 earthCenter, inout
     vec4 densityNoise = texture(lowResCloudShape, 0.00002 * vec3(pos));
 
     density = layerDensity * remapClamped(densityNoise.x, 0.3, 1.0, 0.0, 1.0);
-
     coverage = 0.0;
     // early check before more expensive math
     if (density < 0.0001) return 0.0;
