@@ -55,10 +55,13 @@ The blue curve is the representation of the final cloud density. Here it is over
 
 ![](./SkyEngine/Screenshots/remapstep4.PNG)
 
-There are a few big takeaways here. First: since the low and high resolution density functions are out of phase, we’ve created a series of unique shapes. Second: high-density areas are preserved. Multiplicative or subtractive blending would approach zero density too quickly. Third: the shapes are interesting! Even with these simple representations, there’s a lot of cool variance.
+There are a few big takeaways here:
+- Since the low and high resolution density functions are out of phase, we’ve created a series of unique shapes. 
+- High-density areas are preserved. Multiplicative or subtractive blending would approach zero density too quickly. 
+- The shapes are interesting! Even with these simple representations, there’s a lot of cool variance.
 
 Here are the functions used in this example, for reference: 
-![](./Screenshots/remapEQNs.PNG)
+![](./SkyEngine/Screenshots/remapEQNs.PNG)
 
 Of course, the raymarching is with 3D density fields instead of 1D. The makers of Nubis graciously provided their 3D noise generator as a Houdini digital asset for anyone curious about their method. The noise consists of blends of Perlin and Worley noises.
 
