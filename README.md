@@ -101,8 +101,11 @@ These methods cannot run in real-time without the most important optimization te
 
 Raymarching at 1 / 4 resolution (or 1 / 16 pixels) is necessary for our target performance. Reprojection handles the rest. Reprojection attempts to reuse information in the previous framebuffer. In order to decide where on the framebuffer to read, we compute where the current ray would have pointed using the previous frame’s camera state information. Through a quick and cheap sequence of transformations, we can create a ray, find where on the atmosphere it hits, find that point in the old camera space, then get the old direction, and from that the old texture coordinates.
 
-![](./SkyEngine/Screenshots/reprojectVisual.png)
 The performance-related consequences of this feature are described in the Performance section of this README.
+
+![](./SkyEngine/Screenshots/reprojectVisual.png)
+
+Above: the camera moves up and left. The old frame, with the red border, can be partly copied to the green frame, but a space is missing.
 
 Of course, there are literal “edge” cases involved with this technique - what do you do when a reprojected ray’s UV coordinate lies outside the bounds of the previous frame buffer? Currently, we simply clamp the UV values to [0, 1), which introduces certain “streaking” artifacts:
 
