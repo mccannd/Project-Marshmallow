@@ -9,7 +9,7 @@ In 2015 and 2017, the Guerilla Games team released two papers on the real-time r
 
 # Main Features
 
-- Raymarched, procedural, photorealistic fuckin’ clouds
+- Raymarched, procedural, photorealistic clouds
 - Post Processing Framework
 - Physical Sky Model
 - Procedural Night Sky
