@@ -136,7 +136,7 @@ The post processing framework consists of one class that wraps the necessary Vul
 
 # Rendering Pipeline
 
-![](./Screenshots/renderPipeline.png)
+![](./Screenshots/renderPipeline.PNG)
 
 # Performance
 
