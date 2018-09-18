@@ -3,6 +3,8 @@ Vulkan-based implementation of clouds from Decima Engine
 
 This project is built for 64bit Windows and uses precompiled libs.
 
+Demo video here: https://vimeo.com/252453243
+
 # Overview
 
 In 2015 and 2017, the Guerilla Games team released two papers on the real-time rendering of cloudscapes for their game, Horizon Zero Dawn. Project Marshmallow is an implementation of the 2017 paper in C++ and glsl using the new Vulkan API. We wanted to make a cloudscape that runs fast enough for games and interacts with 3D mesh in a scene. We also wanted to learn and properly leverage Vulkan’s new API by making a mixture of compute and graphics pipelines.
